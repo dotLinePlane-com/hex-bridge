@@ -8,6 +8,45 @@
 
 ---
 
+## 编译环境
+
+| 项目 | 版本 / 信息 |
+|:---|:---|
+| **IDE** | 点线面 Code |
+| **SDK** | ESP-IDF v6.0.1 |
+| **工具链** | xtensa-esp-elf 15.2.0 (20251204) |
+| **Python** | 3.11 (ESP-IDF Python 虚拟环境) |
+| **构建系统** | CMake 4.0 + Ninja 1.12 |
+| **RTOS** | FreeRTOS (随 ESP-IDF 预装) |
+| **C 标准** | C11 (使用 picoLIBC，无 newlib 依赖) |
+
+---
+
+## 硬件
+
+### 芯片
+
+| 项目 | 规格 |
+|:---|:---|
+| **MCU** | Espressif ESP32 (Xtensa 32-bit LX6 双核) |
+| **CPU 主频** | 最高 240 MHz |
+| **SRAM** | 520 KB 片内 + 8 MB 片外 PSRAM |
+| **Flash** | 16 MB (SPI) |
+| **FreeRTOS 堆** | ~300 KB 可用 |
+
+### 引脚
+
+| 外设 | 引脚 | 说明 |
+|:---|:---|:---|
+| CAN FD (MCP2518FD) | SCK=14, MOSI=13, MISO=36, CS=15, INT=39 | SPI 接口，CS 为 Strapping 引脚（需 10 kΩ 上拉） |
+| I2C (EEPROM 24C02) | SCL=12, SDA=33 | GPIO12=MTDI，需 4.7 kΩ 上拉确保启动电平 |
+| 以太网 (LAN8720) | RMII 固定引脚, PHY_RST=5 | MDC=23, MDIO=18 |
+| UART1 (MCP) | TX=4, RX=34 | RX 为 GPI，需外接 10 kΩ 上拉 |
+| UART2 (扩展) | TX=32, RX=35 | RX 为 GPI，需外接 10 kΩ 上拉 |
+| UART0 (调试) | TX=1, RX=3 | ESP32 默认调试串口 |
+
+---
+
 ## 架构
 
 ```
@@ -81,19 +120,6 @@ SOF(AA 55) | Ver | Flags | SeqNum(2B) | CmdCode | ChannelID | PayloadLen(2B) | [
 | **GPIO** | ☐ 待实现 | — |
 | **批量传输** | ☐ 待实现 | — |
 | **OTA** | ☐ 待实现 | 双分区 + SHA-256 校验 |
-
----
-
-## 硬件
-
-| 外设 | 引脚 | 说明 |
-|:---|:---|:---|
-| CAN FD (MCP2518FD) | SCK=14, MOSI=13, MISO=36, CS=15, INT=39 | SPI 接口，CS 为 Strapping 引脚（需 10 kΩ 上拉） |
-| I2C (EEPROM 24C02) | SCL=12, SDA=33 | GPIO12=MTDI，需 4.7 kΩ 上拉确保启动电平 |
-| 以太网 (LAN8720) | RMII 固定引脚, PHY_RST=5 | MDC=23, MDIO=18 |
-| UART1 (MCP) | TX=4, RX=34 | RX 为 GPI，需外接 10 kΩ 上拉 |
-| UART2 (扩展) | TX=32, RX=35 | RX 为 GPI，需外接 10 kΩ 上拉 |
-| UART0 (调试) | TX=1, RX=3 | ESP32 默认调试串口 |
 
 ---
 
