@@ -97,17 +97,4 @@ Streaming byte-level parser with single-buffer online CRC. Filters spurious SOF 
 
 ---
 
-## Build & Flash
-
-```bash
-# Build
-idf.py build
-
-# Flash (replace COMx with actual port)
-idf.py -p COM35 flash
-
-# Monitor debug output
-idf.py -p COM34 monitor
-```
-
 FW version `0.1.0`, model ID `HXB1`, target `esp32`.
