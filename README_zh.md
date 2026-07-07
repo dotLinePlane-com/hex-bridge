@@ -97,17 +97,4 @@ SOF(AA 55) | Ver | Flags | SeqNum(2B) | CmdCode | ChannelID | PayloadLen(2B) | [
 
 ---
 
-## 编译与烧录
-
-```bash
-# 编译
-idf.py build
-
-# 烧录（将 COMx 替换为实际端口）
-idf.py -p COM35 flash
-
-# 监视调试输出
-idf.py -p COM34 monitor
-```
-
 固件版本 `0.1.0`，型号 `HXB1`，目标芯片 `esp32`。
