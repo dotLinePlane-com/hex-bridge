@@ -1,0 +1,35 @@
+{
+  "worktrees": {},
+  "sessions": {
+    "ses_0ca162bb9ffejLbs9fingGqC7h": {
+      "worktreeId": null,
+      "createdAt": "2026-07-06T05:32:24.555Z"
+    },
+    "ses_0c95809adffelK8ffC2oh9JbBy": {
+      "worktreeId": null,
+      "createdAt": "2026-07-06T09:00:05.101Z"
+    },
+    "ses_0c9183770ffeoYrvcbhxQHE8vU": {
+      "worktreeId": null,
+      "createdAt": "2026-07-06T10:09:47.689Z"
+    },
+    "ses_0c6124224ffew3wVWQzaUlN08w": {
+      "worktreeId": null,
+      "createdAt": "2026-07-07T00:15:09.810Z"
+    },
+    "ses_0c5d7084affeVIzri17ohrf2uD": {
+      "worktreeId": null,
+      "createdAt": "2026-07-07T01:19:51.249Z"
+    }
+  },
+  "tabOrder": {
+    "local": [
+      "ses_0ca162bb9ffejLbs9fingGqC7h",
+      "ses_0c95809adffelK8ffC2oh9JbBy",
+      "ses_0c9183770ffeoYrvcbhxQHE8vU",
+      "ses_0c6124224ffew3wVWQzaUlN08w",
+      "ses_0c5d7084affeVIzri17ohrf2uD"
+    ]
+  },
+  "sessionsCollapsed": true
+}

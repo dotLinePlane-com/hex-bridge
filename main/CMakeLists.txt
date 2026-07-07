@@ -1,0 +1,19 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "protocol/ubcp_frame.c"
+        "core/msg_bus.c"
+        "transport/mcp_transport.c"
+        "modules/mod_system.c"
+        "modules/mod_uart.c"
+    INCLUDE_DIRS
+        "."
+    PRIV_REQUIRES
+        driver
+        esp_driver_gpio
+        esp_driver_uart
+        esp_timer
+        nvs_flash
+        spi_flash
+        esp_psram
+)
