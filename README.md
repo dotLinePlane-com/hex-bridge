@@ -8,6 +8,45 @@ Host-side MCP Server communicates with this firmware via UBCP (Unified Binary Co
 
 ---
 
+## Build Environment
+
+| Item | Version / Info |
+|:---|:---|
+| **IDE** | 点线面 Code |
+| **SDK** | ESP-IDF v6.0.1 |
+| **Toolchain** | xtensa-esp-elf 15.2.0 (20251204) |
+| **Python** | 3.11 (ESP-IDF Python env) |
+| **Build System** | CMake 4.0 + Ninja 1.12 |
+| **RTOS** | FreeRTOS (pre-installed with ESP-IDF) |
+| **C Standard** | C11 (with picoLIBC, no newlib dependency) |
+
+---
+
+## Hardware
+
+### Chip
+
+| Item | Spec |
+|:---|:---|
+| **MCU** | Espressif ESP32 (Xtensa 32-bit LX6 dual-core) |
+| **CPU Clock** | up to 240 MHz |
+| **SRAM** | 520 KB internal + 8 MB external PSRAM |
+| **Flash** | 16 MB (SPI) |
+| **FreeRTOS Heap** | ~300 KB available |
+
+### Pinout
+
+| Peripheral | Pins | Notes |
+|:---|:---|:---|
+| CAN FD (MCP2518FD) | SCK=14, MOSI=13, MISO=36, CS=15, INT=39 | SPI-attached, CS on strapping pin (10 kΩ pull-up) |
+| I2C (EEPROM 24C02) | SCL=12, SDA=33 | GPIO12=MTDI, 4.7 kΩ pull-up required for boot |
+| Ethernet (LAN8720) | RMII fixed pins, PHY_RST=5 | MDC=23, MDIO=18 |
+| UART1 (MCP) | TX=4, RX=34 | RX is GPI only, external 10 kΩ pull-up |
+| UART2 (ext) | TX=32, RX=35 | RX is GPI only, external 10 kΩ pull-up |
+| UART0 (debug) | TX=1, RX=3 | Default ESP32 debug UART |
+
+---
+
 ## Architecture
 
 ```
@@ -81,19 +120,6 @@ Streaming byte-level parser with single-buffer online CRC. Filters spurious SOF 
 | **GPIO** | ☐ Planned | — |
 | **Bulk Transfer** | ☐ Planned | — |
 | **OTA** | ☐ Planned | Dual-partition with SHA-256 verification |
-
----
-
-## Hardware
-
-| Peripheral | Pins | Notes |
-|:---|:---|:---|
-| CAN FD (MCP2518FD) | SCK=14, MOSI=13, MISO=36, CS=15, INT=39 | SPI-attached, CS on strapping pin (10 kΩ pull-up) |
-| I2C (EEPROM 24C02) | SCL=12, SDA=33 | GPIO12=MTDI, 4.7 kΩ pull-up required for boot |
-| Ethernet (LAN8720) | RMII fixed pins, PHY_RST=5 | MDC=23, MDIO=18 |
-| UART1 (MCP) | TX=4, RX=34 | RX is GPI only, external 10 kΩ pull-up |
-| UART2 (ext) | TX=32, RX=35 | RX is GPI only, external 10 kΩ pull-up |
-| UART0 (debug) | TX=1, RX=3 | Default ESP32 debug UART |
 
 ---
 
