@@ -1,9 +1,13 @@
 {
   "centerViewOpen": "true",
   "split1Mode": "发送",
-  "singleActiveTab": "send",
-  "activePort1": "COM24",
-  "terminalCount": "1",
+  "singleActiveTab": "graphic",
+  "activePort1": "COM_HEXBRIDGE:COM35:CH1",
+  "terminalCount": "0",
   "terminalVisualOrder": "[]",
-  "terminalLayoutSnapshot": "{\"orientation\":0,\"groups\":[{\"size\":2212}]}"
+  "terminalLayoutSnapshot": "{\"orientation\":0,\"groups\":[{\"size\":1912}]}",
+  "layout": "splitRight",
+  "terminalActive": "false",
+  "activePort2": "COM24",
+  "split2Mode": "发送"
 }

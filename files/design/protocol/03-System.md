@@ -10,7 +10,9 @@
 | `0x03` | SET_CONFIG | 请求-响应 | 写入设备配置 |
 | `0x04` | RESET | 请求-响应 | 复位设备/通道 |
 | `0x05` | FLOW_CONTROL | 双向 | 流量控制 |
-| `0x06-0x0F` | — | — | 保留 |
+| `0x06` | SYS_BOOT_EVENT | 设备 → 主机 | 系统启动与复位事件上报 |
+| `0x07` | GET_TOPOLOGY | 请求-响应 | 获取硬件拓扑 (通道列表) |
+| `0x08-0x0F` | — | — | 保留 |
 
 ## 3.0 设备连接、识别与握手流程规范 (Handshake & Identification Flow)
 
@@ -114,6 +116,8 @@
 | 0x01 | DeviceName | str | "HXB-Device" | 设备显示名称 |
 | 0x02 | HeartbeatInterval | u16 | 5000 | 心跳上报间隔 (毫秒) |
 | 0x03 | FlowControlEnable | u8 | 0x01 | 0x00 = 禁用设备端主动背压上报，0x01 = 启用流控。如果设为 0x00，设备端在缓冲区接近满时不会发送 `FLOW_CONTROL (0x05)` 帧。 |
+| 0x10 | UartChannelCount | u8 | 1 | 设备物理支持的扩展 UART 通道数（只读，不允许写入） |
+| 0x11 | CanChannelCount | u8 | 2 | 设备物理支持的 CAN/CAN-FD 通道数（只读，不允许写入） |
 
 ### 响应 (设备 → 主机)
 
@@ -218,3 +222,84 @@
 | 1 | State | u8 | 0=正常, 1=暂停, 2=溢出 |
 | 2-3 | BufferUsage | u16 | 缓冲区使用量 |
 | 4 | BufferPercent | u8 | 使用百分比 (0-100) |
+
+---
+
+## 3.7 SYS_BOOT_EVENT (0x06) — 系统上电与复位主动上报
+
+设备端上电启动完毕，或者在已打开物理连接的状态下发生软件复位/硬件看门狗复位后，主动向物理链路发送此事件帧，以便上位机感知并重建配置。
+
+### 设备 → 主机主动上报
+
+Flags: DIR=1, EVT=1, TS=1（推荐携带上电时的微秒时间戳）
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0 | ResetReason | u8 | 复位/启动原因（对应下表） |
+| 1 | BootStatus | u8 | 启动状态（`0x00` = 正常启动，`0x01` = 从 OTA 回滚启动） |
+
+### ResetReason 定义
+
+| 值 | 重启原因 | 对应 ESP-IDF v6.0.1 常量及说明 |
+|:---|:---|:---|
+| `0x01` | POWERON_RESET | `ESP_RST_POWERON` — 物理上电复位 / VDD 重新建立 |
+| `0x03` | SW_RESET | `ESP_RST_SW` — 通过 `esp_restart()` 软件触发的复位 |
+| `0x05` | DEEPSLEEP_RESET | `ESP_RST_DEEPSLEEP` — 深度睡眠唤醒复位 |
+| `0x06` | INT_WDT_RESET | `ESP_RST_INT_WDT` — 中断看门狗复位 |
+| `0x07` | TASK_WDT_RESET | `ESP_RST_TASK_WDT` — 任务看门狗复位 |
+| `0x08` | WDT_RESET | `ESP_RST_WDT` — 其他看门狗复位 |
+| `0x0D` | BROWNOUT_RESET | `ESP_RST_BROWNOUT` — 欠压复位（电源供电不稳定） |
+| `0x0E` | PANIC_RESET | `ESP_RST_PANIC` — 异常/Panic 复位 |
+| `0xFF` | UNKNOWN | 未知复位原因 |
+
+---
+
+## 3.8 GET_TOPOLOGY (0x07) — 获取硬件拓扑
+
+获取设备所有物理外设通道的静态拓扑信息，包括每个通道的唯一 ID 和硬件类型。
+Host 应在建立连接、完成握手后首先发送此命令，以动态发现设备支持哪些外设通道，
+避免硬编码通道号。
+
+### 请求 (主机 → 设备)
+
+载荷为空 (PayloadLen = 0)。
+
+### 响应 (设备 → 主机)
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0 | Status | u8 | 状态码 |
+| 1 | ChannelCount | u8 | 外设通道总数 (N) |
+| 2 + i*2 | ChannelID | u8 | 第 i 个通道的静态唯一 ID |
+| 3 + i*2 | DeviceType | u8 | 第 i 个通道的硬件类型 (见下表) |
+
+其中 i ∈ [0, N-1]，响应总长度 = 2 + N * 2 字节。
+
+### DeviceType 定义
+
+| 值 | 类型 | 说明 |
+|:---|:---|:---|
+| `0x01` | UART | 扩展串口 |
+| `0x02` | CAN | CAN / CAN FD 总线 |
+| `0x03` | SPI | SPI 总线（每个 CS 片选为一个独立通道） |
+| `0x04` | I2C | I2C 总线 |
+| `0x05` | GPIO | GPIO 引脚组 |
+
+### 静态 Channel ID 分配原则
+
+所有 Channel ID 由固件在编译期静态分配，Host 不得自行编造。
+Host 必须使用 GET_TOPOLOGY 返回的 Channel ID 来寻址后续的 Open/Config/Send 等操作。
+
+预期首次连接流程变更为：
+
+```
+1. PING (0x00)       — 确认物理链路可用
+2. GET_INFO (0x01)   — 识别设备身份与协议版本
+3. GET_TOPOLOGY (0x07) — 获取通道拓扑
+4. 根据拓扑结果，对目标通道发送 OPEN 等操作
+```
+
+> **注意**：如果 Host 使用了一个不在拓扑表中的非法 Channel ID 发起 Open/Config，
+> 设备将返回 `ERR_CHANNEL_INVALID (0x0A)`。如果 Channel ID 存在但硬件类型与
+> 命令模块不匹配（如用 UART 命令打开 CAN 通道），设备将返回 `ERR_TYPE_MISMATCH (0x16)`。
+

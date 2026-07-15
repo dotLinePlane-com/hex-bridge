@@ -29,6 +29,8 @@ RXMODE_LINE    = 0x01
 RXMODE_FIXED   = 0x02
 RXMODE_TIMEOUT = 0x03
 
+UART_CHANNEL = 1
+
 FLUSH_RX    = 0x00
 FLUSH_TX    = 0x01
 FLUSH_ALL   = 0x02
@@ -71,7 +73,7 @@ def assert_eq(name, actual, expected):
             fail_(f'{name}: expected {expected:#04x}, got {actual:#04x}')
 
 
-def send_cmd(transport, seq, cmd, payload=b'', channel=0):
+def send_cmd(transport, seq, cmd, payload=b'', channel=UART_CHANNEL):
     wire = UBCPBuilder.build_request(seq, cmd, channel, payload)
     transport.send(wire)
     return transport.recv_frame(timeout=2.0)
@@ -91,17 +93,17 @@ def uart_config(transport, seq, baud, data_bits=0x08, stop_bits=0x01,
                 parity=0x00, flow=0x00, threshold=1, timeout=0):
     payload = struct.pack('>IBBBBHB', baud, data_bits, stop_bits, parity,
                           flow, threshold, timeout)
-    return expect_status(transport, seq, CMD_UART_CONFIG, payload, 0,
+    return expect_status(transport, seq, CMD_UART_CONFIG, payload, UART_CHANNEL,
                          ERR_SUCCESS, f'CONFIG {baud}')
 
 
 def uart_open(transport, seq, rx_mode=RXMODE_PASSIVE, expected=ERR_SUCCESS):
     return expect_status(transport, seq, CMD_UART_OPEN,
-                         bytes([rx_mode]), 0, expected, f'OPEN rx={rx_mode}')
+                         bytes([rx_mode]), UART_CHANNEL, expected, f'OPEN rx={rx_mode}')
 
 
 def uart_close(transport, seq, expected=ERR_SUCCESS):
-    return expect_status(transport, seq, CMD_UART_CLOSE, b'', 0,
+    return expect_status(transport, seq, CMD_UART_CLOSE, b'', UART_CHANNEL,
                          expected, 'CLOSE')
 
 
@@ -203,7 +205,7 @@ def test_uart08_config_bad_databits(transport, seq):
     """UART-08: CONFIG invalid DataBits"""
     print('\n--- UART-08: CONFIG invalid DataBits ---')
     payload = struct.pack('>IBBBBHB', 115200, 0x04, 0x01, 0x00, 0x00, 1, 0)
-    f = expect_status(transport, seq, CMD_UART_CONFIG, payload, 0, ERR_PARAM,
+    f = expect_status(transport, seq, CMD_UART_CONFIG, payload, UART_CHANNEL, ERR_PARAM,
                       'bad DataBits=0x04')
 
 
@@ -211,7 +213,7 @@ def test_uart09_config_bad_stopbits(transport, seq):
     """UART-09: CONFIG invalid StopBits"""
     print('\n--- UART-09: CONFIG invalid StopBits ---')
     payload = struct.pack('>IBBBBHB', 115200, 0x08, 0x04, 0x00, 0x00, 1, 0)
-    f = expect_status(transport, seq, CMD_UART_CONFIG, payload, 0, ERR_PARAM,
+    f = expect_status(transport, seq, CMD_UART_CONFIG, payload, UART_CHANNEL, ERR_PARAM,
                       'bad StopBits=0x04')
 
 
@@ -219,11 +221,11 @@ def test_uart10_config_mark_space(transport, seq):
     """UART-10: CONFIG Mark/Space parity (unsupported)"""
     print('\n--- UART-10: CONFIG Mark parity ---')
     payload = struct.pack('>IBBBBHB', 115200, 0x08, 0x01, 0x03, 0x00, 1, 0)
-    expect_status(transport, seq, CMD_UART_CONFIG, payload, 0, ERR_NOT_SUPPORT,
+    expect_status(transport, seq, CMD_UART_CONFIG, payload, UART_CHANNEL, ERR_NOT_SUPPORT,
                   'Mark')
     seq += 1
     payload = struct.pack('>IBBBBHB', 115200, 0x08, 0x01, 0x04, 0x00, 1, 0)
-    expect_status(transport, seq, CMD_UART_CONFIG, payload, 0, ERR_NOT_SUPPORT,
+    expect_status(transport, seq, CMD_UART_CONFIG, payload, UART_CHANNEL, ERR_NOT_SUPPORT,
                   'Space')
 
 
@@ -231,7 +233,7 @@ def test_uart11_config_hw_flow(transport, seq):
     """UART-11: CONFIG HW flow control (unsupported)"""
     print('\n--- UART-11: CONFIG HW flow ---')
     payload = struct.pack('>IBBBBHB', 115200, 0x08, 0x01, 0x00, 0x01, 1, 0)
-    expect_status(transport, seq, CMD_UART_CONFIG, payload, 0, ERR_NOT_SUPPORT,
+    expect_status(transport, seq, CMD_UART_CONFIG, payload, UART_CHANNEL, ERR_NOT_SUPPORT,
                   'HW flow')
 
 
@@ -241,7 +243,7 @@ def test_uart12_config_not_open(transport, seq):
     uart_close(transport, seq, ERR_SUCCESS)
     seq += 1
     payload = struct.pack('>IBBBBHB', 115200, 0x08, 0x01, 0x00, 0x00, 1, 0)
-    expect_status(transport, seq, CMD_UART_CONFIG, payload, 0, ERR_NOT_OPEN,
+    expect_status(transport, seq, CMD_UART_CONFIG, payload, UART_CHANNEL, ERR_NOT_OPEN,
                   'not open')
     uart_open(transport, seq + 1, RXMODE_PASSIVE)
     uart_config(transport, seq + 2, 115200)
@@ -252,7 +254,7 @@ def test_uart13_send(transport, seq):
     print('\n--- UART-13: SEND ---')
     data = b'Hello World'
     payload = struct.pack('>H', len(data)) + data
-    f = expect_status(transport, seq, CMD_UART_SEND, payload, 0, ERR_SUCCESS,
+    f = expect_status(transport, seq, CMD_UART_SEND, payload, UART_CHANNEL, ERR_SUCCESS,
                       'SEND')
     if f and len(f.payload) >= 3:
         actual = struct.unpack('>H', f.payload[1:3])[0]
@@ -268,7 +270,7 @@ def test_uart14_send_empty(transport, seq):
     """UART-14: SEND empty"""
     print('\n--- UART-14: SEND empty ---')
     payload = struct.pack('>H', 0)
-    f = expect_status(transport, seq, CMD_UART_SEND, payload, 0, ERR_SUCCESS,
+    f = expect_status(transport, seq, CMD_UART_SEND, payload, UART_CHANNEL, ERR_SUCCESS,
                       'SEND empty')
     if f and len(f.payload) >= 3:
         actual = struct.unpack('>H', f.payload[1:3])[0]
@@ -280,7 +282,7 @@ def test_uart15_send_mismatch(transport, seq):
     print('\n--- UART-15: SEND length mismatch ---')
     # Declare 10 bytes but provide only 2
     payload = struct.pack('>H', 10) + b'He'
-    f = expect_status(transport, seq, CMD_UART_SEND, payload, 0, ERR_PARAM,
+    f = expect_status(transport, seq, CMD_UART_SEND, payload, UART_CHANNEL, ERR_PARAM,
                       'length mismatch')
 
 
@@ -326,7 +328,7 @@ def test_uart19_status_not_open(transport, seq):
     print('\n--- UART-19: STATUS not open ---')
     uart_close(transport, seq, ERR_SUCCESS)
     seq += 1
-    expect_status(transport, seq, CMD_UART_STATUS, b'', 0, ERR_NOT_OPEN)
+    expect_status(transport, seq, CMD_UART_STATUS, b'', UART_CHANNEL, ERR_NOT_OPEN)
     uart_open(transport, seq + 1, RXMODE_PASSIVE)
     uart_config(transport, seq + 2, 115200)
 
@@ -334,14 +336,14 @@ def test_uart19_status_not_open(transport, seq):
 def test_uart20_flush_rx(transport, seq):
     """UART-20: FLUSH RX"""
     print('\n--- UART-20: FLUSH RX ---')
-    expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_RX]), 0,
+    expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_RX]), UART_CHANNEL,
                   ERR_SUCCESS, 'FLUSH RX')
 
 
 def test_uart21_flush_bad(transport, seq):
     """UART-21: FLUSH invalid type"""
     print('\n--- UART-21: FLUSH invalid ---')
-    expect_status(transport, seq, CMD_UART_FLUSH, bytes([0x04]), 0,
+    expect_status(transport, seq, CMD_UART_FLUSH, bytes([0x04]), UART_CHANNEL,
                   ERR_PARAM, 'FLUSH invalid')
 
 
@@ -349,7 +351,7 @@ def test_uart22_break(transport, seq):
     """UART-22: SET_BREAK 10ms"""
     print('\n--- UART-22: SET_BREAK 10ms ---')
     payload = struct.pack('>H', 10)
-    expect_status(transport, seq, CMD_UART_SET_BREAK, payload, 0,
+    expect_status(transport, seq, CMD_UART_SET_BREAK, payload, UART_CHANNEL,
                   ERR_SUCCESS, 'BREAK 10ms')
 
 
@@ -357,7 +359,7 @@ def test_uart23_break_default(transport, seq):
     """UART-23: SET_BREAK default"""
     print('\n--- UART-23: SET_BREAK default ---')
     payload = struct.pack('>H', 0)  # 0 = default 10ms
-    expect_status(transport, seq, CMD_UART_SET_BREAK, payload, 0,
+    expect_status(transport, seq, CMD_UART_SET_BREAK, payload, UART_CHANNEL,
                   ERR_SUCCESS, 'BREAK default')
 
 
@@ -574,7 +576,7 @@ def test_uart31_send_not_open(transport, seq):
     print('\n--- UART-31: SEND not open ---')
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
     payload = struct.pack('>H', 5) + b'Hello'
-    expect_status(transport, seq, CMD_UART_SEND, payload, 0, ERR_NOT_OPEN, 'SEND closed')
+    expect_status(transport, seq, CMD_UART_SEND, payload, UART_CHANNEL, ERR_NOT_OPEN, 'SEND closed')
     uart_open(transport, seq + 1, RXMODE_PASSIVE)
     uart_config(transport, seq + 2, 115200)
 
@@ -584,7 +586,7 @@ def test_uart32_break_not_open(transport, seq):
     print('\n--- UART-32: SET_BREAK not open ---')
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
     payload = struct.pack('>H', 10)
-    expect_status(transport, seq, CMD_UART_SET_BREAK, payload, 0, ERR_NOT_OPEN, 'BREAK closed')
+    expect_status(transport, seq, CMD_UART_SET_BREAK, payload, UART_CHANNEL, ERR_NOT_OPEN, 'BREAK closed')
     uart_open(transport, seq + 1, RXMODE_PASSIVE)
     uart_config(transport, seq + 2, 115200)
 
@@ -593,7 +595,7 @@ def test_uart33_flush_not_open(transport, seq):
     """UART-33: FLUSH when closed → ERR_NOT_OPEN"""
     print('\n--- UART-33: FLUSH not open ---')
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
-    expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_ALL]), 0, ERR_NOT_OPEN, 'FLUSH closed')
+    expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_ALL]), UART_CHANNEL, ERR_NOT_OPEN, 'FLUSH closed')
     uart_open(transport, seq + 1, RXMODE_PASSIVE)
     uart_config(transport, seq + 2, 115200)
 
@@ -602,19 +604,19 @@ def test_uart34_config_short_payload(transport, seq):
     """UART-34: CONFIG with short payload → ERR_PARAM"""
     print('\n--- UART-34: CONFIG short payload ---')
     payload = bytes([0x00, 0x01, 0x02, 0x03, 0x08])  # 5 bytes, need 11
-    expect_status(transport, seq, CMD_UART_CONFIG, payload, 0, ERR_PARAM, 'CONFIG short')
+    expect_status(transport, seq, CMD_UART_CONFIG, payload, UART_CHANNEL, ERR_PARAM, 'CONFIG short')
 
 
 def test_uart35_send_short_payload(transport, seq):
     """UART-35: SEND payload < 2 bytes → ERR_PARAM"""
     print('\n--- UART-35: SEND short payload ---')
-    expect_status(transport, seq, CMD_UART_SEND, bytes([0x00]), 0, ERR_PARAM, 'SEND short')
+    expect_status(transport, seq, CMD_UART_SEND, bytes([0x00]), UART_CHANNEL, ERR_PARAM, 'SEND short')
 
 
 def test_uart36_break_empty_payload(transport, seq):
     """UART-36: SET_BREAK empty payload → uses default 10ms"""
     print('\n--- UART-36: SET_BREAK empty payload ---')
-    expect_status(transport, seq, CMD_UART_SET_BREAK, b'', 0, ERR_SUCCESS, 'BREAK empty')
+    expect_status(transport, seq, CMD_UART_SET_BREAK, b'', UART_CHANNEL, ERR_SUCCESS, 'BREAK empty')
 
 
 def test_uart37_flush_tx(transport, seq):
@@ -625,19 +627,19 @@ def test_uart37_flush_tx(transport, seq):
     payload = struct.pack('>H', 100) + data
     send_cmd(transport, seq, CMD_UART_SEND, payload); seq += 1
     transport.recv_frame(timeout=1.0)
-    expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_TX]), 0, ERR_SUCCESS, 'FLUSH TX')
+    expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_TX]), UART_CHANNEL, ERR_SUCCESS, 'FLUSH TX')
 
 
 def test_uart38_flush_all(transport, seq):
     """UART-38: FLUSH ALL"""
     print('\n--- UART-38: FLUSH ALL ---')
-    expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_ALL]), 0, ERR_SUCCESS, 'FLUSH ALL')
+    expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_ALL]), UART_CHANNEL, ERR_SUCCESS, 'FLUSH ALL')
 
 
 def test_uart39_flush_drain(transport, seq):
     """UART-39: FLUSH DRAIN"""
     print('\n--- UART-39: FLUSH DRAIN ---')
-    expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_DRAIN]), 0, ERR_SUCCESS, 'FLUSH DRAIN')
+    expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_DRAIN]), UART_CHANNEL, ERR_SUCCESS, 'FLUSH DRAIN')
 
 
 def test_uart40_break_detect(transport, seq):
@@ -829,7 +831,7 @@ def test_uart47_send_large(transport, seq):
     transport.flush_input()
     data = bytes([i & 0xFF for i in range(512)])
     payload = struct.pack('>H', 512) + data
-    f = expect_status(transport, seq, CMD_UART_SEND, payload, 0, ERR_SUCCESS, 'SEND 512')
+    f = expect_status(transport, seq, CMD_UART_SEND, payload, UART_CHANNEL, ERR_SUCCESS, 'SEND 512')
     if f and len(f.payload) >= 3:
         actual = struct.unpack('>H', f.payload[1:3])[0]
         assert_eq('ActualLen', actual, 512)
@@ -932,7 +934,7 @@ def test_uart53_break_long(transport, seq):
     print('\n--- UART-53: SET_BREAK 1000ms ---')
     start = time.time()
     payload = struct.pack('>H', 1000)
-    f = expect_status(transport, seq, CMD_UART_SET_BREAK, payload, 0, ERR_SUCCESS, 'BREAK 1000ms')
+    f = expect_status(transport, seq, CMD_UART_SET_BREAK, payload, UART_CHANNEL, ERR_SUCCESS, 'BREAK 1000ms')
     elapsed = time.time() - start
     pass_(f'Break took {elapsed:.1f}s (expected ~1.1s with 20ms restore)')
 
@@ -970,12 +972,12 @@ def test_uart55_config_then_send(transport, seq):
 
     # Send at 115200
     payload = struct.pack('>H', 5) + b'Hello'
-    f1 = expect_status(transport, seq, CMD_UART_SEND, payload, 0, ERR_SUCCESS, 'SEND 115200'); seq += 1
+    f1 = expect_status(transport, seq, CMD_UART_SEND, payload, UART_CHANNEL, ERR_SUCCESS, 'SEND 115200'); seq += 1
 
     # Change baud to 921600, then send
     uart_config(transport, seq, 921600); seq += 1
     payload = struct.pack('>H', 5) + b'World'
-    f2 = expect_status(transport, seq, CMD_UART_SEND, payload, 0, ERR_SUCCESS, 'SEND 921600'); seq += 1
+    f2 = expect_status(transport, seq, CMD_UART_SEND, payload, UART_CHANNEL, ERR_SUCCESS, 'SEND 921600'); seq += 1
 
     # Restore 115200
     uart_config(transport, seq, 115200)
@@ -1039,7 +1041,7 @@ def test_uart57_lifecycle(transport, seq):
 
     # 4. SEND
     payload = struct.pack('>H', 6) + b'PING\r\n'
-    f = expect_status(transport, seq, CMD_UART_SEND, payload, 0, ERR_SUCCESS, '4.SEND'); seq += 1
+    f = expect_status(transport, seq, CMD_UART_SEND, payload, UART_CHANNEL, ERR_SUCCESS, '4.SEND'); seq += 1
 
     # 5. STATUS (after send)
     f = send_cmd(transport, seq, CMD_UART_STATUS); seq += 1
@@ -1048,7 +1050,7 @@ def test_uart57_lifecycle(transport, seq):
         assert_bool(f'5.STATUS TxCount={tx_count}', tx_count >= 6)
 
     # 6. FLUSH
-    f = expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_ALL]), 0, ERR_SUCCESS, '6.FLUSH'); seq += 1
+    f = expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_ALL]), UART_CHANNEL, ERR_SUCCESS, '6.FLUSH'); seq += 1
 
     # 7. CLOSE
     f = uart_close(transport, seq, ERR_SUCCESS)
@@ -1056,7 +1058,7 @@ def test_uart57_lifecycle(transport, seq):
     seq += 1
 
     # 8. STATUS (after close) → ERR_NOT_OPEN
-    f = expect_status(transport, seq, CMD_UART_STATUS, b'', 0, ERR_NOT_OPEN, '8.STATUS closed')
+    f = expect_status(transport, seq, CMD_UART_STATUS, b'', UART_CHANNEL, ERR_NOT_OPEN, '8.STATUS closed')
 
     pass_('Full lifecycle complete')
 

@@ -1,6 +1,8 @@
 # 02. UART 扩展模块测试用例
 
 > 命令码范围：`0xA0-0xAF` | 模块：`mod_uart` | UART2 → 外部串口设备
+>
+> **测试脚本**: `script/test/test_uart.py` (57 用例, UART-01 ~ UART-57)
 
 **测试拓朴**:
 ```
