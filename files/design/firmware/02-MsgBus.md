@@ -4,6 +4,7 @@
 
 消息总线是连接 MCP 传输层与各功能模块的核心枢纽，负责：
 - **命令路由**：根据 CmdCode 将请求帧分发到对应模块
+- **通道路由**：提供硬件拓扑路由表查询接口，支撑模块级 Channel ID 校验
 - **帧发送**：为模块提供统一的响应帧/事件帧发送接口
 
 ## 2.2 路由表
@@ -75,3 +76,39 @@ esp_err_t msg_bus_send_status_response(const ubcp_frame_t *req, uint8_t status);
 - `handle_cmd()` 也在 `mcp_recv_task` 上下文中同步执行
 - `msg_bus_send_frame()` 内部通过 MCP 传输层的互斥锁保证发送原子性
 - 事件上报从外设接收任务中调用 `msg_bus_send_frame()`，同样线程安全
+
+## 2.6 通道级路由与硬件拓扑
+
+消息总线维护一个硬件拓扑路由表 (`core/topology.c`)，将编译期分配的静态
+`Channel ID` 与物理外设驱动上下文绑定。路由表在 `app_main` 中通过
+`topology_init()` 初始化，各外设模块在各自的 `init()` 函数中调用
+`topology_register()` 注册自身通道。
+
+### 两层路由机制
+
+```
+Host 请求帧 (含 CmdCode + ChannelID)
+         │
+         v
+   msg_bus_dispatch()         ← 第 1 层: 按 CmdCode 范围路由到模块
+         │
+         v
+   module->handle_cmd()       ← 第 2 层: 模块内部调用 topology_find()
+         │                         校验 ChannelID 存在性与类型匹配
+         v
+   操作物理硬件驱动
+```
+
+- **第 1 层** (命令码路由): 由 `msg_bus_dispatch()` 完成，根据帧的 `cmd_code`
+  匹配已注册模块的 `cmd_range_start/end`，调用对应模块的 `handle_cmd()`。
+- **第 2 层** (通道校验): 由模块在 `handle_xxx_open()` 等函数内部完成，通过
+  `topology_find(req->channel_id)` 查找路由表，验证 Channel ID 存在且硬件类型
+  与本模块匹配。
+
+### 错误码
+
+| 校验失败场景 | 错误码 |
+|:---|:---|
+| Channel ID 不在路由表中 | `ERR_CHANNEL_INVALID (0x0A)` |
+| Channel ID 存在但硬件类型不匹配 | `ERR_TYPE_MISMATCH (0x16)` |
+| 硬件操作失败 | `ERR_HAL_FAIL (0x17)` |

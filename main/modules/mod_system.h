@@ -9,8 +9,6 @@
 
 #include "core/module_base.h"
 
-/**
- * @brief 获取系统模块定义
- * @return 模块定义指针（静态生命周期）
- */
 const hex_module_t *mod_system_get(void);
+
+void mod_system_send_boot_event(void);

@@ -56,6 +56,17 @@
 
 #define UBCP_CHANNEL_BROADCAST      0xFF    /**< 广播通道 */
 
+#define UBCP_DEV_TYPE_UART          1       /**< 扩展串口 */
+#define UBCP_DEV_TYPE_CAN           2       /**< CAN / CAN FD 总线 */
+#define UBCP_DEV_TYPE_SPI           3       /**< SPI 总线 */
+#define UBCP_DEV_TYPE_I2C           4       /**< I2C 总线 */
+#define UBCP_DEV_TYPE_GPIO          5       /**< GPIO 引脚组 */
+
+#define UBCP_CH_UART_EXT1           1       /**< 物理扩展串口 1 (UART2) */
+#define UBCP_CH_UART_EXT2           2       /**< 物理扩展串口 2 (预留) */
+#define UBCP_CH_CAN_EXT1            3       /**< 物理扩展 CAN 1 */
+#define UBCP_CH_SPI_EXT1            4       /**< 物理扩展 SPI 1 */
+
 /* ========================================================================
  * 命令码定义 — 系统管理 (0x00-0x0F)
  * ======================================================================== */
@@ -66,6 +77,42 @@
 #define UBCP_CMD_SET_CONFIG         0x03
 #define UBCP_CMD_RESET              0x04
 #define UBCP_CMD_FLOW_CONTROL       0x05
+#define UBCP_CMD_SYS_BOOT_EVENT     0x06
+#define UBCP_CMD_GET_TOPOLOGY       0x07
+
+/* ========================================================================
+ * ResetReason 定义 (SYS_BOOT_EVENT 载荷)
+ * 映射自 ESP-IDF v6.0.1 esp_reset_reason_t
+ * ======================================================================== */
+
+#define UBCP_RESET_POWERON          0x01    /**< ESP_RST_POWERON */
+#define UBCP_RESET_SW               0x03    /**< ESP_RST_SW (esp_restart) */
+#define UBCP_RESET_DEEPSLEEP        0x05    /**< ESP_RST_DEEPSLEEP */
+#define UBCP_RESET_INT_WDT          0x06    /**< ESP_RST_INT_WDT */
+#define UBCP_RESET_TASK_WDT         0x07    /**< ESP_RST_TASK_WDT */
+#define UBCP_RESET_WDT              0x08    /**< ESP_RST_WDT */
+#define UBCP_RESET_BROWNOUT         0x0D    /**< ESP_RST_BROWNOUT */
+#define UBCP_RESET_PANIC            0x0E    /**< ESP_RST_PANIC */
+#define UBCP_RESET_UNKNOWN          0xFF    /**< 未知复位原因 */
+
+/* ========================================================================
+ * BootStatus 定义 (SYS_BOOT_EVENT 载荷)
+ * ======================================================================== */
+
+#define UBCP_BOOT_STATUS_NORMAL     0x00
+#define UBCP_BOOT_STATUS_OTA_ROLLBACK 0x01
+
+/* ========================================================================
+ * 系统全局配置组 (ConfigGroup=0x00) ConfigKey 定义
+ * ======================================================================== */
+
+#define UBCP_CFGKEY_DEVICE_NAME             0x01    /**< DeviceName, str, 默认 "HXB-Device" */
+#define UBCP_CFGKEY_HEARTBEAT_INTERVAL      0x02    /**< HeartbeatInterval, u16, 默认 5000ms */
+#define UBCP_CFGKEY_FLOW_CONTROL_ENABLE     0x03    /**< FlowControlEnable, u8, 默认 0x01 (启用) */
+#define UBCP_CFGKEY_UART_CHANNEL_COUNT      0x10    /**< UartChannelCount, u8, 只读, 默认 1 */
+#define UBCP_CFGKEY_CAN_CHANNEL_COUNT       0x11    /**< CanChannelCount, u8, 只读, 默认 2 */
+
+#define UBCP_CFGKEY_READONLY_MASK           0x10    /**< ConfigKey >= 0x10 为只读 */
 
 /* ========================================================================
  * 命令码定义 — CAN (0x10-0x1F)
@@ -247,6 +294,8 @@
 #define UBCP_ERR_OVERFLOW           0x0D
 #define UBCP_ERR_SEQ_MISMATCH       0x0E
 #define UBCP_ERR_VERSION            0x0F
+#define UBCP_ERR_TYPE_MISMATCH      0x16
+#define UBCP_ERR_HAL_FAIL           0x17
 
 /* ========================================================================
  * UART 错误码 (0xA0-0xAF)

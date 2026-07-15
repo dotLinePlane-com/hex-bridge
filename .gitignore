@@ -18,6 +18,7 @@ __pycache__/
 
 # Kilo
 .kilo/skills/esp32-build-flash
+.dotlineplane/
 
 # Scripts (local only)
 script/push-to-github.ps1

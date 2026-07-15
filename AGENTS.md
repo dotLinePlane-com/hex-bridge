@@ -57,6 +57,18 @@ hex-bridge/
 ├── CMakeLists.txt                  # 项目根 CMake
 ├── sdkconfig                       # ESP-IDF 配置
 └── script/                         # 辅助脚本
+    ├── cli/                        # CLI 工具
+    │   ├── hex-bridge-uart-cli.py  # UART 扩展口 CLI (Python, 推荐)
+    │   ├── hex-bridge-uart-cli.js  # UART 扩展口 CLI (Node.js)
+    │   ├── package.json            # Node.js 依赖 (serialport)
+    │   └── node_modules/
+    ├── test/                       # 测试脚本
+    │   ├── ubcp_client.py          # UBCP v2.0 Python 客户端库
+    │   ├── mcp_transport.py        # COM35 串口传输封装
+    │   ├── test_uart.py            # UART 模块 57 项测试
+    │   └── ...
+    ├── init-idf-menuconfig.bat
+    └── push-to-github.ps1
 ```
 
 ---
@@ -97,14 +109,6 @@ hex-bridge/
 | 内存分析 (.map/ELF) | — | `memory-analysis` |
 | 静态代码检查 | — | `static-analysis` |
 
-```bash
-# 直接使用 idf.py 命令（需先激活 ESP-IDF 环境）:
-idf.py build
-idf.py -p COM35 flash
-idf.py -p COM34 monitor
-```
-
----
 
 ## 模块实现进度
 

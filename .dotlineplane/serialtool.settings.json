@@ -41,9 +41,9 @@
   "deviceRemarks": "",
   "protocolSender": [
     {
-      "inputValue": "",
+      "inputValue": "AA 55 02 40 00 01 A1 00 00 00 5D 52 7E",
       "singleShot": false,
-      "hexMode": false,
+      "hexMode": true,
       "loopMode": false,
       "isExpanded": false,
       "isAddCrc": false,
@@ -60,18 +60,61 @@
       "id": "p-1",
       "label": "协议-1",
       "placeholder": "输入协议-1 的数据..."
+    },
+    {
+      "inputValue": "AA 55 02 40 00 02 A0 00 00 01 00 DC F9 7E",
+      "singleShot": false,
+      "hexMode": true,
+      "loopMode": false,
+      "isExpanded": false,
+      "isAddCrc": false,
+      "isParsing": false,
+      "isEnterEnd": false,
+      "loopPeriod": 1000,
+      "crcSettings": {
+        "startPosition": "1",
+        "endPosition": "0",
+        "algorithmName": "SUM",
+        "isBigEndian": false
+      },
+      "packaging": [],
+      "id": "p-1783417508006",
+      "label": "新协议-2",
+      "placeholder": "在此输入要发送的数据（新协议-2）..."
+    },
+    {
+      "inputValue": "AA 55 02 40 00 03 A1 00 00 00 18 83 7E",
+      "singleShot": false,
+      "hexMode": false,
+      "loopMode": false,
+      "isExpanded": false,
+      "isAddCrc": false,
+      "isParsing": false,
+      "isEnterEnd": false,
+      "loopPeriod": 1000,
+      "crcSettings": {
+        "startPosition": "1",
+        "endPosition": "0",
+        "algorithmName": "SUM",
+        "isBigEndian": false
+      },
+      "packaging": [],
+      "id": "p-1783417774818",
+      "label": "新协议-3",
+      "placeholder": "在此输入要发送的数据（新协议-3）..."
     }
   ],
   "protocolParsingDataBrief": [
     {
-      "key": "100000",
+      "key": "1783584320644",
       "no": 1,
-      "functionName": "可修改1",
-      "dataFormat": "点击编辑，会自动填充",
+      "functionName": "可修改-0644",
       "enabled": true
     }
   ],
-  "protocolParsingData": {},
+  "protocolParsingData": {
+    "1783584320644": []
+  },
   "parsingTable": [
     {
       "count": 20,
@@ -3033,5 +3076,24 @@
         }
       ]
     }
+  ],
+  "protocolParsingRxConfig": [
+    {
+      "key": "1783584320644",
+      "functionName": "可修改-0644",
+      "data": [],
+      "enabled": true
+    }
+  ],
+  "tabControls": {
+    "loopCount": "infinite"
+  },
+  "graphicUplotCollapsedSize": [
+    "50%",
+    "50%"
+  ],
+  "graphicUplotCollapsedOldSize": [
+    "50%",
+    "50%"
   ]
 }

@@ -35,6 +35,11 @@
 | `0x0D` | ERR_OVERFLOW | 数据溢出 |
 | `0x0E` | ERR_SEQ_MISMATCH | 序列号不匹配 |
 | `0x0F` | ERR_VERSION | 协议版本不兼容 |
+| `0x16` | ERR_TYPE_MISMATCH | 通道类型不匹配（如用 UART 命令操作 CAN 通道） |
+| `0x17` | ERR_HAL_FAIL | 硬件抽象层操作失败（驱动安装/配置/IO 错误） |
+
+> **注意**：`0x16` 和 `0x17` 为新增的通用错误码，位于 CAN 错误码范围 (0x10-0x1F)
+> 的保留区。其语义为设备级通用错误，不与 CAN 特定错误混淆。
 
 ---
 

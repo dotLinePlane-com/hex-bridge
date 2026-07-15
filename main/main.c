@@ -22,6 +22,7 @@
 #include "hex_config.h"
 #include "utils/hex_log.h"
 #include "core/msg_bus.h"
+#include "core/topology.h"
 #include "transport/mcp_transport.h"
 #include "modules/mod_system.h"
 #include "modules/mod_uart.h"
@@ -48,6 +49,9 @@ void app_main(void)
     /* ── 2. 初始化消息总线 ── */
     ESP_ERROR_CHECK(msg_bus_init());
 
+    /* ── 2.5 初始化硬件拓扑路由表 ── */
+    topology_init();
+
     /* ── 3. 注册功能模块 ── */
     ESP_ERROR_CHECK(msg_bus_register_module(mod_system_get()));
     ESP_ERROR_CHECK(msg_bus_register_module(mod_uart_get()));
@@ -72,6 +76,9 @@ void app_main(void)
 
     /* ── 5. 初始化 MCP 传输层（启动 UART1 收发任务） ── */
     ESP_ERROR_CHECK(mcp_transport_init());
+
+    /* ── 6. 广播 SYS_BOOT_EVENT 通知主机系统复位/启动原因 ── */
+    mod_system_send_boot_event();
 
     HEX_LOGI(TAG, "========================================");
     HEX_LOGI(TAG, "  HEX-Bridge 启动完成，等待 MCP 连接...");

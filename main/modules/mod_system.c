@@ -5,8 +5,12 @@
  * 当前实现：
  * - PING (0x00): 心跳检测，返回 uptime/CPU负载/剩余堆内存
  * - GET_INFO (0x01): 返回固件版本/序列号/型号/能力位图
- *
- * 待实现：GET_CONFIG, SET_CONFIG, RESET, FLOW_CONTROL
+ * - GET_CONFIG (0x02): 读取系统全局配置参数
+ * - SET_CONFIG (0x03): 写入系统全局配置参数
+ * - RESET (0x04): 软复位、看门狗复位
+ * - FLOW_CONTROL (0x05): 流控状态查询
+ * - SYS_BOOT_EVENT (0x06): 启动/复位事件主动上报
+ * - GET_TOPOLOGY (0x07): 获取硬件拓扑通道列表
  */
 
 #include <string.h>
@@ -14,6 +18,7 @@
 #include "modules/mod_system.h"
 #include "core/msg_bus.h"
 #include "core/seq_num.h"
+#include "core/topology.h"
 #include "hex_config.h"
 #include "utils/hex_log.h"
 #include "esp_system.h"
@@ -22,6 +27,45 @@
 #include "esp_mac.h"
 
 static const char *TAG = "mod_system";
+
+static uint8_t get_reset_reason(void)
+{
+    switch (esp_reset_reason()) {
+    case ESP_RST_POWERON:   return UBCP_RESET_POWERON;
+    case ESP_RST_SW:        return UBCP_RESET_SW;
+    case ESP_RST_DEEPSLEEP: return UBCP_RESET_DEEPSLEEP;
+    case ESP_RST_INT_WDT:   return UBCP_RESET_INT_WDT;
+    case ESP_RST_TASK_WDT:  return UBCP_RESET_TASK_WDT;
+    case ESP_RST_WDT:       return UBCP_RESET_WDT;
+    case ESP_RST_BROWNOUT:  return UBCP_RESET_BROWNOUT;
+    case ESP_RST_PANIC:     return UBCP_RESET_PANIC;
+    default:                return UBCP_RESET_UNKNOWN;
+    }
+}
+
+void mod_system_send_boot_event(void)
+{
+    uint8_t payload[2] = {
+        get_reset_reason(),
+        UBCP_BOOT_STATUS_NORMAL,
+    };
+
+    ubcp_frame_t evt;
+    memset(&evt, 0, sizeof(evt));
+    evt.version       = UBCP_VERSION;
+    evt.flags         = UBCP_FLAG_DIR | UBCP_FLAG_EVT | UBCP_FLAG_TS;
+    evt.seq_num       = seq_num_next();
+    evt.cmd_code      = UBCP_CMD_SYS_BOOT_EVENT;
+    evt.channel_id    = 0;
+    evt.has_timestamp = true;
+    evt.timestamp     = (uint32_t)(esp_timer_get_time() & 0xFFFFFFFF);
+    evt.payload       = payload;
+    evt.payload_len   = sizeof(payload);
+
+    HEX_LOGI(TAG, "系统启动事件上报: ResetReason=0x%02X, BootStatus=0x%02X",
+             payload[0], payload[1]);
+    msg_bus_send_frame(&evt);
+}
 
 /* ========================================================================
  * PING 处理 (0x00)
@@ -129,6 +173,64 @@ static void handle_get_info(const ubcp_frame_t *req)
 }
 
 /* ========================================================================
+ * GET_TOPOLOGY 处理 (0x07)
+ * ======================================================================== */
+
+typedef struct {
+    uint8_t *buf;
+    uint16_t offset;
+    uint16_t cap;
+} topo_iter_ctx_t;
+
+static void topo_collect_cb(uint8_t ch, uint8_t type, void *drv, void *ctx)
+{
+    (void)drv;
+    topo_iter_ctx_t *tc = (topo_iter_ctx_t *)ctx;
+    if (tc->offset + 2 <= tc->cap) {
+        tc->buf[tc->offset + 0] = ch;
+        tc->buf[tc->offset + 1] = type;
+        tc->offset += 2;
+    }
+}
+
+static void handle_get_topology(const ubcp_frame_t *req)
+{
+    int count = topology_for_each(NULL, NULL);
+
+    /*
+     * 响应载荷：
+     * [0]       Status       u8
+     * [1]       ChannelCount u8
+     * [2 + i*2] ChannelID    u8
+     * [3 + i*2] DeviceType   u8
+     */
+    uint16_t plen = 2 + (uint16_t)count * 2;
+    uint8_t *payload = malloc(plen);
+    if (!payload) {
+        msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
+        return;
+    }
+
+    payload[0] = UBCP_ERR_SUCCESS;
+    payload[1] = (uint8_t)count;
+
+    topo_iter_ctx_t tc = {
+        .buf    = payload,
+        .offset = 2,
+        .cap    = plen,
+    };
+    topology_for_each(topo_collect_cb, &tc);
+
+    ubcp_frame_t resp;
+    ubcp_frame_make_response(req, &resp);
+    resp.payload     = payload;
+    resp.payload_len = plen;
+    msg_bus_send_frame(&resp);
+
+    free(payload);
+}
+
+/* ========================================================================
  * FLOW_CONTROL 处理 (0x05)
  * ======================================================================== */
 
@@ -201,8 +303,225 @@ static void handle_flow_control(const ubcp_frame_t *req)
 }
 
 /* ========================================================================
- * 模块入口
+ * RESET 处理 (0x04)
  * ======================================================================== */
+
+static void handle_reset(const ubcp_frame_t *req)
+{
+    if (!req->payload || req->payload_len < 1) {
+        msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+        return;
+    }
+
+    uint8_t reset_type = req->payload[0];
+
+    msg_bus_send_status_response(req, UBCP_ERR_SUCCESS);
+
+    vTaskDelay(pdMS_TO_TICKS(50));
+
+    switch (reset_type) {
+    case 0x00: /* 软复位 */
+        HEX_LOGI(TAG, "执行软复位...");
+        esp_restart();
+        break;
+    case 0x03: /* 硬件看门狗复位 */
+        HEX_LOGI(TAG, "触发看门狗复位...");
+        while (1) { vTaskDelay(pdMS_TO_TICKS(1000)); }
+        break;
+    default:
+        HEX_LOGW(TAG, "不支持的复位类型: 0x%02X", reset_type);
+        break;
+    }
+}
+
+/* ========================================================================
+ * 配置存储（系统全局配置组 0x00）
+ * ======================================================================== */
+
+#define MAX_DEVICE_NAME_LEN     32
+
+static char     s_device_name[MAX_DEVICE_NAME_LEN] = "HXB-Device";
+static uint16_t s_heartbeat_interval              = 5000;   /* ms */
+static uint8_t  s_flow_control_enable             = 0x01;   /* 启用 */
+
+/** 只读硬件能力参数 */
+#define UART_CHANNEL_COUNT      1
+#define CAN_CHANNEL_COUNT       2
+
+/* ========================================================================
+ * GET_CONFIG 处理 (0x02)
+ * ======================================================================== */
+
+/**
+ * 在动态分配的缓冲区中构建 GET_CONFIG 响应载荷。
+ * 调用者负责释放返回的指针，或通过 payload 字段传递。
+ *
+ * 响应载荷格式：
+ * [0]    Status       u8
+ * [1]    ConfigGroup  u8
+ * [2]    ConfigKey    u8
+ * [3-4]  ValueLen     u16  大端
+ * [5+]   Value
+ */
+static void handle_get_config(const ubcp_frame_t *req)
+{
+    if (!req->payload || req->payload_len < 2) {
+        msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+        return;
+    }
+
+    uint8_t group = req->payload[0];
+    uint8_t key   = req->payload[1];
+
+    if (group != 0x00) {
+        /* 目前仅支持系统全局配置组 */
+        msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+        return;
+    }
+
+    /* 先确定 value 指针和长度 */
+    const uint8_t *value     = NULL;
+    uint16_t       value_len = 0;
+    uint8_t        tmp_u16[2];
+
+    switch (key) {
+    case UBCP_CFGKEY_DEVICE_NAME:
+        value     = (const uint8_t *)s_device_name;
+        value_len = (uint16_t)strlen(s_device_name);
+        break;
+
+    case UBCP_CFGKEY_HEARTBEAT_INTERVAL:
+        tmp_u16[0] = (uint8_t)(s_heartbeat_interval >> 8);
+        tmp_u16[1] = (uint8_t)(s_heartbeat_interval & 0xFF);
+        value     = tmp_u16;
+        value_len = 2;
+        break;
+
+    case UBCP_CFGKEY_FLOW_CONTROL_ENABLE:
+        value     = &s_flow_control_enable;
+        value_len = 1;
+        break;
+
+    case UBCP_CFGKEY_UART_CHANNEL_COUNT: {
+        static const uint8_t uart_cnt = UART_CHANNEL_COUNT;
+        value     = &uart_cnt;
+        value_len = 1;
+        break;
+    }
+
+    case UBCP_CFGKEY_CAN_CHANNEL_COUNT: {
+        static const uint8_t can_cnt = CAN_CHANNEL_COUNT;
+        value     = &can_cnt;
+        value_len = 1;
+        break;
+    }
+
+    default:
+        msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+        return;
+    }
+
+    /* 构建响应：Status(1) + Group(1) + Key(1) + ValueLen(2) + Value(V) */
+    uint16_t plen = 5 + value_len;
+    uint8_t *payload = malloc(plen);
+    if (!payload) {
+        msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
+        return;
+    }
+
+    payload[0] = UBCP_ERR_SUCCESS;
+    payload[1] = group;
+    payload[2] = key;
+    payload[3] = (uint8_t)(value_len >> 8);
+    payload[4] = (uint8_t)(value_len & 0xFF);
+    if (value_len > 0) {
+        memcpy(&payload[5], value, value_len);
+    }
+
+    ubcp_frame_t resp;
+    ubcp_frame_make_response(req, &resp);
+    resp.payload     = payload;
+    resp.payload_len = plen;
+    msg_bus_send_frame(&resp);
+
+    free(payload);
+}
+
+/* ========================================================================
+ * SET_CONFIG 处理 (0x03)
+ * ======================================================================== */
+
+static void handle_set_config(const ubcp_frame_t *req)
+{
+    if (!req->payload || req->payload_len < 4) {
+        msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+        return;
+    }
+
+    uint8_t  group     = req->payload[0];
+    uint8_t  key       = req->payload[1];
+    uint16_t value_len = ((uint16_t)req->payload[2] << 8) | req->payload[3];
+
+    if (group != 0x00) {
+        msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+        return;
+    }
+
+    /* 只读检查：ConfigKey >= 0x10 为只读 */
+    if (key >= UBCP_CFGKEY_READONLY_MASK) {
+        HEX_LOGW(TAG, "SET_CONFIG 拒绝写入只读 Key 0x%02X", key);
+        msg_bus_send_status_response(req, UBCP_ERR_PERMISSION);
+        return;
+    }
+
+    /* 检查载荷长度是否足够 */
+    uint16_t expected_total = 4 + value_len;  /* group(1)+key(1)+vallen(2)+value(V) */
+    if (req->payload_len < expected_total) {
+        msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+        return;
+    }
+
+    const uint8_t *value = &req->payload[4];
+
+    switch (key) {
+    case UBCP_CFGKEY_DEVICE_NAME: {
+        if (value_len == 0 || value_len >= MAX_DEVICE_NAME_LEN) {
+            msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+            return;
+        }
+        memcpy(s_device_name, value, value_len);
+        s_device_name[value_len] = '\0';
+        HEX_LOGI(TAG, "DeviceName 已更新为: %s", s_device_name);
+        break;
+    }
+
+    case UBCP_CFGKEY_HEARTBEAT_INTERVAL: {
+        if (value_len != 2) {
+            msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+            return;
+        }
+        s_heartbeat_interval = ((uint16_t)value[0] << 8) | value[1];
+        HEX_LOGI(TAG, "HeartbeatInterval 已更新为: %u ms", s_heartbeat_interval);
+        break;
+    }
+
+    case UBCP_CFGKEY_FLOW_CONTROL_ENABLE: {
+        if (value_len != 1 || value[0] > 0x01) {
+            msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+            return;
+        }
+        s_flow_control_enable = value[0];
+        HEX_LOGI(TAG, "FlowControlEnable 已更新为: 0x%02X", s_flow_control_enable);
+        break;
+    }
+
+    default:
+        msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+        return;
+    }
+
+    msg_bus_send_status_response(req, UBCP_ERR_SUCCESS);
+}
 
 static esp_err_t system_init(void)
 {
@@ -226,10 +545,19 @@ static void system_handle_cmd(const ubcp_frame_t *frame)
         break;
 
     case UBCP_CMD_GET_CONFIG:
+        handle_get_config(frame);
+        break;
+
     case UBCP_CMD_SET_CONFIG:
+        handle_set_config(frame);
+        break;
+
     case UBCP_CMD_RESET:
-        HEX_LOGW(TAG, "命令 0x%02X 暂未实现", frame->cmd_code);
-        msg_bus_send_status_response(frame, UBCP_ERR_NOT_SUPPORT);
+        handle_reset(frame);
+        break;
+
+    case UBCP_CMD_GET_TOPOLOGY:
+        handle_get_topology(frame);
         break;
 
     default:

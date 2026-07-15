@@ -3,6 +3,7 @@ idf_component_register(
         "main.c"
         "protocol/ubcp_frame.c"
         "core/msg_bus.c"
+        "core/topology.c"
         "transport/mcp_transport.c"
         "modules/mod_system.c"
         "modules/mod_uart.c"

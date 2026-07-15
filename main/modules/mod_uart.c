@@ -29,6 +29,7 @@
 #include "modules/mod_uart.h"
 #include "core/msg_bus.h"
 #include "core/seq_num.h"
+#include "core/topology.h"
 #include "hex_config.h"
 #include "utils/hex_log.h"
 
@@ -73,7 +74,7 @@ static uart_channel_t s_channel = {
     .is_open    = false,
     .rx_mode    = UBCP_UART_RXMODE_PASSIVE,
     .baud_rate  = HEX_EXT_UART_DEFAULT_BAUD,
-    .channel_id = 0,
+    .channel_id = UBCP_CH_UART_EXT1,
 };
 
 /* ========================================================================
@@ -508,8 +509,19 @@ static void handle_uart_open(const ubcp_frame_t *req)
         return;
     }
 
+    const ubcp_route_entry_t *route = topology_find(req->channel_id);
+    if (!route) {
+        uart_driver_delete(HEX_EXT_UART_NUM);
+        msg_bus_send_status_response(req, UBCP_ERR_CHANNEL_INVALID);
+        return;
+    }
+    if (route->device_type != UBCP_DEV_TYPE_UART) {
+        uart_driver_delete(HEX_EXT_UART_NUM);
+        msg_bus_send_status_response(req, UBCP_ERR_TYPE_MISMATCH);
+        return;
+    }
+
     s_channel.rx_mode    = rx_mode;
-    s_channel.channel_id = req->channel_id;
     s_channel.tx_count   = 0;
     s_channel.rx_count   = 0;
     s_channel.error_count = 0;
@@ -899,6 +911,28 @@ static void handle_uart_status(const ubcp_frame_t *req)
 }
 
 /**
+ * @brief 带任务让出的 TX 排空等待
+ *
+ * 轮询 TX 缓冲区空闲大小，每轮让出 CPU 给其他任务（包括 MCP 接收任务）。
+ * 最多等待 max_wait_ms，TX 完全排空后立即返回。
+ */
+static void flush_tx_with_yield(int uart_num, int max_wait_ms)
+{
+    int elapsed = 0;
+    const int poll_interval = 5;
+
+    while (elapsed < max_wait_ms) {
+        size_t tx_free = 0;
+        uart_get_tx_buffer_free_size(uart_num, &tx_free);
+        if (tx_free >= HEX_EXT_UART_TX_BUF_SIZE) {
+            return;
+        }
+        vTaskDelay(pdMS_TO_TICKS(poll_interval));
+        elapsed += poll_interval;
+    }
+}
+
+/**
  * @brief UART_FLUSH (0xA7) — 清空缓冲区
  */
 static void handle_uart_flush(const ubcp_frame_t *req)
@@ -918,14 +952,14 @@ static void handle_uart_flush(const ubcp_frame_t *req)
         uart_flush_input(HEX_EXT_UART_NUM);
         break;
     case UBCP_UART_FLUSH_TX:
-        uart_wait_tx_done(HEX_EXT_UART_NUM, pdMS_TO_TICKS(1000));
+        flush_tx_with_yield(HEX_EXT_UART_NUM, 200);
         break;
     case UBCP_UART_FLUSH_ALL:
         uart_flush_input(HEX_EXT_UART_NUM);
-        uart_wait_tx_done(HEX_EXT_UART_NUM, pdMS_TO_TICKS(1000));
+        flush_tx_with_yield(HEX_EXT_UART_NUM, 200);
         break;
     case UBCP_UART_FLUSH_DRAIN:
-        uart_wait_tx_done(HEX_EXT_UART_NUM, pdMS_TO_TICKS(5000));
+        flush_tx_with_yield(HEX_EXT_UART_NUM, 1000);
         uart_flush_input(HEX_EXT_UART_NUM);
         break;
     default:
@@ -944,6 +978,7 @@ static esp_err_t uart_module_init(void)
 {
     HEX_LOGI(TAG, "UART 扩展模块初始化 (UART%d, TX=GPIO%d, RX=GPIO%d)",
              HEX_EXT_UART_NUM, HEX_EXT_UART_TX_PIN, HEX_EXT_UART_RX_PIN);
+    topology_register(UBCP_CH_UART_EXT1, UBCP_DEV_TYPE_UART, &s_channel);
     return ESP_OK;
 }
 
