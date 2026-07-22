@@ -13,7 +13,10 @@
 | `0x56` | TCP_ACCEPT | 事件上报/请求 | 新客户端连接通知 |
 | `0x57` | TCP_CLOSE | 请求-响应 | 通用关闭连接 |
 | `0x58` | TCP_DISCONNECT_EVENT | 事件上报 | 远端断开连接事件 |
-| `0x59-0x5F` | — | — | 保留 |
+| `0x59` | TCP_LIST_CLIENTS | 请求-响应 | 查询 Server 下所有已连接客户端 |
+| `0x5A` | TCP_KICK_CLIENT | 请求-响应 | 强制断开指定客户端连接 |
+| `0x5B` | TCP_CONN_STATUS | 请求-响应 | 查询单个连接状态和收发统计 |
+| `0x5C-0x5F` | — | — | 保留 |
 
 ---
 
@@ -211,3 +214,96 @@ Flags: DIR=1, EVT=1
 | 0x01 | 连接重置 | 远端发送 RST |
 | 0x02 | 超时 | 连接超时断开 |
 | 0x03 | 网络错误 | 网络不可达等 |
+
+---
+
+## 9.10 TCP_LIST_CLIENTS (0x59) — 查询已连接客户端
+
+查询指定 TCP Server 下所有当前已连接的客户端列表。
+
+### 请求
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0-1 | ServerHandle | u16 | 服务器句柄 |
+
+### 响应
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0 | Status | u8 | 状态码 |
+| 1 | ClientCount | u8 | 已连接客户端数量 (N) |
+| 2... | Clients | — | N 个客户端条目 (每个 10 字节) |
+
+### 每个客户端条目的结构 (10 字节)
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0-1 | ClientHandle | u16 | 客户端句柄 |
+| 2-5 | ClientIP | u32 | 客户端 IP 地址 |
+| 6-7 | ClientPort | u16 | 客户端端口 |
+| 8-9 | ConnectTime | u16 | 连接建立时长 (秒, 设备启动起算) |
+
+> **设计意图**: 等效于 MCP Network Monitor 的 `get_network_clients`, 提供 Server 端已连接客户端的完整快照。ConnectTime 为 u16 (最大 65535 秒 ≈ 18 小时), 满足大多数会话跟踪需求。
+
+---
+
+## 9.11 TCP_KICK_CLIENT (0x5A) — 强制断开指定客户端
+
+强制断开指定客户端连接, 无需事先知道该客户端属于哪个 Server。
+
+### 请求
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0-1 | ClientHandle | u16 | 要断开的目标客户端句柄 |
+| 2 | ForceFlag | u8 | 0 = 优雅关闭 (FIN), 1 = 强制关闭 (RST) |
+
+### 响应
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0 | Status | u8 | 状态码 |
+
+### 错误场景
+
+| 场景 | 错误码 |
+|:---|:---|
+| ClientHandle 无效或已断开 | `ERR_NET_HANDLE_INVALID (0x43)` |
+
+> **设计意图**: 等效于 MCP Network Monitor 的 `disconnect_network_client`。断开后设备自动发送 `TCP_DISCONNECT_EVENT (0x58)` 事件帧通知主机。
+
+---
+
+## 9.12 TCP_CONN_STATUS (0x5B) — 查询单个连接状态
+
+查询指定 TCP 连接的实时状态和收发字节统计。
+
+### 请求
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0-1 | ConnHandle | u16 | 连接句柄 (Server 子连接或 Client 连接) |
+
+### 响应
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0 | Status | u8 | 状态码 |
+| 1 | ConnState | u8 | 连接状态 |
+| 2-5 | TxBytes | u32 | 累计发送字节数 |
+| 6-9 | RxBytes | u32 | 累计接收字节数 |
+| 10-13 | RemoteIP | u32 | 对端 IP 地址 |
+| 14-15 | RemotePort | u16 | 对端端口 |
+| 16-17 | LocalPort | u16 | 本地端口 |
+| 18-21 | ConnectTime | u32 | 连接建立时长 (秒) |
+
+### ConnState 定义
+
+| 值 | 状态 | 说明 |
+|:---|:---|:---|
+| `0x00` | ESTABLISHED | 连接正常 |
+| `0x01` | CLOSING | 正在关闭中 (已发 FIN, 等待对端确认) |
+| `0x02` | CLOSED | 已关闭 (等待清理) |
+
+> **设计意图**: 等效于 MCP Network Monitor 的 `get_network_status`。TxBytes / RxBytes 为设备侧套接字层的累计统计, 用于带宽监控和故障诊断。

@@ -12,3 +12,5 @@
 const hex_module_t *mod_system_get(void);
 
 void mod_system_send_boot_event(void);
+
+uint32_t mod_system_get_mcp_baud_rate(void);

@@ -12,6 +12,8 @@
 | [02-MsgBus.md](02-MsgBus.md) | 消息总线设计、命令路由、模块注册 |
 | [03-MCP-Transport.md](03-MCP-Transport.md) | MCP 通信层（UART1）、帧流式解析 |
 | [04-UART-Module.md](04-UART-Module.md) | UART 扩展模块（UART2）设计 |
+| [05-Bridge-Design.md](05-Bridge-Design.md) | 网桥数据多路复用、流控、模块适配设计 |
+| [06-Ethernet-Module.md](06-Ethernet-Module.md) | 以太网（LAN8720）驱动、TCP/UDP/WebSocket 模块设计 |
 
 ---
 

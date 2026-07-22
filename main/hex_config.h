@@ -25,7 +25,7 @@
 #define HEX_MCP_UART_NUM            UART_NUM_1
 #define HEX_MCP_UART_TX_PIN         GPIO_NUM_4
 #define HEX_MCP_UART_RX_PIN         GPIO_NUM_34   /* GPI 仅输入，需外接 10kΩ 上拉 */
-#define HEX_MCP_UART_BAUD           921600        /* 921600 bps */
+#define HEX_MCP_UART_BAUD           115200        /* 115200 bps (临时测试) */
 #define HEX_MCP_UART_RX_BUF_SIZE    (4096)         /* UART 驱动接收环形缓冲区 */
 #define HEX_MCP_UART_TX_BUF_SIZE    (2048)         /* UART 驱动发送环形缓冲区 */
 

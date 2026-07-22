@@ -111,6 +111,7 @@
 #define UBCP_CFGKEY_FLOW_CONTROL_ENABLE     0x03    /**< FlowControlEnable, u8, 默认 0x01 (启用) */
 #define UBCP_CFGKEY_UART_CHANNEL_COUNT      0x10    /**< UartChannelCount, u8, 只读, 默认 1 */
 #define UBCP_CFGKEY_CAN_CHANNEL_COUNT       0x11    /**< CanChannelCount, u8, 只读, 默认 2 */
+#define UBCP_CFGKEY_MCP_BAUD_RATE          0x12    /**< McpBaudRate, u32, 可读写, 默认 921600 */
 
 #define UBCP_CFGKEY_READONLY_MASK           0x10    /**< ConfigKey >= 0x10 为只读 */
 
@@ -158,6 +159,7 @@
 #define UBCP_CMD_NET_STATUS         0x41
 #define UBCP_CMD_NET_DNS            0x42
 #define UBCP_CMD_NET_LINK_EVENT     0x43
+#define UBCP_CMD_NET_LIST_CONNS     0x44
 
 /* ========================================================================
  * 命令码定义 — TCP (0x50-0x5F)
@@ -172,6 +174,9 @@
 #define UBCP_CMD_TCP_ACCEPT         0x56
 #define UBCP_CMD_TCP_CLOSE          0x57
 #define UBCP_CMD_TCP_DISC_EVENT     0x58
+#define UBCP_CMD_TCP_LIST_CLIENTS   0x59
+#define UBCP_CMD_TCP_KICK_CLIENT    0x5A
+#define UBCP_CMD_TCP_CONN_STATUS    0x5B
 
 /* ========================================================================
  * 命令码定义 — UDP (0x60-0x6F)
@@ -197,6 +202,8 @@
 #define UBCP_CMD_WS_RECV            0x75
 #define UBCP_CMD_WS_ACCEPT          0x76
 #define UBCP_CMD_WS_DISC_EVENT      0x77
+#define UBCP_CMD_WS_LIST_CLIENTS    0x78
+#define UBCP_CMD_WS_KICK_CLIENT     0x79
 
 /* ========================================================================
  * 命令码定义 — GPIO (0x80-0x8F)

@@ -299,3 +299,107 @@
 | 1 | BootStatus | `0x00` (正常启动) |
 
 **判定**: PASS — PayloadLen=2, ResetReason 在合法范围内, BootStatus=0x00, 时间戳有效
+
+---
+
+## SYS-16: GET_CONFIG — 读取 McpBaudRate (默认值)
+
+| 项目 | 值 |
+|:---|:---|
+| **CmdCode** | `0x02` |
+| **PayloadLen** | `0x0002` |
+
+**请求载荷**:
+| 偏移 | 字段 | 值 |
+|:---|:---|:---|
+| 0 | ConfigGroup | `0x00` (系统全局) |
+| 1 | ConfigKey | `0x12` (McpBaudRate) |
+
+**预期响应**: Status=`0x00`, ValueLen=`0x0004`, Value 为 u32 大端序波特率（默认 `0x000E1000` = 921600 或编译期 `HEX_MCP_UART_BAUD` 值）
+
+**判定**: PASS — Status=0x00, Value 为非零 u32 值
+
+---
+
+## SYS-17: SET_CONFIG — 修改 McpBaudRate 并回读验证
+
+| 项目 | 值 |
+|:---|:---|
+| **CmdCode** | `0x03` → 写入, `0x02` → 回读 |
+| **PayloadLen** | `0x0008` |
+
+**请求载荷 (SET)**:
+| 偏移 | 字段 | 值 |
+|:---|:---|:---|
+| 0 | ConfigGroup | `0x00` |
+| 1 | ConfigKey | `0x12` (McpBaudRate) |
+| 2-3 | ValueLen | `0x0004` |
+| 4-7 | Value | `0x0001C200` (115200, 大端) |
+
+**预期响应**: Status=`0x00`
+
+**回读验证**: 发送 GET_CONFIG(ConfigGroup=0x00, ConfigKey=0x12)，验证 Value=`0x0001C200` (115200)。
+
+> ⚠️ 注意：波特率写入 NVS 后需通过 RESET(0x00) 软复位才能使新波特率在当前 MCP 链路上生效。写入后设备立即返回 SUCCESS，但当前链路波特率不变。
+
+**判定**: PASS — Status=0x00, 回读 Value 与写入一致
+
+---
+
+## SYS-18: SET_CONFIG — 拒绝无效 McpBaudRate
+
+| 项目 | 值 |
+|:---|:---|
+| **CmdCode** | `0x03` |
+| **PayloadLen** | `0x0008` |
+
+**请求载荷**:
+| 偏移 | 字段 | 值 |
+|:---|:---|:---|
+| 0 | ConfigGroup | `0x00` |
+| 1 | ConfigKey | `0x12` (McpBaudRate) |
+| 2-3 | ValueLen | `0x0004` |
+| 4-7 | Value | `0x000000C8` (200, 远低于 9600 下限) |
+
+**预期响应**: Status=`0x02` (ERR_PARAM) — 设备应拒绝无效波特率
+
+---
+
+## SYS-19: SET_CONFIG — 拒绝过高的 McpBaudRate
+
+| 项目 | 值 |
+|:---|:---|
+| **CmdCode** | `0x03` |
+| **PayloadLen** | `0x0008` |
+
+**请求载荷**:
+| 偏移 | 字段 | 值 |
+|:---|:---|:---|
+| 0 | ConfigGroup | `0x00` |
+| 1 | ConfigKey | `0x12` (McpBaudRate) |
+| 2-3 | ValueLen | `0x0004` |
+| 4-7 | Value | `0x05F5E100` (100000000, 远高于 5000000 上限) |
+
+**预期响应**: Status=`0x02` (ERR_PARAM) — 设备应拒绝无效波特率
+
+---
+
+## SYS-20: SET_CONFIG → 软复位 → 新波特率验证 (端到端)
+
+| 项目 | 值 |
+|:---|:---|
+| **测试类型** | 端到端集成测试 |
+| **依赖** | 需主机能在复位后以新波特率重新连接 |
+
+**测试步骤**:
+1. 发送 SET_CONFIG(ConfigKey=0x12, Value=115200)，记录原始波特率
+2. 收到 SUCCESS 后，发送 RESET(0x00) 软复位
+3. 主机以新波特率 115200 重新打开串口
+4. 等待 SYS_BOOT_EVENT 事件帧
+5. 发送 PING + GET_INFO 验证链路正常
+6. 发送 GET_CONFIG(ConfigKey=0x12) 验证波特率为 115200
+7. 恢复默认波特率（SET_CONFIG 回原始值 + RESET）
+
+**预期**: 复位后设备以 115200 bps 通信，所有命令正常响应。
+
+> ⚠️ 警告：此用例会断开并重新连接 MCP 链路，排在测试末尾执行。
