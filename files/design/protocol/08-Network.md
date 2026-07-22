@@ -8,7 +8,8 @@
 | `0x41` | NET_STATUS | 请求-响应 | 网络状态查询 |
 | `0x42` | NET_DNS | 请求-响应 | DNS 域名解析 |
 | `0x43` | NET_LINK_EVENT | 事件上报 | 网络链路状态变更 |
-| `0x44-0x4F` | — | — | 保留 |
+| `0x44` | NET_LIST_CONNS | 请求-响应 | 查询所有活跃网络连接概况 |
+| `0x45-0x4F` | — | — | 保留 |
 
 > **关于 IPv6**：当前版本所有 IP 地址字段均为 4 字节（IPv4）。IPv6 支持列为未来扩展计划，届时 IP 地址字段将改为可变长度（由地址族字段决定 4B 或 16B）。
 
@@ -125,3 +126,44 @@ Flags: DIR=1, EVT=1
 | 0x02 | IP_ACQUIRED | 获取到 IP 地址 (DHCP 成功) |
 | 0x03 | IP_LOST | IP 地址丢失 (DHCP 续期失败) |
 | 0x04 | IP_CHANGED | IP 地址发生变化 |
+
+---
+
+## 8.5 NET_LIST_CONNS (0x44) — 查询所有活跃网络连接
+
+### 请求
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| — | — | — | 无载荷 (空请求) |
+
+### 响应
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0 | Status | u8 | 状态码 |
+| 1 | ConnCount | u8 | 连接总数 (N) |
+| 2... | Entries | — | N 个连接条目 (每个 10 字节) |
+
+### 每个连接条目的结构 (10 字节)
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0 | ConnType | u8 | 连接类型 (见下表) |
+| 1-2 | Handle | u16 | 连接/服务器句柄 |
+| 3-4 | ParentHandle | u16 | 所属服务器句柄 (客户端创建时填充 `0x0000`) |
+| 5-6 | LocalPort | u16 | 本地端口号 |
+| 7-10 | RemoteIP | u32 | 对端 IP 地址 (Server 模式时返回 `0x00000000`) |
+
+### ConnType 定义
+
+| 值 | 类型 | 说明 |
+|:---|:---|:---|
+| `0x00` | TCP_SERVER | TCP 服务器 |
+| `0x01` | TCP_CONN | TCP 连接 (Server 子连接或 Client 连接) |
+| `0x02` | UDP_SERVER | UDP 服务器 |
+| `0x03` | UDP_CLIENT | UDP 客户端 |
+| `0x04` | WS_SERVER | WebSocket 服务器 |
+| `0x05` | WS_CONN | WebSocket 连接 |
+
+> **设计意图**: `NET_LIST_CONNS` 提供全局概览, 等效于 MCP Network Monitor 的 `list_network_connections` + `get_network_clients` 组合。 单次请求即可一览所有 TCP/UDP/WS 活跃连接, 无需逐模块查询。

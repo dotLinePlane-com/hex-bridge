@@ -25,6 +25,8 @@
 #include "esp_timer.h"
 #include "esp_chip_info.h"
 #include "esp_mac.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 
 static const char *TAG = "mod_system";
 
@@ -339,10 +341,13 @@ static void handle_reset(const ubcp_frame_t *req)
  * ======================================================================== */
 
 #define MAX_DEVICE_NAME_LEN     32
+#define MCP_CONFIG_NVS_NS       "mcp_config"
+#define MCP_CONFIG_NVS_KEY      "baud_rate"
 
 static char     s_device_name[MAX_DEVICE_NAME_LEN] = "HXB-Device";
 static uint16_t s_heartbeat_interval              = 5000;   /* ms */
 static uint8_t  s_flow_control_enable             = 0x01;   /* 启用 */
+static uint32_t s_mcp_baud_rate                   = HEX_MCP_UART_BAUD;
 
 /** 只读硬件能力参数 */
 #define UART_CHANNEL_COUNT      1
@@ -382,7 +387,7 @@ static void handle_get_config(const ubcp_frame_t *req)
     /* 先确定 value 指针和长度 */
     const uint8_t *value     = NULL;
     uint16_t       value_len = 0;
-    uint8_t        tmp_u16[2];
+    uint8_t        tmp_buf[4];
 
     switch (key) {
     case UBCP_CFGKEY_DEVICE_NAME:
@@ -391,9 +396,9 @@ static void handle_get_config(const ubcp_frame_t *req)
         break;
 
     case UBCP_CFGKEY_HEARTBEAT_INTERVAL:
-        tmp_u16[0] = (uint8_t)(s_heartbeat_interval >> 8);
-        tmp_u16[1] = (uint8_t)(s_heartbeat_interval & 0xFF);
-        value     = tmp_u16;
+        tmp_buf[0] = (uint8_t)(s_heartbeat_interval >> 8);
+        tmp_buf[1] = (uint8_t)(s_heartbeat_interval & 0xFF);
+        value     = tmp_buf;
         value_len = 2;
         break;
 
@@ -415,6 +420,15 @@ static void handle_get_config(const ubcp_frame_t *req)
         value_len = 1;
         break;
     }
+
+    case UBCP_CFGKEY_MCP_BAUD_RATE:
+        tmp_buf[0] = (uint8_t)(s_mcp_baud_rate >> 24);
+        tmp_buf[1] = (uint8_t)(s_mcp_baud_rate >> 16);
+        tmp_buf[2] = (uint8_t)(s_mcp_baud_rate >> 8);
+        tmp_buf[3] = (uint8_t)(s_mcp_baud_rate & 0xFF);
+        value     = tmp_buf;
+        value_len = 4;
+        break;
 
     default:
         msg_bus_send_status_response(req, UBCP_ERR_PARAM);
@@ -467,8 +481,8 @@ static void handle_set_config(const ubcp_frame_t *req)
         return;
     }
 
-    /* 只读检查：ConfigKey >= 0x10 为只读 */
-    if (key >= UBCP_CFGKEY_READONLY_MASK) {
+    /* 只读检查：仅真正的只读配置项不可写入 */
+    if (key == UBCP_CFGKEY_UART_CHANNEL_COUNT || key == UBCP_CFGKEY_CAN_CHANNEL_COUNT) {
         HEX_LOGW(TAG, "SET_CONFIG 拒绝写入只读 Key 0x%02X", key);
         msg_bus_send_status_response(req, UBCP_ERR_PERMISSION);
         return;
@@ -515,6 +529,43 @@ static void handle_set_config(const ubcp_frame_t *req)
         break;
     }
 
+    case UBCP_CFGKEY_MCP_BAUD_RATE: {
+        if (value_len != 4) {
+            msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+            return;
+        }
+        uint32_t new_baud = ((uint32_t)value[0] << 24) |
+                            ((uint32_t)value[1] << 16) |
+                            ((uint32_t)value[2] << 8)  |
+                             (uint32_t)value[3];
+        if (new_baud < 9600 || new_baud > 5000000) {
+            HEX_LOGW(TAG, "MCP 波特率 %lu 超出有效范围 (9600-5000000)", new_baud);
+            msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+            return;
+        }
+
+        nvs_handle_t nvs_handle;
+        esp_err_t err = nvs_open(MCP_CONFIG_NVS_NS, NVS_READWRITE, &nvs_handle);
+        if (err != ESP_OK) {
+            HEX_LOGE(TAG, "打开 NVS 失败: 0x%x", err);
+            msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
+            return;
+        }
+        err = nvs_set_u32(nvs_handle, MCP_CONFIG_NVS_KEY, new_baud);
+        if (err != ESP_OK) {
+            HEX_LOGE(TAG, "NVS 写入失败: 0x%x", err);
+            nvs_close(nvs_handle);
+            msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
+            return;
+        }
+        nvs_commit(nvs_handle);
+        nvs_close(nvs_handle);
+
+        s_mcp_baud_rate = new_baud;
+        HEX_LOGI(TAG, "McpBaudRate 已更新为: %lu bps (需软复位生效)", new_baud);
+        break;
+    }
+
     default:
         msg_bus_send_status_response(req, UBCP_ERR_PARAM);
         return;
@@ -523,9 +574,28 @@ static void handle_set_config(const ubcp_frame_t *req)
     msg_bus_send_status_response(req, UBCP_ERR_SUCCESS);
 }
 
+uint32_t mod_system_get_mcp_baud_rate(void)
+{
+    return s_mcp_baud_rate;
+}
+
 static esp_err_t system_init(void)
 {
-    HEX_LOGI(TAG, "系统管理模块初始化");
+    nvs_handle_t nvs_handle;
+    if (nvs_open(MCP_CONFIG_NVS_NS, NVS_READONLY, &nvs_handle) == ESP_OK) {
+        uint32_t stored_baud = 0;
+        if (nvs_get_u32(nvs_handle, MCP_CONFIG_NVS_KEY, &stored_baud) == ESP_OK) {
+            if (stored_baud >= 9600 && stored_baud <= 5000000) {
+                s_mcp_baud_rate = stored_baud;
+                HEX_LOGI(TAG, "从 NVS 加载 MCP 波特率: %lu", s_mcp_baud_rate);
+            } else {
+                HEX_LOGW(TAG, "NVS 中 MCP 波特率 %lu 无效，使用默认值 %lu",
+                         stored_baud, (unsigned long)HEX_MCP_UART_BAUD);
+            }
+        }
+        nvs_close(nvs_handle);
+    }
+    HEX_LOGI(TAG, "系统管理模块初始化 (MCP 波特率: %lu)", s_mcp_baud_rate);
     return ESP_OK;
 }
 

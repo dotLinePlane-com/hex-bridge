@@ -75,15 +75,16 @@ void app_main(void)
     }
 
     /* ── 5. 初始化 MCP 传输层（启动 UART1 收发任务） ── */
-    ESP_ERROR_CHECK(mcp_transport_init());
+    uint32_t mcp_baud = mod_system_get_mcp_baud_rate();
+    ESP_ERROR_CHECK(mcp_transport_init(mcp_baud));
 
     /* ── 6. 广播 SYS_BOOT_EVENT 通知主机系统复位/启动原因 ── */
     mod_system_send_boot_event();
 
     HEX_LOGI(TAG, "========================================");
     HEX_LOGI(TAG, "  HEX-Bridge 启动完成，等待 MCP 连接...");
-    HEX_LOGI(TAG, "  MCP UART: %d bps (UART%d)",
-             HEX_MCP_UART_BAUD, HEX_MCP_UART_NUM);
+    HEX_LOGI(TAG, "  MCP UART: %lu bps (UART%d)",
+             mcp_baud, HEX_MCP_UART_NUM);
     HEX_LOGI(TAG, "========================================");
 
     /* app_main 可以返回，FreeRTOS 调度器会继续运行各任务 */

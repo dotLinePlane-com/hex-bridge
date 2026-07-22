@@ -12,7 +12,9 @@
 | `0x75` | WS_RECV | 事件上报 | 接收数据 |
 | `0x76` | WS_ACCEPT | 事件上报 | 新 WebSocket 连接 |
 | `0x77` | WS_DISCONNECT_EVENT | 事件上报 | 连接断开事件 |
-| `0x78-0x7F` | — | — | 保留 |
+| `0x78` | WS_LIST_CLIENTS | 请求-响应 | 查询 WS Server 下所有已连接客户端 |
+| `0x79` | WS_KICK_CLIENT | 请求-响应 | 强制断开指定 WS 客户端连接 |
+| `0x7A-0x7F` | — | — | 保留 |
 
 ---
 
@@ -195,3 +197,63 @@ Flags: DIR=1, EVT=1
 | 0x02 | 超时 | 连接超时 |
 | 0x03 | 协议错误 | WebSocket 协议违规 |
 | 0x04 | 网络错误 | 底层 TCP 连接断开 |
+
+---
+
+## 11.9 WS_LIST_CLIENTS (0x78) — 查询已连接客户端
+
+查询指定 WebSocket Server 下所有当前已连接的客户端列表。
+
+### 请求
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0-1 | ServerHandle | u16 | WebSocket 服务器句柄 |
+
+### 响应
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0 | Status | u8 | 状态码 |
+| 1 | ClientCount | u8 | 已连接客户端数量 (N) |
+| 2... | Clients | — | N 个客户端条目 (每个 12 字节) |
+
+### 每个客户端条目的结构 (12 字节)
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0-1 | ClientHandle | u16 | 客户端句柄 |
+| 2-5 | ClientIP | u32 | 客户端 IP 地址 |
+| 6-7 | ClientPort | u16 | 客户端端口 |
+| 8 | SubProtoIndex | u8 | 协商的子协议索引 (0 = 未指定) |
+| 9 | PathLen | u8 | 请求路径长度 (L) |
+| 10-11 | ConnectTime | u16 | 连接建立时长 (秒, 设备启动起算) |
+
+> **设计意图**: 等效于 MCP Network Monitor 的 `get_network_clients`。WS 条目相比 TCP 多了 SubProtoIndex 字段, 便于区分不同子协议的客户端。
+
+---
+
+## 11.10 WS_KICK_CLIENT (0x79) — 强制断开指定客户端
+
+强制断开指定 WebSocket 客户端连接。
+
+### 请求
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0-1 | ClientHandle | u16 | 要断开的目标客户端句柄 |
+| 2 | ForceFlag | u8 | 0 = 发送 Close 帧后断开, 1 = 直接关闭底层 TCP |
+
+### 响应
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0 | Status | u8 | 状态码 |
+
+### 错误场景
+
+| 场景 | 错误码 |
+|:---|:---|
+| ClientHandle 无效或已断开 | `ERR_NET_HANDLE_INVALID (0x43)` |
+
+> **设计意图**: 等效于 MCP Network Monitor 的 `disconnect_network_client`。断开后设备自动发送 `WS_DISCONNECT_EVENT (0x77)` 事件帧通知主机。

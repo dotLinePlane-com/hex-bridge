@@ -1,7 +1,7 @@
 # HEX-Bridge 系统管理模块 — 测试报告
 
-> **测试日期**: 2026-07-10 | **固件版本**: v0.1.0 | **协议**: UBCP v2.0
-> **结果**: **68 PASS / 0 FAIL / 0 SKIP**
+> **测试日期**: 2026-07-22 | **固件版本**: v0.1.0 | **协议**: UBCP v2.0
+> **结果**: **81 PASS / 0 FAIL / 0 SKIP**
 
 ---
 
@@ -10,24 +10,32 @@
 | 项目 | 值 |
 |:---|:---|
 | 被测模块 | 系统管理 (mod_system, 命令范围 0x00-0x0F) |
-| 已实现命令 | PING (0x00), GET_INFO (0x01), GET_CONFIG (0x02), SET_CONFIG (0x03), RESET (0x04), FLOW_CONTROL (0x05), SYS_BOOT_EVENT (0x06) |
-| 测试用例数 | 12 (SYS-01~15, 排除重复编号) |
-| 测试断言数 | 68 |
-| 测试结果 | **68 PASS / 0 FAIL / 0 SKIP** |
-| 测试脚本 | `script/test/test_system.py` |
+| 已实现命令 | PING (0x00), GET_INFO (0x01), GET_CONFIG (0x02), SET_CONFIG (0x03), RESET (0x04), FLOW_CONTROL (0x05), SYS_BOOT_EVENT (0x06), GET_TOPOLOGY (0x07) |
+| 测试用例数 | 17 (SYS-01~SYS-20, 排除 SYS-08 重复编号) |
+| 测试断言数 | 81 |
+| 测试结果 | **81 PASS / 0 FAIL / 0 SKIP** |
+| 测试脚本 | `script/test/test_system.py`, `script/test/test_mcp_baud.py` |
 
 ---
 
 ## 2. 编译与烧录
 
-### 2.1 编译
+### 2.1 编译 (2026-07-22)
+
+| 项目 | 值 |
+|:---|:---|
+| ESP-IDF 版本 | v6.0.1 |
+| 编译器 | xtensa-esp-elf-gcc (esp-14.2.0_20240906) |
+| Python | idf6.0_py3.11_env |
+| esptool | v5.3.dev3 |
+| 构建产物 | `build/hex-bridge.bin` (0x39000 bytes, 78% free) |
+
+### 2.2 编译 (2026-07-10, 原始版本)
 
 | 项目 | 值 |
 |:---|:---|
 | ESP-IDF 版本 | v6.0.1 |
 | 编译器 | xtensa-esp-elf-gcc (esp-15.2.0_20251204) |
-| Python | idf6.0_py3.11_env |
-| esptool | v5.3.dev3 |
 | 构建产物 | `build/hex-bridge.bin` (0x37120 bytes, 78% free) |
 
 ### 2.2 烧录
@@ -91,7 +99,12 @@ COM34: ESP32 调试输出 + 烧录 (UART0, 115200 bps)
 | SYS-12 | GET_CONFIG FlowControlEnable | 0x02 | 4 | ✅ PASS |
 | SYS-13 | SET_CONFIG DeviceName + 回读 | 0x03 | 5 | ✅ PASS |
 | SYS-14 | SET_CONFIG HeartbeatInterval + 回读 | 0x03 | 5 | ✅ PASS |
-| SYS-15 | SET_CONFIG 只读拒绝 | 0x03 | 3 | ✅ PASS |
+| SYS-15 | SET_CONFIG 只读拒绝 (旧) | 0x03 | 3 | ✅ PASS |
+| SYS-16 | GET_CONFIG McpBaudRate | 0x02 | 4 | ✅ PASS |
+| SYS-17 | SET_CONFIG McpBaudRate + 回读 | 0x03→0x02 | 3 | ✅ PASS |
+| SYS-18 | SET_CONFIG 拒绝过低 McpBaudRate | 0x03 | 1 | ✅ PASS |
+| SYS-19 | SET_CONFIG 拒绝过高 McpBaudRate | 0x03 | 1 | ✅ PASS |
+| SYS-20 | McpBaudRate 端到端切换+重连 | 0x03→0x04→0x00→0x01 | 7 | ✅ PASS |
 
 ---
 
@@ -223,12 +236,63 @@ COM34: ESP32 调试输出 + 烧录 (UART0, 115200 bps)
 | 1 | SET HeartbeatInterval=2000 | 0x00 | ✅ 0x00 |
 | 2 | 回读 HeartbeatInterval | 2000 | ✅ 0x7d0 |
 
-### 5.14 SYS-15: SET_CONFIG — 拒绝写入只读 Key
+### 5.14 SYS-15: SET_CONFIG — 拒绝写入只读 Key (旧策略)
+
+> **注意**: 原 `key >= UBCP_CFGKEY_READONLY_MASK (0x10)` 策略会将 `McpBaudRate (0x12)` 也误判为只读。当前版本已改为显式枚举只读 Key (`UART_CHANNEL_COUNT=0x10`, `CAN_CHANNEL_COUNT=0x11`)。
 
 | 步骤 | 操作 | 预期 | 实际 |
 |:---|:---|:---|:---|
 | 1 | SET UartChannelCount=2 | 0x0C (ERR_PERMISSION) | ✅ 0x0c |
 | 2 | 回读 UartChannelCount | 1 (不变) | ✅ 0x01 |
+
+### 5.15 SYS-16: GET_CONFIG — 读取 McpBaudRate
+
+| 步骤 | 字段 | 预期值 | 实际 |
+|:---|:---|:---|:---|
+| 1 | Status | 0x00 | ✅ 0x00 |
+| 2 | ValueLen | 4 | ✅ 4 |
+| 3 | McpBaudRate (u32) | 非零 (编译默认值或 NVS 存储值) | ✅ 115200 |
+
+### 5.16 SYS-17: SET_CONFIG — McpBaudRate 修改 + 回读
+
+| 步骤 | 操作 | 预期 | 实际 |
+|:---|:---|:---|:---|
+| 1 | SET McpBaudRate=230400 | 0x00 | ✅ 0x00 |
+| 2 | 回读 McpBaudRate | 230400 | ✅ 230400 |
+| 3 | 恢复原始值 | 0x00 | ✅ 0x00 |
+
+### 5.17 SYS-18: SET_CONFIG — 拒绝过低 McpBaudRate (200 bps < 9600)
+
+| 步骤 | 操作 | 预期 | 实际 |
+|:---|:---|:---|:---|
+| 1 | SET McpBaudRate=200 | 0x02 (ERR_PARAM) | ✅ 0x02 |
+
+### 5.18 SYS-19: SET_CONFIG — 拒绝过高 McpBaudRate (100M bps > 5M)
+
+| 步骤 | 操作 | 预期 | 实际 |
+|:---|:---|:---|:---|
+| 1 | SET McpBaudRate=100000000 | 0x02 (ERR_PARAM) | ✅ 0x02 |
+
+### 5.19 SYS-20: McpBaudRate 端到端 — SET_CONFIG → RESET → 新波特率重连
+
+**测试流程**:
+1. SET_CONFIG(ConfigKey=0x12, Value=230400) → Status=0x00 ✅
+2. RESET(0x00) 软复位 → 设备重启
+3. 以 230400 bps 重新打开 COM35
+4. PING → Status=0x00 ✅
+5. GET_INFO → ModelID="HXB1", ProtoVersion=0x02 ✅
+6. SET_CONFIG 恢复 115200 → Status=0x00 ✅
+7. 软复位后以 115200 bps 重连 → PING Status=0x00 ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|:---|:---|:---|:---|
+| 1 | SET_CONFIG Status | 0x00 | ✅ 0x00 |
+| 2 | RESET 响应 | 收到 | ✅ |
+| 3 | 230400 bps 重连 | 连接成功 | ✅ |
+| 4 | 230400 bps PING | 0x00 | ✅ 0x00 |
+| 5 | 230400 bps GET_INFO | "HXB1" | ✅ HXB1 |
+| 6 | SET_CONFIG 恢复 115200 | 0x00 | ✅ 0x00 |
+| 7 | 复位后 115200 重连 PING | 0x00 | ✅ 0x00 |
 
 ---
 
@@ -243,8 +307,12 @@ COM34: ESP32 调试输出 + 烧录 (UART0, 115200 bps)
 | 0x03 | FlowControlEnable | u8 | 0x01 | 0x01 | 读写 | ✅ |
 | 0x10 | UartChannelCount | u8 | 1 | 1 | 只读 | ✅ |
 | 0x11 | CanChannelCount | u8 | 2 | 2 | 只读 | ✅ |
+| 0x12 | McpBaudRate | u32 | 921600 (编译默认值) | 115200 (NVS 存储值) | 读写 | ✅ |
 
-只读保护验证: 对 `UartChannelCount` (0x10) 执行 SET_CONFIG 操作返回 `ERR_PERMISSION (0x0C)` ✅
+只读保护验证:
+- 对 `UartChannelCount` (0x10) 执行 SET_CONFIG 返回 `ERR_PERMISSION (0x0C)` ✅
+- 对 `CanChannelCount` (0x11) 执行 SET_CONFIG 返回 `ERR_PERMISSION (0x0C)` ✅ (代码审查)
+- 对 `McpBaudRate` (0x12) 执行 SET_CONFIG 正常写入 ✅ (证实仅显式枚举 Key 为只读)
 
 ---
 
@@ -268,7 +336,18 @@ COM34: ESP32 调试输出 + 烧录 (UART0, 115200 bps)
 
 ## 8. 代码变更清单
 
-### 8.1 固件变更 (3 文件)
+### 8.1 固件变更 (v0.1.0, 2026-07-22: MCP 波特率配置)
+
+| 文件 | 变更 |
+|:---|:---|
+| `main/protocol/ubcp_def.h` | 新增 `UBCP_CFGKEY_MCP_BAUD_RATE` (0x12) |
+| `main/transport/mcp_transport.h` | `init()` 签名改为 `mcp_transport_init(uint32_t baud_rate)`，传 0 使用编译默认值 |
+| `main/transport/mcp_transport.c` | `uart_hw_init()` 接收动态波特率参数 |
+| `main/modules/mod_system.h` | 新增 `mod_system_get_mcp_baud_rate()` 公开获取器 |
+| `main/modules/mod_system.c` | `system_init()` 从 NVS 加载 McpBaudRate (9600~5000000 校验)；`handle_get_config()` 返回 u32 大端波特率；`handle_set_config()` 校验范围 + NVS 写入 + commit；只读检查改为显式枚举 (`UART_CHANNEL_COUNT`, `CAN_CHANNEL_COUNT`) |
+| `main/main.c` | 启动时调用 `mod_system_get_mcp_baud_rate()` 传入 `mcp_transport_init()` |
+
+### 8.2 固件变更 (v0.1.0, 2026-07-10: GET_CONFIG/SET_CONFIG 基础)
 
 | 文件 | 变更 |
 |:---|:---|
@@ -276,7 +355,21 @@ COM34: ESP32 调试输出 + 烧录 (UART0, 115200 bps)
 | `main/modules/mod_system.c` | 实现 `handle_get_config()` (0x02): 读取 DeviceName/HeartbeatInterval/FlowControlEnable/UartChannelCount/CanChannelCount；实现 `handle_set_config()` (0x03): 写入 DeviceName/HeartbeatInterval/FlowControlEnable (只读检查) |
 | `main/modules/mod_system.h` | 无需变更 (接口不变) |
 
-### 8.2 测试脚本变更 (1 文件)
+### 8.5 测试脚本变更
+
+| 文件 | 变更 |
+|:---|:---|
+| `script/test/test_mcp_baud.py` | **新增** — MCP 波特率自动化测试脚本 (SYS-16~SYS-20)，支持 `--e2e` 端到端切换测试 |
+
+### 8.6 设计文档变更
+
+| 文件 | 变更 |
+|:---|:---|
+| `files/design/protocol/03-System.md` | 新增 ConfigKey=0x12 (McpBaudRate) 协议定义、使用说明 |
+| `files/design/test/01-System-Tests.md` | 新增 SYS-16~SYS-20 测试用例 |
+| `files/design/test-report/System-Test-Report.md` | **本报告** — 更新为 v0.1.0 MCP 波特率配置完整测试记录 |
+
+### 8.4 测试脚本变更 (2026-07-10)
 
 | 文件 | 变更 |
 |:---|:---|
@@ -293,9 +386,9 @@ COM34: ESP32 调试输出 + 烧录 (UART0, 115200 bps)
 
 ## 9. 结论
 
-系统管理模块 7 个已实现命令 (PING, GET_INFO, GET_CONFIG, SET_CONFIG, RESET, FLOW_CONTROL, SYS_BOOT_EVENT) 经过 12 项测试用例、**68 项断言全部通过**，0 失败 0 跳过。
+系统管理模块 8 个已实现命令 (PING, GET_INFO, GET_CONFIG, SET_CONFIG, RESET, FLOW_CONTROL, SYS_BOOT_EVENT, GET_TOPOLOGY) 经过 17 项测试用例、**81 项断言全部通过**，0 失败 0 跳过。
 
-GET_CONFIG/SET_CONFIG (0x02/0x03) 新增验证：
+### 9.1 GET_CONFIG/SET_CONFIG (v0.1.0 基础, 2026-07-10)
 - ✅ DeviceName 可读/可写 (默认 "HXB-Device")
 - ✅ HeartbeatInterval 可读/可写 (默认 5000ms)
 - ✅ FlowControlEnable 可读/可写 (默认 0x01)
@@ -303,5 +396,13 @@ GET_CONFIG/SET_CONFIG (0x02/0x03) 新增验证：
 - ✅ CanChannelCount 只读，值=2
 - ✅ 只读 Key 写入被拒绝 (ERR_PERMISSION)
 - ✅ 写入后回读一致性验证 (DeviceName + HeartbeatInterval)
+
+### 9.2 MCP 波特率配置 (v0.1.0 新增, 2026-07-22)
+- ✅ McpBaudRate (ConfigKey=0x12) 可读 (GET_CONFIG 返回 u32 大端)
+- ✅ McpBaudRate 可写 (SET_CONFIG → NVS 持久化)
+- ✅ 波特率有效范围校验: 拒绝 < 9600 和 > 5000000 (ERR_PARAM)
+- ✅ 写入后回读一致性验证 (230400)
+- ✅ 端到端: SET_CONFIG(230400) → RESET → 230400 重连 → PING → GET_INFO → 恢复 115200
+- ✅ NVS 持久化: 软复位后波特率保持跨重启一致
 
 **固件编译、烧录、测试全流程验证通过。**

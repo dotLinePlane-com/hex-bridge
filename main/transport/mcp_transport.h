@@ -18,9 +18,10 @@
  *
  * 配置 UART1 硬件，创建接收和发送任务。
  *
+ * @param baud_rate  波特率，0 表示使用编译期默认值 HEX_MCP_UART_BAUD
  * @return ESP_OK 或错误码
  */
-esp_err_t mcp_transport_init(void);
+esp_err_t mcp_transport_init(uint32_t baud_rate);
 
 /**
  * @brief 发送原始线路帧数据到 UART1

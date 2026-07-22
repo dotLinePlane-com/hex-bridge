@@ -118,6 +118,9 @@
 | 0x03 | FlowControlEnable | u8 | 0x01 | 0x00 = 禁用设备端主动背压上报，0x01 = 启用流控。如果设为 0x00，设备端在缓冲区接近满时不会发送 `FLOW_CONTROL (0x05)` 帧。 |
 | 0x10 | UartChannelCount | u8 | 1 | 设备物理支持的扩展 UART 通道数（只读，不允许写入） |
 | 0x11 | CanChannelCount | u8 | 2 | 设备物理支持的 CAN/CAN-FD 通道数（只读，不允许写入） |
+| 0x12 | McpBaudRate | u32 | 921600 | MCP 通信端口波特率。写入后需通过 RESET(0x00) 软复位使新波特率生效。有效范围: 9600 ~ 5000000。 |
+
+> **注意**：修改 `McpBaudRate` 后设备会立即将新值写入 NVS 并返回 SUCCESS，但当前链路波特率不变。主机需在收到 SUCCESS 响应后发送 `RESET(0x00)` 软复位，设备重启后将使用新的波特率初始化 MCP 通信端口。
 
 ### 响应 (设备 → 主机)
 

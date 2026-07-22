@@ -71,6 +71,7 @@ python script/test/test_uart.py --com24 COM24 --ext-baud 115200
 | 脚本 | 说明 |
 |:---|:---|
 | `script/test/test_uart.py` | UART 模块测试 (57 用例, UART-01 ~ UART-57) |
+| `script/test/test_network.py` | 网络模块测试 (67 用例, DRV/TCP/UDP/WS/STRESS) |
 | `script/test/ubcp_client.py` | UBCP v2.0 帧构建/解析库 |
 | `script/test/mcp_transport.py` | COM35 串口传输封装 (921600 bps) |
 
@@ -93,6 +94,7 @@ python script/test/test_uart.py --com24 COM24 --ext-baud 115200
 | [02-UART-Tests.md](02-UART-Tests.md) | UART 扩展模块 (0xA0-0xAF) 全部 8 命令 + 流控 | 57 |
 | [03-Protocol-Tests.md](03-Protocol-Tests.md) | 帧协议层 (转义/CRC/边界) | 8 |
 | [04-UART-MCP-Tests.md](04-UART-MCP-Tests.md) | MCP Serial Monitor 分屏通信 (hex-bridge 透明桥接) | 12 |
+| [09-Network-Tests.md](09-Network-Tests.md) | 以太网（LAN8720）+ TCP/UDP/WebSocket 模块 | 67 |
 
 ## 帧构建约定
 

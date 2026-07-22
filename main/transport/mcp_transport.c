@@ -45,10 +45,14 @@ static volatile bool s_running = false;
  * UART 硬件初始化
  * ======================================================================== */
 
-static esp_err_t uart_hw_init(void)
+static esp_err_t uart_hw_init(uint32_t baud_rate)
 {
+    if (baud_rate == 0) {
+        baud_rate = HEX_MCP_UART_BAUD;
+    }
+
     uart_config_t uart_config = {
-        .baud_rate  = HEX_MCP_UART_BAUD,
+        .baud_rate  = (int)baud_rate,
         .data_bits  = UART_DATA_8_BITS,
         .parity     = UART_PARITY_DISABLE,
         .stop_bits  = UART_STOP_BITS_1,
@@ -100,7 +104,7 @@ static void mcp_recv_task(void *arg)
 {
     uint8_t rx_buf[256]; /* 每次从 UART 读取的批量缓冲区 */
 
-    HEX_LOGI(TAG, "MCP 接收任务启动，波特率 %d", HEX_MCP_UART_BAUD);
+    HEX_LOGI(TAG, "MCP 接收任务启动");
 
     while (s_running) {
         /* 从 UART 读取可用数据，最多等待 100ms */
@@ -168,12 +172,15 @@ static void mcp_recv_task(void *arg)
  * 公共接口
  * ======================================================================== */
 
-esp_err_t mcp_transport_init(void)
+esp_err_t mcp_transport_init(uint32_t baud_rate)
 {
     esp_err_t err;
 
-    /* 初始化 UART 硬件 */
-    err = uart_hw_init();
+    if (baud_rate == 0) {
+        baud_rate = HEX_MCP_UART_BAUD;
+    }
+
+    err = uart_hw_init(baud_rate);
     if (err != ESP_OK) {
         return err;
     }
@@ -200,9 +207,9 @@ esp_err_t mcp_transport_init(void)
         return ESP_ERR_NO_MEM;
     }
 
-    HEX_LOGI(TAG, "MCP 传输层初始化完成 (UART%d, TX=GPIO%d, RX=GPIO%d, %d bps)",
+    HEX_LOGI(TAG, "MCP 传输层初始化完成 (UART%d, TX=GPIO%d, RX=GPIO%d, %lu bps)",
              HEX_MCP_UART_NUM, HEX_MCP_UART_TX_PIN, HEX_MCP_UART_RX_PIN,
-             HEX_MCP_UART_BAUD);
+             baud_rate);
     return ESP_OK;
 }
 
