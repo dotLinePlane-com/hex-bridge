@@ -24,4 +24,5 @@ idf_component_register(
         nvs_flash
         spi_flash
         esp_psram
+        espressif__lan87xx
 )

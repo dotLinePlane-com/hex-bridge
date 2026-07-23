@@ -173,7 +173,13 @@ static void handle_net_config(const ubcp_frame_t *req)
         return;
     }
 
+    uint8_t intf_index = req->payload[0];
     uint8_t config_type = req->payload[1];
+
+    if (intf_index != 0x00) {
+        msg_bus_send_status_response(req, UBCP_ERR_CHANNEL_INVALID);
+        return;
+    }
 
     if (config_type == 0x00) {
         /* DHCP mode */
@@ -467,13 +473,14 @@ static esp_err_t network_init(void)
     esp_eth_handle_t eth_handle;
     esp_err_t ret = eth_hw_init(&eth_handle);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "以太网初始化失败: %d", ret);
-        return ret;
+        ESP_LOGE(TAG, "以太网初始化失败: %d — 跳过网络功能", ret);
+        s_eth_initialized = false;
+        return ESP_OK;
     }
 
     s_netif_ptr = eth_get_netif();
 
-    /* Register second-level event handlers (on top of the ones in eth_init.c) */
+    /* Register second-level event handlers */
     esp_event_handler_register(ETH_EVENT, ETHERNET_EVENT_CONNECTED,
                                 &net_eth_event_handler, NULL);
     esp_event_handler_register(ETH_EVENT, ETHERNET_EVENT_DISCONNECTED,
@@ -482,6 +489,14 @@ static esp_err_t network_init(void)
                                 &net_ip_event_handler, NULL);
     esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_LOST_IP,
                                 &net_ip_event_handler, NULL);
+
+    /* Start Ethernet now that event handlers are registered */
+    ret = eth_hw_start();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "以太网启动失败: %d — 跳过网络功能", ret);
+        s_eth_initialized = false;
+        return ESP_OK;
+    }
 
     s_eth_initialized = true;
     ESP_LOGI(TAG, "网络配置模块初始化完成");

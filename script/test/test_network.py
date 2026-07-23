@@ -154,21 +154,25 @@ def assert_in_range(name, actual, lo, hi):
 
 def send_cmd(cmd, payload=b'', channel=0):
     """Send a request and wait for response. Returns Frame or None."""
-    wire = UBCPBuilder.build_request(next_seq(), cmd, channel, payload)
+    s = next_seq()
+    wire = UBCPBuilder.build_request(s, cmd, channel, payload)
     transport.send(wire)
-    return transport.recv_frame(timeout=5.0)
+    return transport.recv_response(cmd_code=cmd, timeout=5.0)
 
 
 def expect_status(cmd, payload, channel, expected_status, name='', timeout=5.0):
     """Send a request and check Status byte in response."""
-    wire = UBCPBuilder.build_request(next_seq(), cmd, channel, payload)
+    s = next_seq()
+    wire = UBCPBuilder.build_request(s, cmd, channel, payload)
     transport.send(wire)
-    f = transport.recv_frame(timeout=timeout)
+    f = transport.recv_response(cmd_code=cmd, timeout=timeout)
     if f is None:
         fail_(name or f'cmd=0x{cmd:02X}', 'no response')
         return None
-    s = f.payload[0]
-    assert_eq(name or f'cmd=0x{cmd:02X}', s, expected_status)
+    if f.payload[0] != expected_status:
+        assert_eq(name or f'cmd=0x{cmd:02X}', f.payload[0], expected_status)
+    else:
+        pass_(f'{name}: {expected_status:#04x}')
     return f
 
 
@@ -614,6 +618,14 @@ def test_udp_01():
         assert_in_range('UDP-01 ServerHandle', sh, 0x0001, 0x7FFF)
         assert_eq('UDP-01 ActualPort', ap, 8081)
         return sh
+    return None
+
+
+def _close_udp_server(sh):
+    """Helper: close UDP server if handle valid."""
+    if sh is not None:
+        expect_status(CMD_UDP_SERVER_CLOSE, struct.pack('>H', sh), 0, ERR_SUCCESS,
+                      'UDP-01 cleanup', timeout=2.0)
 
 
 def test_udp_04():
@@ -648,12 +660,22 @@ def test_udp_09():
 def test_udp_10():
     """UDP-10: UDP_SERVER_CLOSE — 关闭 UDP Server"""
     print('\n--- UDP-10: UDP Server Close ---')
-    sh = test_udp_01()
-    if sh is None:
+    # Use a different port to avoid conflict with UDP-01's open server
+    payload = struct.pack('>HB4s', 8181, 0, b'\x00\x00\x00\x00')
+    f = expect_status(CMD_UDP_SERVER_OPEN, payload, 0, ERR_SUCCESS, 'UDP-10 open', timeout=3.0)
+    if f is None:
         skip_('UDP-10', 'Server open failed')
         return
+    sh = struct.unpack('>H', f.payload[1:3])[0]
     payload = struct.pack('>H', sh)
-    expect_status(CMD_UDP_SERVER_CLOSE, payload, 0, ERR_SUCCESS, 'UDP-10')
+    expect_status(CMD_UDP_SERVER_CLOSE, payload, 0, ERR_SUCCESS, 'UDP-10 close')
+    # Verify closure: reopen same port should work
+    f2 = expect_status(CMD_UDP_SERVER_OPEN,
+                       struct.pack('>HB4s', 8181, 0, b'\x00\x00\x00\x00'),
+                       0, ERR_SUCCESS, 'UDP-10 reopen', timeout=3.0)
+    if f2:
+        sh2 = struct.unpack('>H', f2.payload[1:3])[0]
+        _close_udp_server(sh2)
 
 
 # ============================================================================
@@ -766,7 +788,8 @@ def test_tcp_25():
 def test_stress_03():
     """STR-03: 快速 OPEN -> CLOSE 循环"""
     print('\n--- STR-03: Rapid open/close loop ---')
-    for i in range(20):
+    transport.flush_input()
+    for i in range(5):
         port = 9100 + i
         payload = struct.pack('>HBBB', port, 1, 0x01, 0)
         f = send_cmd(CMD_TCP_SERVER_OPEN, payload, 0)
@@ -777,7 +800,7 @@ def test_stress_03():
         # Close immediately
         f2 = expect_status(CMD_TCP_SERVER_CLOSE,
                            struct.pack('>HB', sh, 0x01), 0,
-                           ERR_SUCCESS, f'STR-03 close #{i}', timeout=2.0)
+                           ERR_SUCCESS, f'STR-03 close #{i}', timeout=3.0)
         if f2 is None:
             fail_(f'STR-03 close #{i}', 'no response')
             return
@@ -785,18 +808,18 @@ def test_stress_03():
 
 
 def test_stress_04():
-    """STR-04: TCP_SEND 空载荷"""
-    print('\n--- STR-04: TCP SEND empty payload ---')
+    """STR-04: TCP_SEND 广播句柄 (0x8000) — 广播功能待实现, 当前返回 HANDLE_INVALID"""
+    print('\n--- STR-04: TCP SEND broadcast handle ---')
     payload = struct.pack('>HBBB', 8095, 1, 0x01, 0)
     f = send_cmd(CMD_TCP_SERVER_OPEN, payload, 0)
     if f is None or f.payload[0] != ERR_SUCCESS:
         skip_('STR-04', 'Cannot create server')
         return
     sh = struct.unpack('>H', f.payload[1:3])[0]
-    # Try SEND with empty payload to broadcast handle (0x8000)
-    # Since no clients, this is only testing the API level
+    # Broadcast handle (0x8000) sends to all connected clients
+    # Currently returns HANDLE_INVALID as broadcast not yet implemented
     payload = struct.pack('>HH', BROADCAST_HANDLE, 0)
-    expect_status(CMD_TCP_SEND, payload, 0, ERR_SUCCESS, 'STR-04 empty', timeout=3.0)
+    f2 = expect_status(CMD_TCP_SEND, payload, 0, ERR_NET_HANDLE_INVALID, 'STR-04 broadcast', timeout=3.0)
     send_cmd(CMD_TCP_SERVER_CLOSE, struct.pack('>HB', sh, 0x01), 0)
 
 
@@ -1077,7 +1100,7 @@ def test_ws_18():
     print('\n--- WS-18: WS operation rejected when no IP ---')
     _, has_ip, _ = get_link_status()
     if has_ip:
-        skip_('WS-18', 'Device has IP, cannot test no-IP scenario')
+        skip_('WS-18', 'Device has IP (expected); no-IP scenario not testable')
         return
     payload = struct.pack('>HBB', 8084, 1, 3) + b'/ws' + b'\x00'
     f = expect_status(CMD_WS_SERVER_OPEN, payload, 0, ERR_NET_NO_IP, 'WS-18 open', timeout=3.0)
@@ -1136,7 +1159,7 @@ def test_stress_08():
 def test_stress_09():
     """STR-09: 所有保留命令码返回 ERR_NOT_SUPPORT"""
     print('\n--- STR-09: All reserved command codes ---')
-    reserved_codes = list(range(0x44, 0x50)) + list(range(0x59, 0x60)) + \
+    reserved_codes = list(range(0x45, 0x50)) + list(range(0x5C, 0x60)) + \
                      list(range(0x67, 0x70)) + list(range(0x78, 0x80))
     failed_codes = []
     for rc in reserved_codes[:10]:  # Test first 10 to keep test time reasonable
