@@ -57,21 +57,21 @@ static SemaphoreHandle_t s_mutex = NULL;
 static TaskHandle_t s_select_task = NULL;
 static volatile bool s_task_running = false;
 
-static uint16_t s_next_server_handle = 0x0001;
-static uint16_t s_next_client_handle = 0x8001;
+static uint16_t s_next_server_handle = 0x1000;
+static uint16_t s_next_client_handle = 0x9000;
 
 /* ── Handles ── */
 static uint16_t alloc_server_handle(void)
 {
     uint16_t h = s_next_server_handle++;
-    if (s_next_server_handle >= 0x8000) s_next_server_handle = 0x0001;
+    if (s_next_server_handle > 0x1FFF) s_next_server_handle = 0x1000;
     return h;
 }
 
 static uint16_t alloc_client_handle(void)
 {
     uint16_t h = s_next_client_handle++;
-    if (s_next_client_handle >= 0xFFFE) s_next_client_handle = 0x8001;
+    if (s_next_client_handle > 0x9FFF) s_next_client_handle = 0x9000;
     return h;
 }
 
@@ -146,10 +146,10 @@ static void send_disconnect_event(tcp_conn_t *conn, uint8_t reason)
     payload[0] = (uint8_t)(conn->conn_handle >> 8);
     payload[1] = (uint8_t)(conn->conn_handle & 0xFF);
     payload[2] = reason;
-    payload[3] = (uint8_t)(conn->remote_ip >> 24);
-    payload[4] = (uint8_t)(conn->remote_ip >> 16);
-    payload[5] = (uint8_t)(conn->remote_ip >> 8);
-    payload[6] = (uint8_t)(conn->remote_ip & 0xFF);
+    payload[3] = (uint8_t)(htonl(conn->remote_ip) >> 24);
+    payload[4] = (uint8_t)(htonl(conn->remote_ip) >> 16);
+    payload[5] = (uint8_t)(htonl(conn->remote_ip) >> 8);
+    payload[6] = (uint8_t)(htonl(conn->remote_ip) & 0xFF);
     payload[7] = (uint8_t)(conn->remote_port >> 8);
     payload[8] = (uint8_t)(conn->remote_port & 0xFF);
 
@@ -291,10 +291,10 @@ static void tcp_event_task(void *arg)
             evt_payload[1] = (uint8_t)(s_servers[i].server_handle & 0xFF);
             evt_payload[2] = (uint8_t)(conn->conn_handle >> 8);
             evt_payload[3] = (uint8_t)(conn->conn_handle & 0xFF);
-            evt_payload[4] = (uint8_t)(conn->remote_ip >> 24);
-            evt_payload[5] = (uint8_t)(conn->remote_ip >> 16);
-            evt_payload[6] = (uint8_t)(conn->remote_ip >> 8);
-            evt_payload[7] = (uint8_t)(conn->remote_ip & 0xFF);
+            evt_payload[4] = (uint8_t)(htonl(conn->remote_ip) >> 24);
+            evt_payload[5] = (uint8_t)(htonl(conn->remote_ip) >> 16);
+            evt_payload[6] = (uint8_t)(htonl(conn->remote_ip) >> 8);
+            evt_payload[7] = (uint8_t)(htonl(conn->remote_ip) & 0xFF);
             evt_payload[8] = (uint8_t)(conn->remote_port >> 8);
             evt_payload[9] = (uint8_t)(conn->remote_port & 0xFF);
 
@@ -493,8 +493,8 @@ static void handle_client_connect(const ubcp_frame_t *req)
         return;
     }
 
-    uint32_t dest_ip   = ((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
-                         ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3];
+    uint32_t dest_ip   = ntohl(((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
+                         ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3]);
     uint16_t dest_port = ((uint16_t)req->payload[4] << 8) | req->payload[5];
     uint8_t  timeout   = req->payload[6];
     uint8_t  keepalive = (req->payload_len > 7) ? req->payload[7] : 0;
@@ -592,10 +592,10 @@ static void handle_client_connect(const ubcp_frame_t *req)
     payload[0] = UBCP_ERR_SUCCESS;
     payload[1] = (uint8_t)(conn->conn_handle >> 8);
     payload[2] = (uint8_t)(conn->conn_handle & 0xFF);
-    payload[3] = (uint8_t)(local_ip >> 24);
-    payload[4] = (uint8_t)(local_ip >> 16);
-    payload[5] = (uint8_t)(local_ip >> 8);
-    payload[6] = (uint8_t)(local_ip & 0xFF);
+    payload[3] = (uint8_t)(htonl(local_ip) >> 24);
+    payload[4] = (uint8_t)(htonl(local_ip) >> 16);
+    payload[5] = (uint8_t)(htonl(local_ip) >> 8);
+    payload[6] = (uint8_t)(htonl(local_ip) & 0xFF);
     payload[7] = (uint8_t)(local_port >> 8);
     payload[8] = (uint8_t)(local_port & 0xFF);
 
@@ -792,10 +792,10 @@ static void handle_list_clients(const ubcp_frame_t *req)
 
             entries[entry_offset + 0] = (uint8_t)(c->conn_handle >> 8);
             entries[entry_offset + 1] = (uint8_t)(c->conn_handle & 0xFF);
-            entries[entry_offset + 2] = (uint8_t)(c->remote_ip >> 24);
-            entries[entry_offset + 3] = (uint8_t)(c->remote_ip >> 16);
-            entries[entry_offset + 4] = (uint8_t)(c->remote_ip >> 8);
-            entries[entry_offset + 5] = (uint8_t)(c->remote_ip & 0xFF);
+            entries[entry_offset + 2] = (uint8_t)(htonl(c->remote_ip) >> 24);
+            entries[entry_offset + 3] = (uint8_t)(htonl(c->remote_ip) >> 16);
+            entries[entry_offset + 4] = (uint8_t)(htonl(c->remote_ip) >> 8);
+            entries[entry_offset + 5] = (uint8_t)(htonl(c->remote_ip) & 0xFF);
             entries[entry_offset + 6] = (uint8_t)(c->remote_port >> 8);
             entries[entry_offset + 7] = (uint8_t)(c->remote_port & 0xFF);
             entries[entry_offset + 8] = (uint8_t)(up_time >> 8);
@@ -892,10 +892,10 @@ static void handle_conn_status(const ubcp_frame_t *req)
     payload[7]  = (uint8_t)(conn->rx_bytes >> 16);
     payload[8]  = (uint8_t)(conn->rx_bytes >> 8);
     payload[9]  = (uint8_t)(conn->rx_bytes & 0xFF);
-    payload[10] = (uint8_t)(conn->remote_ip >> 24);
-    payload[11] = (uint8_t)(conn->remote_ip >> 16);
-    payload[12] = (uint8_t)(conn->remote_ip >> 8);
-    payload[13] = (uint8_t)(conn->remote_ip & 0xFF);
+    payload[10] = (uint8_t)(htonl(conn->remote_ip) >> 24);
+    payload[11] = (uint8_t)(htonl(conn->remote_ip) >> 16);
+    payload[12] = (uint8_t)(htonl(conn->remote_ip) >> 8);
+    payload[13] = (uint8_t)(htonl(conn->remote_ip) & 0xFF);
     payload[14] = (uint8_t)(conn->remote_port >> 8);
     payload[15] = (uint8_t)(conn->remote_port & 0xFF);
     payload[16] = (uint8_t)(conn->local_port >> 8);

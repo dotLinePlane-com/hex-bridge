@@ -1,5 +1,6 @@
 {
   "netCenterViewOpen": "true",
   "netSplit1Mode": "发送",
-  "netSingleActiveTab": "send"
+  "netSingleActiveTab": "send",
+  "netActiveConn1": "ws-final2"
 }

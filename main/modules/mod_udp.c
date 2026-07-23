@@ -42,12 +42,12 @@ static SemaphoreHandle_t s_mutex = NULL;
 static TaskHandle_t s_select_task = NULL;
 static volatile bool s_task_running = false;
 
-static uint16_t s_next_handle = 0x0001;
+static uint16_t s_next_handle = 0x3000;
 
 static uint16_t alloc_handle(void)
 {
     uint16_t h = s_next_handle++;
-    if (s_next_handle >= 0x8000) s_next_handle = 0x0001;
+    if (s_next_handle > 0x3FFF) s_next_handle = 0x3000;
     return h;
 }
 
@@ -151,10 +151,10 @@ static void udp_event_task(void *arg)
                 if (evt_payload) {
                     evt_payload[0] = (uint8_t)(s_servers[i].handle >> 8);
                     evt_payload[1] = (uint8_t)(s_servers[i].handle & 0xFF);
-                    evt_payload[2] = (uint8_t)(src_addr.sin_addr.s_addr >> 24);
-                    evt_payload[3] = (uint8_t)(src_addr.sin_addr.s_addr >> 16);
-                    evt_payload[4] = (uint8_t)(src_addr.sin_addr.s_addr >> 8);
-                    evt_payload[5] = (uint8_t)(src_addr.sin_addr.s_addr & 0xFF);
+                    evt_payload[2] = (uint8_t)(htonl(src_addr.sin_addr.s_addr) >> 24);
+                    evt_payload[3] = (uint8_t)(htonl(src_addr.sin_addr.s_addr) >> 16);
+                    evt_payload[4] = (uint8_t)(htonl(src_addr.sin_addr.s_addr) >> 8);
+                    evt_payload[5] = (uint8_t)(htonl(src_addr.sin_addr.s_addr) & 0xFF);
                     evt_payload[6] = (uint8_t)(ntohs(src_addr.sin_port) >> 8);
                     evt_payload[7] = (uint8_t)(ntohs(src_addr.sin_port) & 0xFF);
                     evt_payload[8] = (uint8_t)(recv_len >> 8);
@@ -185,10 +185,10 @@ static void udp_event_task(void *arg)
                 if (evt_payload) {
                     evt_payload[0] = (uint8_t)(s_clients[i].handle >> 8);
                     evt_payload[1] = (uint8_t)(s_clients[i].handle & 0xFF);
-                    evt_payload[2] = (uint8_t)(src_addr.sin_addr.s_addr >> 24);
-                    evt_payload[3] = (uint8_t)(src_addr.sin_addr.s_addr >> 16);
-                    evt_payload[4] = (uint8_t)(src_addr.sin_addr.s_addr >> 8);
-                    evt_payload[5] = (uint8_t)(src_addr.sin_addr.s_addr & 0xFF);
+                    evt_payload[2] = (uint8_t)(htonl(src_addr.sin_addr.s_addr) >> 24);
+                    evt_payload[3] = (uint8_t)(htonl(src_addr.sin_addr.s_addr) >> 16);
+                    evt_payload[4] = (uint8_t)(htonl(src_addr.sin_addr.s_addr) >> 8);
+                    evt_payload[5] = (uint8_t)(htonl(src_addr.sin_addr.s_addr) & 0xFF);
                     evt_payload[6] = (uint8_t)(ntohs(src_addr.sin_port) >> 8);
                     evt_payload[7] = (uint8_t)(ntohs(src_addr.sin_port) & 0xFF);
                     evt_payload[8] = (uint8_t)(recv_len >> 8);
@@ -221,8 +221,8 @@ static void handle_server_open(const ubcp_frame_t *req)
 
     uint16_t port       = ((uint16_t)req->payload[0] << 8) | req->payload[1];
     uint8_t  broadcast  = req->payload[2];
-    uint32_t multicast  = ((uint32_t)req->payload[3] << 24) | ((uint32_t)req->payload[4] << 16) |
-                          ((uint32_t)req->payload[5] << 8)  |  (uint32_t)req->payload[6];
+    uint32_t multicast  = ntohl(((uint32_t)req->payload[3] << 24) | ((uint32_t)req->payload[4] << 16) |
+                          ((uint32_t)req->payload[5] << 8)  |  (uint32_t)req->payload[6]);
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
     udp_server_t *svr = NULL;
@@ -337,8 +337,8 @@ static void handle_client_create(const ubcp_frame_t *req)
         return;
     }
 
-    uint32_t dest_ip   = ((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
-                         ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3];
+    uint32_t dest_ip   = ntohl(((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
+                         ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3]);
     uint16_t dest_port = ((uint16_t)req->payload[4] << 8) | req->payload[5];
     uint16_t local_port = ((uint16_t)req->payload[6] << 8) | req->payload[7];
 
@@ -445,8 +445,8 @@ static void handle_server_send(const ubcp_frame_t *req)
     }
 
     uint16_t handle   = ((uint16_t)req->payload[0] << 8) | req->payload[1];
-    uint32_t dest_ip  = ((uint32_t)req->payload[2] << 24) | ((uint32_t)req->payload[3] << 16) |
-                        ((uint32_t)req->payload[4] << 8)  |  (uint32_t)req->payload[5];
+    uint32_t dest_ip  = ntohl(((uint32_t)req->payload[2] << 24) | ((uint32_t)req->payload[3] << 16) |
+                        ((uint32_t)req->payload[4] << 8)  |  (uint32_t)req->payload[5]);
     uint16_t dest_port = ((uint16_t)req->payload[6] << 8) | req->payload[7];
     uint16_t data_len  = ((uint16_t)req->payload[8] << 8) | req->payload[9];
 
@@ -540,8 +540,8 @@ static void handle_client_send(const ubcp_frame_t *req)
             msg_bus_send_status_response(req, UBCP_ERR_PARAM);
             return;
         }
-        dest_ip   = ((uint32_t)req->payload[3] << 24) | ((uint32_t)req->payload[4] << 16) |
-                    ((uint32_t)req->payload[5] << 8)  |  (uint32_t)req->payload[6];
+        dest_ip   = ntohl(((uint32_t)req->payload[3] << 24) | ((uint32_t)req->payload[4] << 16) |
+                    ((uint32_t)req->payload[5] << 8)  |  (uint32_t)req->payload[6]);
         dest_port = ((uint16_t)req->payload[7] << 8) | req->payload[8];
         data_len  = ((uint16_t)req->payload[9] << 8) | req->payload[10];
         data_offset = 11;

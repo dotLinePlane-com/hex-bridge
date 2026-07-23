@@ -51,20 +51,20 @@ static SemaphoreHandle_t s_mutex = NULL;
 static TaskHandle_t s_ws_task = NULL;
 static volatile bool s_task_running = false;
 
-static uint16_t s_next_server_handle = 0x0001;
-static uint16_t s_next_conn_handle   = 0x8001;
+static uint16_t s_next_server_handle = 0x2000;
+static uint16_t s_next_conn_handle   = 0xA000;
 
 static uint16_t alloc_server_handle(void)
 {
     uint16_t h = s_next_server_handle++;
-    if (s_next_server_handle >= 0x8000) s_next_server_handle = 0x0001;
+    if (s_next_server_handle > 0x2FFF) s_next_server_handle = 0x2000;
     return h;
 }
 
 static uint16_t alloc_conn_handle(void)
 {
     uint16_t h = s_next_conn_handle++;
-    if (s_next_conn_handle >= 0xFFFE) s_next_conn_handle = 0x8001;
+    if (s_next_conn_handle > 0xAFFF) s_next_conn_handle = 0xA000;
     return h;
 }
 
@@ -563,10 +563,10 @@ static void ws_event_task(void *arg)
                 evt_payload[1]  = (uint8_t)(s_servers[i].server_handle & 0xFF);
                 evt_payload[2]  = (uint8_t)(conn->conn_handle >> 8);
                 evt_payload[3]  = (uint8_t)(conn->conn_handle & 0xFF);
-                evt_payload[4]  = (uint8_t)(conn->client_ip >> 24);
-                evt_payload[5]  = (uint8_t)(conn->client_ip >> 16);
-                evt_payload[6]  = (uint8_t)(conn->client_ip >> 8);
-                evt_payload[7]  = (uint8_t)(conn->client_ip & 0xFF);
+                evt_payload[4]  = (uint8_t)(htonl(conn->client_ip) >> 24);
+                evt_payload[5]  = (uint8_t)(htonl(conn->client_ip) >> 16);
+                evt_payload[6]  = (uint8_t)(htonl(conn->client_ip) >> 8);
+                evt_payload[7]  = (uint8_t)(htonl(conn->client_ip) & 0xFF);
                 evt_payload[8]  = (uint8_t)(conn->client_port >> 8);
                 evt_payload[9]  = (uint8_t)(conn->client_port & 0xFF);
                 evt_payload[10] = subproto;
@@ -798,8 +798,8 @@ static void handle_client_connect(const ubcp_frame_t *req)
         return;
     }
 
-    uint32_t ip   = ((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
-                    ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3];
+    uint32_t ip   = ntohl(((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
+                    ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3]);
     uint16_t port = ((uint16_t)req->payload[4] << 8) | req->payload[5];
     uint8_t  path_len = req->payload[6];
 
@@ -1023,10 +1023,10 @@ static void handle_list_clients(const ubcp_frame_t *req)
 
             entries[entry_offset + 0]  = (uint8_t)(c->conn_handle >> 8);
             entries[entry_offset + 1]  = (uint8_t)(c->conn_handle & 0xFF);
-            entries[entry_offset + 2]  = (uint8_t)(c->client_ip >> 24);
-            entries[entry_offset + 3]  = (uint8_t)(c->client_ip >> 16);
-            entries[entry_offset + 4]  = (uint8_t)(c->client_ip >> 8);
-            entries[entry_offset + 5]  = (uint8_t)(c->client_ip & 0xFF);
+            entries[entry_offset + 2]  = (uint8_t)(htonl(c->client_ip) >> 24);
+            entries[entry_offset + 3]  = (uint8_t)(htonl(c->client_ip) >> 16);
+            entries[entry_offset + 4]  = (uint8_t)(htonl(c->client_ip) >> 8);
+            entries[entry_offset + 5]  = (uint8_t)(htonl(c->client_ip) & 0xFF);
             entries[entry_offset + 6]  = (uint8_t)(c->client_port >> 8);
             entries[entry_offset + 7]  = (uint8_t)(c->client_port & 0xFF);
             entries[entry_offset + 8]  = c->subproto_index;
