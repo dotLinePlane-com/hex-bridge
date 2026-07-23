@@ -55,6 +55,22 @@ class MCPTransport:
                 return frame
         return None
 
+    def recv_response(self, cmd_code=None, seq_num=None, timeout=2.0):
+        """Receive next response frame (DIR=true,EVT=false) matching filters."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            frame = self.recv_frame(timeout=0.5)
+            if frame is None:
+                continue
+            if not frame.is_response or frame.is_event:
+                continue
+            if cmd_code is not None and frame.cmd_code != cmd_code:
+                continue
+            if seq_num is not None and frame.seq_num != seq_num:
+                continue
+            return frame
+        return None
+
     def recv_event(self, cmd_code=None, timeout=2.0):
         """Receive next event frame (optional filter by cmd_code)."""
         deadline = time.time() + timeout

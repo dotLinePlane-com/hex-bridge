@@ -88,13 +88,13 @@ python script/test/test_uart.py --com24 COM24 --ext-baud 115200
 
 ## 测试分类
 
-| 文档 | 范围 | 用例数 |
-|:---|:---|:---|
-| [01-System-Tests.md](01-System-Tests.md) | 系统管理 (PING, GET_INFO, GET/SET_CONFIG, RESET, FLOW_CONTROL, SYS_BOOT_EVENT) | 9 |
-| [02-UART-Tests.md](02-UART-Tests.md) | UART 扩展模块 (0xA0-0xAF) 全部 8 命令 + 流控 | 57 |
-| [03-Protocol-Tests.md](03-Protocol-Tests.md) | 帧协议层 (转义/CRC/边界) | 8 |
-| [04-UART-MCP-Tests.md](04-UART-MCP-Tests.md) | MCP Serial Monitor 分屏通信 (hex-bridge 透明桥接) | 12 |
-| [09-Network-Tests.md](09-Network-Tests.md) | 以太网（LAN8720）+ TCP/UDP/WebSocket 模块 | 67 |
+| 文档 | 范围 | 用例数 | 状态 |
+|:---|:---|:---|:---|
+| [01-System-Tests.md](01-System-Tests.md) | 系统管理 (PING, GET_INFO, GET/SET_CONFIG, RESET, FLOW_CONTROL, SYS_BOOT_EVENT) | 9 | ✅ 已实现 |
+| [02-UART-Tests.md](02-UART-Tests.md) | UART 扩展模块 (0xA0-0xAF) 全部 8 命令 + 流控 | 57 | ✅ 57/57 PASS |
+| [03-Protocol-Tests.md](03-Protocol-Tests.md) | 帧协议层 (转义/CRC/边界) | 8 | 待验证 |
+| [04-UART-MCP-Tests.md](04-UART-MCP-Tests.md) | MCP Serial Monitor 分屏通信 (hex-bridge 透明桥接) | 12 | 待验证 |
+| [09-Network-Tests.md](09-Network-Tests.md) | 以太网（LAN8720）+ TCP/UDP/WebSocket 模块 | 80 | ✅ 70/70 PASS (auto) |
 
 ## 帧构建约定
 

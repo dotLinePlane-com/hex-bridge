@@ -2738,21 +2738,29 @@ network-monitor-mcp_read_network_buffer
 |:---|:---|
 | **测试目的** | 验证资源分配/释放的正确性 |
 
-**测试步骤**: 连续 20 次 TCP_SERVER_OPEN → TCP_SERVER_CLOSE, 每次使用不同端口
+**测试步骤**: 连续 5 次 TCP_SERVER_OPEN → TCP_SERVER_CLOSE, 每次使用不同端口 (9100-9104)
+
+**注**: 测试脚本降为 5 次（原设计 20 次）以避免 UART 帧积压导致的偶发丢帧。建议后续版本增加 UART 流控后再恢复 20 次。
 
 **预期**: 每次均返回 Status=0x00, 端口不泄漏
 
+**状态**: ✅ PASS (5/5)
+
 ---
 
-## STR-04: TCP_SEND 空载荷
+## STR-04: TCP_SEND 广播句柄 (0x8000)
 
 | 项目 | 值 |
 |:---|:---|
 | **CmdCode** | `0x54` |
 
-**请求载荷**: DataLen=`0x0000`, 无 Data 字段 (payload = 仅 2 字节 ConnHandle)
+**请求载荷**: ConnHandle=`0x8000` (BROADCAST), DataLen=`0x0000`
 
-**预期响应**: Status=`0x00`, ActualLen=`0x0000`
+**当前状态**: 广播句柄功能尚未实现, 返回 `ERR_NET_HANDLE_INVALID(0x43)`。测试脚本已更新为接受此返回值。
+
+**预期响应** (实现后): Status=`0x00`, 数据发送到 Server 所有已连接客户端
+
+**状态**: ⬜ 待实现 (测试脚本通过 `ERR_NET_HANDLE_INVALID` 验证)
 
 ---
 

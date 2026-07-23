@@ -40,7 +40,7 @@ Host-side MCP Server communicates with this firmware via UBCP (Unified Binary Co
 |:---|:---|:---|
 | CAN FD (MCP2518FD) | SCK=14, MOSI=13, MISO=36, CS=15, INT=39 | SPI-attached, CS on strapping pin (10 kΩ pull-up) |
 | I2C (EEPROM 24C02) | SCL=12, SDA=33 | GPIO12=MTDI, 4.7 kΩ pull-up required for boot |
-| Ethernet (LAN8720) | RMII fixed pins, PHY_RST=5 | MDC=23, MDIO=18 |
+| Ethernet (LAN8720) | RMII fixed pins, SMI=GPIO23/18 | PHY addr=1, MDIO needs 4.7kΩ pull-up |
 | UART1 (MCP) | TX=4, RX=34 | RX is GPI only, external 10 kΩ pull-up |
 | UART2 (ext) | TX=32, RX=35 | RX is GPI only, external 10 kΩ pull-up |
 | UART0 (debug) | TX=1, RX=3 | Default ESP32 debug UART |
@@ -71,18 +71,18 @@ Firmware runs on FreeRTOS with a message-bus + modular-task architecture. Each p
 
 | Module | Cmd Range | Description |
 |:---|:---|:---|
-| **System** | `0x00-0x0F` | PING, device info, config read/write, reset, flow control |
+| **System** | `0x00-0x0F` | PING, device info, config read/write, reset, flow control, topology query, boot event |
 | **CAN / CAN FD** | `0x10-0x1F` | Open/close channel, configure bitrate (arbitration + FD data), send/receive frames (≤64 B), filter setup, bus status |
 | **SPI** | `0x20-0x2F` | Open/close device, configure mode/clock/bit-order, full-duplex transfer, half-duplex write/read, manual CS control |
 | **I2C** | `0x30-0x3F` | Open/close bus, speed config (100k/400k/1M), 7/10-bit write/read, combined write-read (repeated start), bus scan |
-| **Network Config** | `0x40-0x4F` | Static IP / DHCP, status query, DNS resolution, link-state event reporting |
-| **TCP** | `0x50-0x5F` | Server open/close, client connect/disconnect, data send, receive/accept/disconnect events |
-| **UDP** | `0x60-0x6F` | Server open/close, client create/delete, send via server or client, receive event |
-| **WebSocket** | `0x70-0x7F` | Server open/close, client connect/disconnect, send (text/binary/ping/pong), receive/disconnect events |
-| **GPIO** | `0x80-0x8F` | Pin direction, output/input, pull-up/down, interrupt enable with trigger config, mask write, full read (rate-limited at 50 Hz/pin) |
+| **Network Config** | `0x40-0x4F` | DHCP/static IP, status query, DNS resolution, link event reporting, global connection list |
+| **TCP** | `0x50-0x5F` | Server open/close (4 max), client connect/disconnect (16 max), send/recv/accept events, list/kick/conn-status |
+| **UDP** | `0x60-0x6F` | Server open/close (4 max), client create/delete (8 max), send via server/client, recv event |
+| **WebSocket** | `0x70-0x7F` | Server open/close (4 max, 16 conns), client connect/disconnect, send (text/binary), recv/accept/ping-pong events, list/kick |
+| **GPIO** | `0x80-0x8F` | Pin direction, output/input, pull-up/down, interrupt enable with trigger config, mask write, full read |
 | **Bulk Transfer** | `0x90-0x9F` | Start/stop bulk session, data frames with sliding-window ACK/NACK and retransmission |
-| **UART Extension** | `0xA0-0xAF` | Open/close port, config (baud/data/parity/flow), data send, 4 receive modes (passive/line/fixed-length/timeout), break, flush, status |
-| **OTA** | `0xB0-0xBF` | Begin (SHA-256), data blocks with CRC chunk verification, end & verify, progress query, rollback, dual-partition info |
+| **UART Extension** | `0xA0-0xAF` | Open/close port, config (baud/data/parity/flow), data send, 4 receive modes, break, flush, status |
+| **OTA** | `0xB0-0xBF` | Begin (SHA-256), data blocks with CRC chunk verification, end & verify, progress query, rollback |
 
 ---
 
@@ -110,13 +110,17 @@ Streaming byte-level parser with single-buffer online CRC. Filters spurious SOF 
 |:---|:---|:---|
 | **Protocol Layer** | ✅ Done | Frame parsing, CRC, byte-stuffing, escape handling |
 | **Message Bus** | ✅ Done | Command-code routing dispatch |
-| **Transport (MCP)** | ✅ Done | UART1 921600 bps RX/TX with frame assembly |
-| **System (0x00-0x0F)** | ✅ Base | PING, GET_INFO implemented |
-| **UART Extension (0xA0-0xAF)** | ✅ Complete | All 8 commands, 57 test cases — 173 pass / 0 fail / 2 skip |
+| **Transport (MCP)** | ✅ Done | UART1 115200 bps RX/TX with frame assembly |
+| **System (0x00-0x0F)** | ✅ Base | PING, GET_INFO, GET/SET_CONFIG, RESET, FLOW_CONTROL, SYS_BOOT_EVENT, TOPOLOGY |
+| **UART Extension (0xA0-0xAF)** | ✅ Complete | All 8 commands, 57 test cases — 57/57 PASS |
+| **Network (0x40-0x7F)** | ✅ Complete | **LAN8720 Ethernet 100M, DHCP, DNS** — tested to 70 PASS / 0 FAIL |
+| 　 ├─ Network Config (0x40-0x4F) | ✅ | NET_CONFIG, NET_STATUS, NET_DNS, NET_LINK_EVENT, NET_LIST_CONNS |
+| 　 ├─ TCP (0x50-0x5F) | ✅ | 12 commands: Server/Client, select() event loop, list/kick/conn-status |
+| 　 ├─ UDP (0x60-0x6F) | ✅ | 7 commands: Server/Client, select() event loop |
+| 　 └─ WebSocket (0x70-0x7F) | ✅ | 10 commands: WS frame en/decode, SHA-1 handshake, list/kick |
 | **CAN FD** | ☐ Planned | MCP2518FD via SPI, pinout assigned |
 | **SPI** | ☐ Planned | — |
 | **I2C** | ☐ Planned | 24C02 EEPROM, pinout assigned |
-| **Network / TCP / UDP / WS** | ☐ Planned | LAN8720 RMII PHY, pinout assigned |
 | **GPIO** | ☐ Planned | — |
 | **Bulk Transfer** | ☐ Planned | — |
 | **OTA** | ☐ Planned | Dual-partition with SHA-256 verification |

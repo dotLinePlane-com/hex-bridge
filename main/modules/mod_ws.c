@@ -1004,6 +1004,12 @@ static void handle_list_clients(const ubcp_frame_t *req)
     uint16_t server_handle = ((uint16_t)req->payload[0] << 8) | req->payload[1];
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
+    if (!find_server_by_handle(server_handle)) {
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
+        return;
+    }
+
     int count = 0;
     uint8_t entries[WS_MAX_CONNS * 12];
     uint16_t entry_offset = 0;
