@@ -4,9 +4,14 @@ idf_component_register(
         "protocol/ubcp_frame.c"
         "core/msg_bus.c"
         "core/topology.c"
+        "core/eth_init.c"
         "transport/mcp_transport.c"
         "modules/mod_system.c"
         "modules/mod_uart.c"
+        "modules/mod_network.c"
+        "modules/mod_tcp.c"
+        "modules/mod_udp.c"
+        "modules/mod_ws.c"
     INCLUDE_DIRS
         "."
     PRIV_REQUIRES
@@ -14,6 +19,8 @@ idf_component_register(
         esp_driver_gpio
         esp_driver_uart
         esp_timer
+        esp_netif
+        esp_eth
         nvs_flash
         spi_flash
         esp_psram
