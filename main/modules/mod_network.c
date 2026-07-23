@@ -52,13 +52,14 @@ void mod_network_register_conn_provider(const char *name, void (*iterate)(net_co
 /* ── Internal helpers ── */
 static void send_link_event(uint8_t event_type, uint32_t ip)
 {
+    uint32_t nip = htonl(ip);
     uint8_t payload[6];
-    payload[0] = 0x00;           /* IntfIndex (ETH0) */
+    payload[0] = 0x00;
     payload[1] = event_type;
-    payload[2] = (uint8_t)(ip >> 24);
-    payload[3] = (uint8_t)(ip >> 16);
-    payload[4] = (uint8_t)(ip >> 8);
-    payload[5] = (uint8_t)(ip & 0xFF);
+    payload[2] = (uint8_t)(nip >> 24);
+    payload[3] = (uint8_t)(nip >> 16);
+    payload[4] = (uint8_t)(nip >> 8);
+    payload[5] = (uint8_t)(nip & 0xFF);
 
     ubcp_frame_t evt;
     memset(&evt, 0, sizeof(evt));
@@ -194,14 +195,14 @@ static void handle_net_config(const ubcp_frame_t *req)
             return;
         }
 
-        uint32_t ip   = ((uint32_t)req->payload[2]  << 24) | ((uint32_t)req->payload[3]  << 16) |
-                        ((uint32_t)req->payload[4]  << 8)  |  (uint32_t)req->payload[5];
-        uint32_t mask = ((uint32_t)req->payload[6]  << 24) | ((uint32_t)req->payload[7]  << 16) |
-                        ((uint32_t)req->payload[8]  << 8)  |  (uint32_t)req->payload[9];
-        uint32_t gw   = ((uint32_t)req->payload[10] << 24) | ((uint32_t)req->payload[11] << 16) |
-                        ((uint32_t)req->payload[12] << 8)  |  (uint32_t)req->payload[13];
-        uint32_t dns1 = ((uint32_t)req->payload[14] << 24) | ((uint32_t)req->payload[15] << 16) |
-                        ((uint32_t)req->payload[16] << 8)  |  (uint32_t)req->payload[17];
+        uint32_t ip   = ntohl(((uint32_t)req->payload[2]  << 24) | ((uint32_t)req->payload[3]  << 16) |
+                                ((uint32_t)req->payload[4]  << 8)  |  (uint32_t)req->payload[5]);
+        uint32_t mask = ntohl(((uint32_t)req->payload[6]  << 24) | ((uint32_t)req->payload[7]  << 16) |
+                                ((uint32_t)req->payload[8]  << 8)  |  (uint32_t)req->payload[9]);
+        uint32_t gw   = ntohl(((uint32_t)req->payload[10] << 24) | ((uint32_t)req->payload[11] << 16) |
+                                ((uint32_t)req->payload[12] << 8)  |  (uint32_t)req->payload[13]);
+        uint32_t dns1 = ntohl(((uint32_t)req->payload[14] << 24) | ((uint32_t)req->payload[15] << 16) |
+                                ((uint32_t)req->payload[16] << 8)  |  (uint32_t)req->payload[17]);
 
         esp_netif_ip_info_t ip_info;
         ip_info.ip.addr      = ip;
@@ -244,22 +245,22 @@ static void handle_net_config(const ubcp_frame_t *req)
     xSemaphoreGive(s_state_mutex);
 
     payload[0] = UBCP_ERR_SUCCESS;
-    payload[1]  = (uint8_t)(cur_ip >> 24);
-    payload[2]  = (uint8_t)(cur_ip >> 16);
-    payload[3]  = (uint8_t)(cur_ip >> 8);
-    payload[4]  = (uint8_t)(cur_ip & 0xFF);
-    payload[5]  = (uint8_t)(cur_mask >> 24);
-    payload[6]  = (uint8_t)(cur_mask >> 16);
-    payload[7]  = (uint8_t)(cur_mask >> 8);
-    payload[8]  = (uint8_t)(cur_mask & 0xFF);
-    payload[9]  = (uint8_t)(cur_gw >> 24);
-    payload[10] = (uint8_t)(cur_gw >> 16);
-    payload[11] = (uint8_t)(cur_gw >> 8);
-    payload[12] = (uint8_t)(cur_gw & 0xFF);
-    payload[13] = (uint8_t)(cur_dns >> 24);
-    payload[14] = (uint8_t)(cur_dns >> 16);
-    payload[15] = (uint8_t)(cur_dns >> 8);
-    payload[16] = (uint8_t)(cur_dns & 0xFF);
+    payload[1]  = (uint8_t)(htonl(cur_ip) >> 24);
+    payload[2]  = (uint8_t)(htonl(cur_ip) >> 16);
+    payload[3]  = (uint8_t)(htonl(cur_ip) >> 8);
+    payload[4]  = (uint8_t)(htonl(cur_ip) & 0xFF);
+    payload[5]  = (uint8_t)(htonl(cur_mask) >> 24);
+    payload[6]  = (uint8_t)(htonl(cur_mask) >> 16);
+    payload[7]  = (uint8_t)(htonl(cur_mask) >> 8);
+    payload[8]  = (uint8_t)(htonl(cur_mask) & 0xFF);
+    payload[9]  = (uint8_t)(htonl(cur_gw) >> 24);
+    payload[10] = (uint8_t)(htonl(cur_gw) >> 16);
+    payload[11] = (uint8_t)(htonl(cur_gw) >> 8);
+    payload[12] = (uint8_t)(htonl(cur_gw) & 0xFF);
+    payload[13] = (uint8_t)(htonl(cur_dns) >> 24);
+    payload[14] = (uint8_t)(htonl(cur_dns) >> 16);
+    payload[15] = (uint8_t)(htonl(cur_dns) >> 8);
+    payload[16] = (uint8_t)(htonl(cur_dns) & 0xFF);
 
     ubcp_frame_t resp;
     ubcp_frame_make_response(req, &resp);
@@ -293,14 +294,14 @@ static void handle_net_status(const ubcp_frame_t *req)
     payload[2]  = 0x00;  /* IntfIndex: ETH0 */
     payload[3]  = link;
     payload[4]  = conn;
-    payload[5]  = (uint8_t)(ip >> 24);
-    payload[6]  = (uint8_t)(ip >> 16);
-    payload[7]  = (uint8_t)(ip >> 8);
-    payload[8]  = (uint8_t)(ip & 0xFF);
-    payload[9]  = (uint8_t)(mask >> 24);
-    payload[10] = (uint8_t)(mask >> 16);
-    payload[11] = (uint8_t)(mask >> 8);
-    payload[12] = (uint8_t)(mask & 0xFF);
+    payload[5]  = (uint8_t)(htonl(ip) >> 24);
+    payload[6]  = (uint8_t)(htonl(ip) >> 16);
+    payload[7]  = (uint8_t)(htonl(ip) >> 8);
+    payload[8]  = (uint8_t)(htonl(ip) & 0xFF);
+    payload[9]  = (uint8_t)(htonl(mask) >> 24);
+    payload[10] = (uint8_t)(htonl(mask) >> 16);
+    payload[11] = (uint8_t)(htonl(mask) >> 8);
+    payload[12] = (uint8_t)(htonl(mask) & 0xFF);
     memcpy(&payload[13], mac, 6);
 
     ubcp_frame_t resp;
@@ -381,10 +382,10 @@ static void handle_net_dns(const ubcp_frame_t *req)
         return;
     }
 
-    uint32_t ip_addr = ctx.resolved_ip.u_addr.ip4.addr;
+    uint32_t ip_addr = htonl(ctx.resolved_ip.u_addr.ip4.addr);
     uint8_t payload[2 + 4];
     payload[0] = UBCP_ERR_SUCCESS;
-    payload[1] = 1;  /* AddrCount */
+    payload[1] = 1;
     payload[2] = (uint8_t)(ip_addr >> 24);
     payload[3] = (uint8_t)(ip_addr >> 16);
     payload[4] = (uint8_t)(ip_addr >> 8);
@@ -419,10 +420,10 @@ static void list_conns_collect_cb(const net_conn_entry_t *entry, void *ctx)
     lc->buf[lc->offset + 4] = (uint8_t)(entry->parent_handle & 0xFF);
     lc->buf[lc->offset + 5] = (uint8_t)(entry->local_port >> 8);
     lc->buf[lc->offset + 6] = (uint8_t)(entry->local_port & 0xFF);
-    lc->buf[lc->offset + 7] = (uint8_t)(entry->remote_ip >> 24);
-    lc->buf[lc->offset + 8] = (uint8_t)(entry->remote_ip >> 16);
-    lc->buf[lc->offset + 9] = (uint8_t)(entry->remote_ip >> 8);
-    lc->buf[lc->offset + 10]= (uint8_t)(entry->remote_ip & 0xFF);
+    lc->buf[lc->offset + 7] = (uint8_t)(htonl(entry->remote_ip) >> 24);
+    lc->buf[lc->offset + 8] = (uint8_t)(htonl(entry->remote_ip) >> 16);
+    lc->buf[lc->offset + 9] = (uint8_t)(htonl(entry->remote_ip) >> 8);
+    lc->buf[lc->offset + 10]= (uint8_t)(htonl(entry->remote_ip) & 0xFF);
     lc->offset += 10;
     lc->count++;
 }
