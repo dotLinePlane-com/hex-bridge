@@ -2,5 +2,5 @@
   "netCenterViewOpen": "true",
   "netSplit1Mode": "发送",
   "netSingleActiveTab": "send",
-  "netActiveConn1": "ws-final2"
+  "netActiveConn1": "tcp-cli-srv"
 }
