@@ -2,7 +2,7 @@
   "centerViewOpen": "true",
   "split1Mode": "发送",
   "singleActiveTab": "graphic",
-  "activePort1": "COM_HEXBRIDGE:COM35:CH1",
+  "activePort1": "COM34",
   "terminalCount": "0",
   "terminalVisualOrder": "[]",
   "terminalLayoutSnapshot": "{\"orientation\":0,\"groups\":[{\"size\":1912}]}",

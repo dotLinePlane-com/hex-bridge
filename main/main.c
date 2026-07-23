@@ -26,6 +26,10 @@
 #include "transport/mcp_transport.h"
 #include "modules/mod_system.h"
 #include "modules/mod_uart.h"
+#include "modules/mod_network.h"
+#include "modules/mod_tcp.h"
+#include "modules/mod_udp.h"
+#include "modules/mod_ws.h"
 
 static const char *TAG = "main";
 
@@ -55,18 +59,19 @@ void app_main(void)
     /* ── 3. 注册功能模块 ── */
     ESP_ERROR_CHECK(msg_bus_register_module(mod_system_get()));
     ESP_ERROR_CHECK(msg_bus_register_module(mod_uart_get()));
-    /* TODO: 未来在此处注册更多模块
-     * ESP_ERROR_CHECK(msg_bus_register_module(mod_can_get()));
-     * ESP_ERROR_CHECK(msg_bus_register_module(mod_spi_get()));
-     * ESP_ERROR_CHECK(msg_bus_register_module(mod_i2c_get()));
-     * ESP_ERROR_CHECK(msg_bus_register_module(mod_network_get()));
-     * ESP_ERROR_CHECK(msg_bus_register_module(mod_gpio_get()));
-     */
+    ESP_ERROR_CHECK(msg_bus_register_module(mod_network_get()));
+    ESP_ERROR_CHECK(msg_bus_register_module(mod_tcp_get()));
+    ESP_ERROR_CHECK(msg_bus_register_module(mod_udp_get()));
+    ESP_ERROR_CHECK(msg_bus_register_module(mod_ws_get()));
 
     /* ── 4. 初始化各功能模块 ── */
     const hex_module_t *modules[] = {
         mod_system_get(),
         mod_uart_get(),
+        mod_network_get(),
+        mod_tcp_get(),
+        mod_udp_get(),
+        mod_ws_get(),
     };
     for (int i = 0; i < sizeof(modules) / sizeof(modules[0]); i++) {
         if (modules[i]->init) {

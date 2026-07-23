@@ -187,8 +187,8 @@
 #define UBCP_CMD_UDP_CLIENT_CREATE  0x62
 #define UBCP_CMD_UDP_CLIENT_DELETE  0x63
 #define UBCP_CMD_UDP_SERVER_SEND    0x64
-#define UBCP_CMD_UDP_CLIENT_SEND    0x65
-#define UBCP_CMD_UDP_RECV           0x66
+#define UBCP_CMD_UDP_RECV           0x65
+#define UBCP_CMD_UDP_CLIENT_SEND    0x66
 
 /* ========================================================================
  * 命令码定义 — WebSocket (0x70-0x7F)
@@ -313,6 +313,22 @@
 #define UBCP_ERR_UART_OVERFLOW      0xA2
 #define UBCP_ERR_UART_BAUD          0xA3
 #define UBCP_ERR_UART_BREAK         0xA4
+
+/* ========================================================================
+ * 网络错误码 (0x40-0x4F)
+ * ======================================================================== */
+
+#define UBCP_ERR_NET_DISCONNECTED   0x40
+#define UBCP_ERR_NET_CONN_REFUSED   0x41
+#define UBCP_ERR_NET_TIMEOUT        0x42
+#define UBCP_ERR_NET_HANDLE_INVALID 0x43
+#define UBCP_ERR_NET_BUFFER_FULL    0x44
+#define UBCP_ERR_NET_PORT_IN_USE    0x45
+#define UBCP_ERR_NET_DNS_FAIL       0x46
+#define UBCP_ERR_NET_NO_IP          0x47
+#define UBCP_ERR_NET_MAX_CONN       0x48
+#define UBCP_ERR_NET_WS_HANDSHAKE   0x49
+#define UBCP_ERR_NET_WS_PROTOCOL    0x4A
 
 /* ========================================================================
  * Capabilities 位图 (GET_INFO 响应)
