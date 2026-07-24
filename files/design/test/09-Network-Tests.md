@@ -1627,6 +1627,7 @@ network-monitor-mcp_read_network_buffer
 | 2 | Method | `0x00` (正常 FIN) |
 
 **预期响应**: Status=`0x00`
+- 发送 TCP_DISCONNECT_EVENT(Reason=0x00 正常关闭)
 
 **验证 (辅助 PC)**: `nc` Server 显示客户端断开
 
@@ -1639,6 +1640,8 @@ network-monitor-mcp_read_network_buffer
 | **CmdCode** | `0x53` |
 
 **请求载荷**: Method=`0x01` (强制 RST)
+- 设置 SO_LINGER {l_onoff=1, l_linger=0} 后 close()
+- 发送 TCP_DISCONNECT_EVENT(Reason=0x01 连接重置)
 
 **预期响应**: Status=`0x00`
 
@@ -1756,8 +1759,10 @@ network-monitor-mcp_read_network_buffer
 | **PayloadLen** | `0x0004` |
 
 **请求载荷**: Handle=ClientHandle, HandleType=`0x00`, ForceFlag=`0x00`
+- ForceFlag=0: 优雅关闭 (FIN) + 发送 TCP_DISCONNECT_EVENT(Reason=0x00)
+- ForceFlag=1: 强制 RST (SO_LINGER) + 发送 TCP_DISCONNECT_EVENT(Reason=0x01)
 
-**预期响应**: Status=`0x00`, 与 TCP_CLIENT_DISCONNECT 行为一致
+**预期响应**: Status=`0x00`, 与 TCP_CLIENT_DISCONNECT(Method=0x00) 行为一致
 
 ---
 
@@ -1768,8 +1773,10 @@ network-monitor-mcp_read_network_buffer
 | **CmdCode** | `0x57` |
 
 **请求载荷**: Handle=ServerHandle, HandleType=`0x01`, ForceFlag=`0x01`
+- ForceFlag=0: 优雅关闭, 每个子连接发 TCP_DISCONNECT_EVENT(Reason=0x00)
+- ForceFlag=1: 立即关闭, 每个子连接发 TCP_DISCONNECT_EVENT(Reason=0x01)
 
-**预期响应**: Status=`0x00`, 与 TCP_SERVER_CLOSE 行为一致
+**预期响应**: Status=`0x00`, 所有子连接的 DISCONNECT_EVENT 均已发出, Server 句柄释放
 
 ---
 

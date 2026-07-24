@@ -12,6 +12,14 @@
     "ses_0720e8745ffeyurSS4pA2ehE7Q": {
       "worktreeId": null,
       "createdAt": "2026-07-23T07:47:20.407Z"
+    },
+    "ses_071949543ffeSu0o9IbsMWdUUG": {
+      "worktreeId": null,
+      "createdAt": "2026-07-23T10:00:32.201Z"
+    },
+    "ses_06e00a734ffevEuTpLOQ7GM50F": {
+      "worktreeId": null,
+      "createdAt": "2026-07-24T02:40:58.596Z"
     }
   },
   "tabOrder": {
@@ -47,7 +55,9 @@
       "ses_076e0da77ffekEg4RiJrWoRBRY",
       "ses_0739b02c5ffeZujYXIPdMhqAdF",
       "ses_072150401ffeBl3ppuubs5eW5R",
-      "ses_0720e8745ffeyurSS4pA2ehE7Q"
+      "ses_0720e8745ffeyurSS4pA2ehE7Q",
+      "ses_071949543ffeSu0o9IbsMWdUUG",
+      "ses_06e00a734ffevEuTpLOQ7GM50F"
     ]
   },
   "sessionsCollapsed": true

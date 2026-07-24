@@ -1,0 +1,59 @@
+基于测试过程中的实际使用体验，以下是我的优化建议：
+
+### 1. UDP 同机回环路由问题（阻塞性）
+
+创建 `udp client → HEX-Bridge` 后，从 HEX-Bridge `udp-server-send` 回包到 NM UDP Client 的同一端口时数据无法到达。这与 UDP 的无连接特性 + 同机路由表有关。
+
+**建议**: 支持 UDP Client 创建时指定 `bindPort`（显式绑定本地端口），或创建 UDP 对端时同时监听一个已知端口供回包路由。
+
+### 2. 事件帧中继通道
+
+当前测试需要 3 个工具配合：CLI 发命令 → 设备响应 → Serial Monitor 被动监听事件。如果要验证 TCP_RECV/WS_RECV 等事件帧，必须切换到 Serial Monitor 查看，流程割裂。
+
+**建议**: 在 MCP NM 中增加 UBCP 事件订阅能力，直接通过 COM35 监听指定 CmdCode 的事件帧。例如：
+```
+subscribe_event(cmdCode=0x75)  # 订阅 WS_RECV 事件
+```
+这样可以实现"发命令→等事件→验证数据"的闭环测试流程。
+
+### 3. WebSocket Server 路径匹配
+
+创建 WS Server 时指定了 `path="/echo"`，但 HEX-Bridge WS Client 连接 `ws://PC_IP:port/echo` 后，握手成功但 NM 侧收到的路径信息不完整。
+
+**建议**: 支持 WS Server 多路径监听（如 `paths=["/echo", "/ws"]`），连接时返回客户端实际请求的路径。
+
+### 4. 连接生命周期管理
+
+之前测试会话的旧连接在 NM 中仍显示为 `connected` 状态（即使对端早已断开），影响后续测试判断。
+
+**建议**:
+- 增加 TCP keepalive 探测，自动清理僵死连接
+- `list_network_connections` 增加连接时长和最后活跃时间
+- 支持 `disconnect_all` 一键清理
+
+### 5. 收包等待超时
+
+`send_network_data` 后需要立即 `read_network_buffer`，但数据到达有延迟（几十 ms），容易读空。
+
+**建议**: `read_network_buffer` 增加 `waitTimeout` 参数，超时时间内持续等待直到收到数据或超时返回。
+
+### 6. 批量并行操作
+
+集成测试（INT-01）需要同时创建 3 个连接、同时读取 3 个 buffer，当前只能逐个串行。
+
+**建议**: 支持批量操作：
+```
+connect_all: [{connId, protocol, role, ...}, ...]
+read_all: [connId1, connId2, connId3]
+```
+
+### 优先级排序
+
+| 级别 | 建议 | 理由 |
+|:---|:---|:---|
+| P0 | UDP 同机路由 | 阻塞 UDP 全部端到端测试 |
+| P1 | 事件帧中继 | 消除工具切换，实现测试闭环 |
+| P2 | 连接生命周期 | 避免测试污染，提升可靠性 |
+| P2 | 收包等待超时 | 消除竞态，减少空读 |
+| P3 | WS 路径匹配 | 解锁 WS-02/08 测试 |
+| P3 | 批量并行 | 提升集成测试效率 |

@@ -938,27 +938,27 @@ serial-monitor-mcp_send_serial_data
 
 | 项目 | 值 |
 |:---|:---|
-| **测试目的** | 验证 tcp-close 可同时关闭连接或 Server |
+| **测试目的** | 验证 tcp-close 4 字节载荷 (Handle + HandleType + ForceFlag) 关闭连接或 Server，并上报 DISCONNECT_EVENT |
 | **CLI 命令** | `tcp-close --handle <H> --handle-type 0/1 --force 0/1` |
 
 **测试步骤**:
 
 1. 创建 TCP Server (port=9203), MCP NM Client 连接 → ClientHandle=0x<CH>
-2. **[CLI] 关闭连接 (handle-type=0)**:
+2. **[CLI] 关闭连接 (handle-type=0, force=0)**:
    ```bash
    python script/cli/hex-bridge-network-cli.py --port COM35 --baud 921600 tcp-close \
        --handle 0x<CH> --handle-type 0 --force 0
    ```
-   验证 `Status=OK`
+   验证 `Status=OK`, [Serial Monitor] 收到 TCP_DISCONNECT_EVENT(Reason=0x00)
 
-3. **[CLI] 关闭 Server (handle-type=1)**:
+3. **[CLI] 关闭 Server (handle-type=1, force=1)**:
    ```bash
    python script/cli/hex-bridge-network-cli.py --port COM35 --baud 921600 tcp-close \
        --handle 0x<SH> --handle-type 1 --force 1
    ```
-   验证 `Status=OK`
+   验证 `Status=OK`, [Serial Monitor] 收到 TCP_DISCONNECT_EVENT(Reason=0x01)
 
-**判定**: PASS — tcp-close 两种类型均正确
+**判定**: PASS — 两种类型均正确, 断开事件已上报
 
 ---
 
