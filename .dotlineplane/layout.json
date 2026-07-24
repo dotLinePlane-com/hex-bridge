@@ -6,7 +6,7 @@
   "terminalCount": "0",
   "terminalVisualOrder": "[]",
   "terminalLayoutSnapshot": "{\"orientation\":0,\"groups\":[{\"size\":1912}]}",
-  "layout": "splitDown",
+  "layout": "single",
   "terminalActive": "false",
   "activePort2": "COM34",
   "split2Mode": "发送"

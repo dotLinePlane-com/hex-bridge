@@ -277,6 +277,9 @@ def cmd_net_dns(transport, args):
     hostname = args.hostname.encode('utf-8')[:253]
     payload = bytes([len(hostname)]) + hostname
     resp, st = expect_response(transport, 0x42, payload, timeout=8.0)
+    if resp.payload_len < 2:
+        output({**frame_info(resp), "status": status_str(st), "error": "response too short"})
+        return
     count = resp.payload[1]
     addrs = []
     for i in range(count):
@@ -303,6 +306,9 @@ def cmd_net_status(transport, args):
 
 def cmd_net_list_conns(transport, args):
     resp, st = expect_response(transport, 0x44, b'')
+    if resp.payload_len < 2:
+        output({**frame_info(resp), "status": status_str(st), "connections": 0})
+        return
     count = resp.payload[1]
     rows = []
     for i in range(count):
@@ -327,6 +333,9 @@ def cmd_tcp_server_open(transport, args):
     payload = encode_u16(args.port_num)
     payload += bytes([args.maxconn, args.accept_mode, args.keepalive])
     resp, st = expect_response(transport, 0x50, payload)
+    if resp.payload_len < 5:
+        output({**frame_info(resp), "status": status_str(st), "error": "response too short"})
+        return
     handle = parse_u16(resp.payload, 1)
     actual = parse_u16(resp.payload, 3)
     _save_handle(args, handle)
@@ -345,6 +354,9 @@ def cmd_tcp_client_connect(transport, args):
     payload = encode_u32(ip) + encode_u16(args.port_num)
     payload += bytes([args.connect_timeout, args.keepalive])
     resp, st = expect_response(transport, 0x52, payload, timeout=10.0)
+    if resp.payload_len < 9:
+        output({**frame_info(resp), "status": status_str(st), "error": "response too short"})
+        return
     handle = parse_u16(resp.payload, 1)
     local_ip = int_to_ip(parse_u32(resp.payload, 3))
     local_port = parse_u16(resp.payload, 7)
@@ -389,6 +401,9 @@ def cmd_tcp_send(transport, args):
 def cmd_tcp_list_clients(transport, args):
     h = resolve_handle(args.handle)
     resp, st = expect_response(transport, 0x59, encode_u16(h))
+    if resp.payload_len < 2:
+        output({**frame_info(resp), "status": status_str(st), "clients": 0})
+        return
     count = resp.payload[1]
     rows = []
     for i in range(count):
@@ -432,6 +447,9 @@ def cmd_udp_server_open(transport, args):
     mc = ip_to_int(args.multicast) if args.multicast else 0
     payload = encode_u16(args.port_num) + bytes([bc]) + encode_u32(mc)
     resp, st = expect_response(transport, 0x60, payload)
+    if resp.payload_len < 5:
+        output({**frame_info(resp), "status": status_str(st), "error": "response too short"})
+        return
     handle = parse_u16(resp.payload, 1)
     actual = parse_u16(resp.payload, 3)
     _save_handle(args, handle)
@@ -450,6 +468,9 @@ def cmd_udp_client_create(transport, args):
     lp = args.local_port if args.local_port else 0
     payload = encode_u32(ip) + encode_u16(args.port_num) + encode_u16(lp)
     resp, st = expect_response(transport, 0x62, payload)
+    if resp.payload_len < 5:
+        output({**frame_info(resp), "status": status_str(st), "error": "response too short"})
+        return
     handle = parse_u16(resp.payload, 1)
     actual = parse_u16(resp.payload, 3)
     _save_handle(args, handle)
@@ -496,6 +517,9 @@ def cmd_ws_server_open(transport, args):
     payload = encode_u16(args.port_num) + bytes([args.maxconn, len(path)]) + path
     payload += bytes([len(subproto)]) + subproto
     resp, st = expect_response(transport, 0x70, payload)
+    if resp.payload_len < 5:
+        output({**frame_info(resp), "status": status_str(st), "error": "response too short"})
+        return
     handle = parse_u16(resp.payload, 1)
     actual = parse_u16(resp.payload, 3)
     _save_handle(args, handle)
@@ -541,6 +565,9 @@ def cmd_ws_send(transport, args):
 def cmd_ws_list_clients(transport, args):
     h = resolve_handle(args.handle)
     resp, st = expect_response(transport, 0x78, encode_u16(h))
+    if resp.payload_len < 2:
+        output({**frame_info(resp), "status": status_str(st), "clients": 0})
+        return
     count = resp.payload[1]
     rows = []
     for i in range(count):

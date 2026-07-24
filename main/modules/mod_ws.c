@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <inttypes.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -348,7 +349,10 @@ static int ws_handshake_try_read(ws_conn_t *conn)
     conn->is_client_side   = false;
     conn->handshake_state  = 2;
 
-    ESP_LOGI(TAG, "WS accepted: handle=0x%04X, ip=0x%08" PRIX32, conn->conn_handle, conn->client_ip);
+    ESP_LOGI(TAG, "WS accepted: handle=0x%04X, ip=%d.%d.%d.%d",
+             conn->conn_handle,
+             (conn->client_ip >> 24) & 0xFF, (conn->client_ip >> 16) & 0xFF,
+             (conn->client_ip >> 8) & 0xFF, conn->client_ip & 0xFF);
 
     return 1;
 }
@@ -386,12 +390,12 @@ static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_hea
     while (sent < req_len) {
         int n = send(sock_fd, request + sent, req_len - sent, 0);
         if (n < 0) {
-            ESP_LOGI(TAG, "ws_client_handshake: send error=%d (errno=%d)", n, errno);
+            ESP_LOGD(TAG, "ws_client_handshake: send error=%d (errno=%d)", n, errno);
             return -1;
         }
         sent += n;
     }
-    ESP_LOGI(TAG, "ws_client_handshake: sent %d bytes", sent);
+    ESP_LOGD(TAG, "ws_client_handshake: sent %d bytes", sent);
 
     /* Read response with timeout */
     struct timeval tv;
@@ -402,7 +406,7 @@ static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_hea
     tv.tv_usec = 0;
 
     int sel = select(sock_fd + 1, &read_fds, NULL, NULL, &tv);
-    ESP_LOGI(TAG, "ws_client_handshake: select=%d", sel);
+    ESP_LOGD(TAG, "ws_client_handshake: select=%d", sel);
     if (sel <= 0) return -1;
 
     char response[WS_RECV_BUF_SIZE];
@@ -413,13 +417,13 @@ static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_hea
         total += n;
         if (strstr(response, "\r\n\r\n")) break;
     }
-    ESP_LOGI(TAG, "ws_client_handshake: recv %d bytes", total);
+    ESP_LOGD(TAG, "ws_client_handshake: recv %d bytes", total);
     if (total <= 0) return -1;
     response[total] = '\0';
 
     /* Check for 101 */
     int found = (strstr(response, "101") != NULL);
-    ESP_LOGI(TAG, "ws_client_handshake: 101 found=%d, response=%.100s", found, response);
+    ESP_LOGD(TAG, "ws_client_handshake: 101 found=%d, response=%.100s", found, response);
     if (!found) return -1;
 
     return 0;
@@ -970,10 +974,14 @@ static void handle_client_connect(const ubcp_frame_t *req)
         }
     }
 
-    /* Perform WS handshake */
-    ESP_LOGI(TAG, "WS_CLIENT_CONNECT: calling ws_client_handshake");
+    /* Perform WS handshake — switch to blocking for reliable send/recv */
+    ESP_LOGD(TAG, "WS_CLIENT_CONNECT: calling ws_client_handshake");
+    if (flags >= 0) fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+
     int hs_ret = ws_client_handshake(sock, path, extra_headers, header_len);
-    ESP_LOGI(TAG, "WS_CLIENT_CONNECT: ws_client_handshake returned %d", hs_ret);
+
+    if (flags >= 0) fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+    ESP_LOGD(TAG, "WS_CLIENT_CONNECT: ws_client_handshake returned %d", hs_ret);
     if (hs_ret != 0) {
         close(sock);
         xSemaphoreGive(s_mutex);
