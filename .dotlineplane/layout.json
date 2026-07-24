@@ -6,8 +6,8 @@
   "terminalCount": "0",
   "terminalVisualOrder": "[]",
   "terminalLayoutSnapshot": "{\"orientation\":0,\"groups\":[{\"size\":1912}]}",
-  "layout": "single",
+  "layout": "splitDown",
   "terminalActive": "false",
-  "activePort2": "COM24",
+  "activePort2": "COM34",
   "split2Mode": "发送"
 }

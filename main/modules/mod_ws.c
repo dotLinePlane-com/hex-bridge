@@ -15,9 +15,10 @@
 
 static const char *TAG = "mod_ws";
 
-#define WS_MAX_SERVERS  4
-#define WS_MAX_CONNS   16
-#define WS_RECV_BUF_SIZE 4096
+#define WS_MAX_SERVERS        4
+#define WS_MAX_CONNS         16
+#define WS_RECV_BUF_SIZE      4096
+#define WS_HANDSHAKE_BUF_SIZE 512
 
 static const char WS_GUID[] = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -43,6 +44,10 @@ typedef struct {
     uint32_t connect_time_sec;
     bool     is_client_side;
     bool     active;
+    uint8_t  handshake_state;
+    char     handshake_buf[WS_HANDSHAKE_BUF_SIZE];
+    uint16_t handshake_len;
+    uint32_t handshake_deadline;
 } ws_conn_t;
 
 static ws_server_t s_servers[WS_MAX_SERVERS];
@@ -91,6 +96,7 @@ static void cleanup_conn(ws_conn_t *conn)
         conn->socket_fd = -1;
     }
     conn->active = false;
+    conn->handshake_state = 0;
 }
 
 /* ── Base64 encode ── */
@@ -203,55 +209,41 @@ static void sha1_final(sha1_ctx_t *ctx, uint8_t digest[20])
     }
 }
 
-/* ── WS handshake ── */
-static int ws_perform_handshake(int sock_fd, char *path_out, size_t path_out_len, uint8_t *subproto_out)
+/* ── WS handshake helpers ── */
+static int ws_parse_http_upgrade(const char *buf, int buf_len, char *ws_key_out, size_t key_size,
+                                  char *path_out, size_t path_size)
 {
-    char buf[WS_RECV_BUF_SIZE];
-    int ret;
-
-    /* Read HTTP upgrade request with timeout */
-    struct timeval tv;
-    fd_set read_fds;
-    FD_ZERO(&read_fds);
-    FD_SET(sock_fd, &read_fds);
-    tv.tv_sec  = 5;
-    tv.tv_usec = 0;
-
-    ret = select(sock_fd + 1, &read_fds, NULL, NULL, &tv);
-    if (ret <= 0) return -1;
-
-    ret = recv(sock_fd, buf, sizeof(buf) - 1, 0);
-    if (ret <= 0) return -1;
-
-    buf[ret] = '\0';
-    char *key_start = http_header_find(buf, ret, "Sec-WebSocket-Key");
+    char *key_start = http_header_find((char *)buf, buf_len, "Sec-WebSocket-Key");
     if (!key_start) {
         ESP_LOGW(TAG, "WS handshake: no Sec-WebSocket-Key");
         return -1;
     }
 
-    char ws_key[256];
     int ki = 0;
-    while (key_start < buf + ret && *key_start != '\r' && *key_start != '\n' && ki < 255) {
-        ws_key[ki++] = *key_start++;
+    while (key_start < buf + buf_len && *key_start != '\r' && *key_start != '\n'
+           && ki < (int)(key_size - 1)) {
+        ws_key_out[ki++] = *key_start++;
     }
-    ws_key[ki] = '\0';
+    ws_key_out[ki] = '\0';
 
-    /* Extract path from request line */
     char *path_start = strchr(buf, ' ');
     if (path_start) {
         path_start++;
         char *path_end = strchr(path_start, ' ');
         if (path_end) {
             size_t plen = path_end - path_start;
-            if (plen < path_out_len) {
+            if (plen < path_size) {
                 memcpy(path_out, path_start, plen);
                 path_out[plen] = '\0';
             }
         }
     }
 
-    /* Compute accept key: base64(sha1(key + GUID)) */
+    return 0;
+}
+
+static int ws_send_101_response(int sock_fd, const char *ws_key)
+{
     char concat[512];
     int clen = snprintf(concat, sizeof(concat), "%s%s", ws_key, WS_GUID);
 
@@ -264,7 +256,6 @@ static int ws_perform_handshake(int sock_fd, char *path_out, size_t path_out_len
     char accept_key[64];
     base64_encode(sha1_hash, 20, accept_key, sizeof(accept_key));
 
-    /* Send HTTP 101 response */
     char response[512];
     int resp_len = snprintf(response, sizeof(response),
         "HTTP/1.1 101 Switching Protocols\r\n"
@@ -273,11 +264,93 @@ static int ws_perform_handshake(int sock_fd, char *path_out, size_t path_out_len
         "Sec-WebSocket-Accept: %s\r\n"
         "\r\n", accept_key);
 
-    ret = send(sock_fd, response, resp_len, 0);
+    int ret = send(sock_fd, response, resp_len, MSG_DONTWAIT);
     if (ret < 0) return -1;
 
-    *subproto_out = 0;  /* No subprotocol negotiation for now */
     return 0;
+}
+
+static int ws_handshake_try_read(ws_conn_t *conn)
+{
+    uint32_t now_sec = esp_timer_get_time() / 1000000;
+    if (now_sec > conn->handshake_deadline) {
+        ESP_LOGW(TAG, "WS handshake timeout fd=%d", conn->socket_fd);
+        close(conn->socket_fd);
+        conn->socket_fd = -1;
+        conn->active = false;
+        conn->handshake_state = 0;
+        return -1;
+    }
+
+    char read_buf[512];
+    int recv_len = recv(conn->socket_fd, read_buf, sizeof(read_buf), MSG_DONTWAIT);
+    if (recv_len == 0) {
+        ESP_LOGW(TAG, "WS handshake: client closed fd=%d", conn->socket_fd);
+        close(conn->socket_fd);
+        conn->socket_fd = -1;
+        conn->active = false;
+        conn->handshake_state = 0;
+        return -1;
+    }
+    if (recv_len < 0) {
+        if (errno != EAGAIN && errno != EWOULDBLOCK) {
+            ESP_LOGW(TAG, "WS handshake recv error fd=%d errno=%d", conn->socket_fd, errno);
+            close(conn->socket_fd);
+            conn->socket_fd = -1;
+            conn->active = false;
+            conn->handshake_state = 0;
+            return -1;
+        }
+        return 0;
+    }
+
+    uint16_t remaining = WS_HANDSHAKE_BUF_SIZE - conn->handshake_len - 1;
+    if ((int)remaining < recv_len) {
+        if (remaining > 0) recv_len = remaining;
+        else recv_len = 0;
+    }
+    if (recv_len > 0) {
+        memcpy(conn->handshake_buf + conn->handshake_len, read_buf, recv_len);
+        conn->handshake_len += recv_len;
+        conn->handshake_buf[conn->handshake_len] = '\0';
+    }
+
+    char *end = strstr(conn->handshake_buf, "\r\n\r\n");
+    if (!end) return 0;
+
+    char ws_key[256] = "";
+    char path_buf[64] = "/";
+
+    if (ws_parse_http_upgrade(conn->handshake_buf, conn->handshake_len,
+                               ws_key, sizeof(ws_key), path_buf, sizeof(path_buf)) != 0) {
+        ESP_LOGW(TAG, "WS handshake parse failed fd=%d", conn->socket_fd);
+        close(conn->socket_fd);
+        conn->socket_fd = -1;
+        conn->active = false;
+        conn->handshake_state = 0;
+        return -1;
+    }
+
+    if (ws_send_101_response(conn->socket_fd, ws_key) != 0) {
+        ESP_LOGW(TAG, "WS handshake send 101 failed fd=%d", conn->socket_fd);
+        close(conn->socket_fd);
+        conn->socket_fd = -1;
+        conn->active = false;
+        conn->handshake_state = 0;
+        return -1;
+    }
+
+    conn->conn_handle      = alloc_conn_handle();
+    conn->subproto_index   = 0;
+    conn->path_len         = strlen(path_buf);
+    memcpy(conn->path, path_buf, conn->path_len + 1);
+    conn->connect_time_sec = esp_timer_get_time() / 1000000;
+    conn->is_client_side   = false;
+    conn->handshake_state  = 2;
+
+    ESP_LOGI(TAG, "WS accepted: handle=0x%04X, ip=0x%08" PRIX32, conn->conn_handle, conn->client_ip);
+
+    return 1;
 }
 
 /* ── WS Client handshake ── */
@@ -309,7 +382,16 @@ static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_hea
     request[req_len++] = '\r';
     request[req_len++] = '\n';
 
-    if (send(sock_fd, request, req_len, 0) != req_len) return -1;
+    int sent = 0;
+    while (sent < req_len) {
+        int n = send(sock_fd, request + sent, req_len - sent, 0);
+        if (n < 0) {
+            ESP_LOGI(TAG, "ws_client_handshake: send error=%d (errno=%d)", n, errno);
+            return -1;
+        }
+        sent += n;
+    }
+    ESP_LOGI(TAG, "ws_client_handshake: sent %d bytes", sent);
 
     /* Read response with timeout */
     struct timeval tv;
@@ -319,15 +401,26 @@ static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_hea
     tv.tv_sec  = 5;
     tv.tv_usec = 0;
 
-    if (select(sock_fd + 1, &read_fds, NULL, NULL, &tv) <= 0) return -1;
+    int sel = select(sock_fd + 1, &read_fds, NULL, NULL, &tv);
+    ESP_LOGI(TAG, "ws_client_handshake: select=%d", sel);
+    if (sel <= 0) return -1;
 
     char response[WS_RECV_BUF_SIZE];
-    int ret = recv(sock_fd, response, sizeof(response) - 1, 0);
-    if (ret <= 0) return -1;
-    response[ret] = '\0';
+    int total = 0;
+    while (total < (int)sizeof(response) - 1) {
+        int n = recv(sock_fd, response + total, sizeof(response) - 1 - total, 0);
+        if (n <= 0) break;
+        total += n;
+        if (strstr(response, "\r\n\r\n")) break;
+    }
+    ESP_LOGI(TAG, "ws_client_handshake: recv %d bytes", total);
+    if (total <= 0) return -1;
+    response[total] = '\0';
 
     /* Check for 101 */
-    if (strstr(response, "101") == NULL) return -1;
+    int found = (strstr(response, "101") != NULL);
+    ESP_LOGI(TAG, "ws_client_handshake: 101 found=%d, response=%.100s", found, response);
+    if (!found) return -1;
 
     return 0;
 }
@@ -526,63 +619,65 @@ static void ws_event_task(void *arg)
             int flags = fcntl(client_fd, F_GETFL, 0);
             if (flags >= 0) fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
 
-            char path_buf[64] = "/";
-            uint8_t subproto = 0;
-
-            if (ws_perform_handshake(client_fd, path_buf, sizeof(path_buf), &subproto) != 0) {
-                ESP_LOGW(TAG, "WS handshake failed, closing fd=%d", client_fd);
-                close(client_fd);
-                continue;
-            }
-
             ws_conn_t *conn = find_conn_slot();
             if (!conn) {
                 close(client_fd);
                 continue;
             }
 
-            conn->conn_handle      = alloc_conn_handle();
-            conn->server_handle    = s_servers[i].server_handle;
-            conn->socket_fd        = client_fd;
-            conn->client_ip        = client_addr.sin_addr.s_addr;
-            conn->client_port      = ntohs(client_addr.sin_port);
-            conn->subproto_index   = subproto;
-            conn->path_len         = strlen(path_buf);
-            memcpy(conn->path, path_buf, conn->path_len + 1);
-            conn->connect_time_sec = esp_timer_get_time() / 1000000;
-            conn->is_client_side   = false;
-            conn->active           = true;
+            conn->conn_handle        = 0;
+            conn->server_handle      = s_servers[i].server_handle;
+            conn->socket_fd          = client_fd;
+            conn->client_ip          = client_addr.sin_addr.s_addr;
+            conn->client_port        = ntohs(client_addr.sin_port);
+            conn->subproto_index     = 0;
+            conn->path_len           = 0;
+            conn->path[0]            = '\0';
+            conn->connect_time_sec   = 0;
+            conn->is_client_side     = false;
+            conn->active             = true;
+            conn->handshake_state    = 1;
+            conn->handshake_len      = 0;
+            conn->handshake_deadline = esp_timer_get_time() / 1000000 + 10;
+        }
 
-            ESP_LOGI(TAG, "WS accepted: handle=0x%04X, ip=0x%08" PRIX32, conn->conn_handle, client_addr.sin_addr.s_addr);
+        /* Process handshake reads */
+        for (int i = 0; i < WS_MAX_CONNS; i++) {
+            if (!s_conns[i].active || s_conns[i].handshake_state != 1) continue;
+            if (!FD_ISSET(s_conns[i].socket_fd, &read_fds)) continue;
 
-            /* Send WS_ACCEPT event */
-            uint16_t evt_len = 12 + conn->path_len;
-            uint8_t *evt_payload = malloc(evt_len);
-            if (evt_payload) {
-                evt_payload[0]  = (uint8_t)(s_servers[i].server_handle >> 8);
-                evt_payload[1]  = (uint8_t)(s_servers[i].server_handle & 0xFF);
-                evt_payload[2]  = (uint8_t)(conn->conn_handle >> 8);
-                evt_payload[3]  = (uint8_t)(conn->conn_handle & 0xFF);
-                evt_payload[4]  = (uint8_t)(htonl(conn->client_ip) >> 24);
-                evt_payload[5]  = (uint8_t)(htonl(conn->client_ip) >> 16);
-                evt_payload[6]  = (uint8_t)(htonl(conn->client_ip) >> 8);
-                evt_payload[7]  = (uint8_t)(htonl(conn->client_ip) & 0xFF);
-                evt_payload[8]  = (uint8_t)(conn->client_port >> 8);
-                evt_payload[9]  = (uint8_t)(conn->client_port & 0xFF);
-                evt_payload[10] = subproto;
-                evt_payload[11] = conn->path_len;
-                if (conn->path_len > 0) memcpy(&evt_payload[12], conn->path, conn->path_len);
+            int hs_result = ws_handshake_try_read(&s_conns[i]);
+            if (hs_result > 0) {
+                /* Handshake succeeded - send WS_ACCEPT event */
+                uint16_t evt_len = 12 + s_conns[i].path_len;
+                uint8_t *evt_payload = malloc(evt_len);
+                if (evt_payload) {
+                    evt_payload[0]  = (uint8_t)(s_conns[i].server_handle >> 8);
+                    evt_payload[1]  = (uint8_t)(s_conns[i].server_handle & 0xFF);
+                    evt_payload[2]  = (uint8_t)(s_conns[i].conn_handle >> 8);
+                    evt_payload[3]  = (uint8_t)(s_conns[i].conn_handle & 0xFF);
+                    evt_payload[4]  = (uint8_t)(htonl(s_conns[i].client_ip) >> 24);
+                    evt_payload[5]  = (uint8_t)(htonl(s_conns[i].client_ip) >> 16);
+                    evt_payload[6]  = (uint8_t)(htonl(s_conns[i].client_ip) >> 8);
+                    evt_payload[7]  = (uint8_t)(htonl(s_conns[i].client_ip) & 0xFF);
+                    evt_payload[8]  = (uint8_t)(s_conns[i].client_port >> 8);
+                    evt_payload[9]  = (uint8_t)(s_conns[i].client_port & 0xFF);
+                    evt_payload[10] = 0;
+                    evt_payload[11] = s_conns[i].path_len;
+                    if (s_conns[i].path_len > 0) memcpy(&evt_payload[12], s_conns[i].path, s_conns[i].path_len);
 
-                xSemaphoreGive(s_mutex);
-                send_event(UBCP_CMD_WS_ACCEPT, evt_payload, evt_len);
-                free(evt_payload);
-                xSemaphoreTake(s_mutex, portMAX_DELAY);
+                    xSemaphoreGive(s_mutex);
+                    send_event(UBCP_CMD_WS_ACCEPT, evt_payload, evt_len);
+                    free(evt_payload);
+                    xSemaphoreTake(s_mutex, portMAX_DELAY);
+                }
             }
         }
 
         /* Read data from connections */
         for (int i = 0; i < WS_MAX_CONNS; i++) {
             if (!s_conns[i].active || s_conns[i].socket_fd < 0) continue;
+            if (s_conns[i].handshake_state != 2) continue;
             if (!FD_ISSET(s_conns[i].socket_fd, &read_fds)) continue;
 
             int recv_len = recv(s_conns[i].socket_fd, raw_buf, sizeof(raw_buf), MSG_DONTWAIT);
@@ -850,12 +945,13 @@ static void handle_client_connect(const ubcp_frame_t *req)
         return;
     }
 
-    /* Wait for connect */
     if (cr < 0) {
         fd_set wfds;
-        struct timeval tv = { .tv_sec = 5, .tv_usec = 0 };
+        struct timeval tv;
         FD_ZERO(&wfds);
         FD_SET(sock, &wfds);
+        tv.tv_sec  = 5;
+        tv.tv_usec = 0;
         int sel = select(sock + 1, NULL, &wfds, NULL, &tv);
         if (sel <= 0) {
             close(sock);
@@ -863,10 +959,22 @@ static void handle_client_connect(const ubcp_frame_t *req)
             msg_bus_send_status_response(req, UBCP_ERR_NET_TIMEOUT);
             return;
         }
+        int err = 0;
+        socklen_t errlen = sizeof(err);
+        getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &errlen);
+        if (err != 0) {
+            close(sock);
+            xSemaphoreGive(s_mutex);
+            msg_bus_send_status_response(req, UBCP_ERR_NET_CONN_REFUSED);
+            return;
+        }
     }
 
     /* Perform WS handshake */
-    if (ws_client_handshake(sock, path, extra_headers, header_len) != 0) {
+    ESP_LOGI(TAG, "WS_CLIENT_CONNECT: calling ws_client_handshake");
+    int hs_ret = ws_client_handshake(sock, path, extra_headers, header_len);
+    ESP_LOGI(TAG, "WS_CLIENT_CONNECT: ws_client_handshake returned %d", hs_ret);
+    if (hs_ret != 0) {
         close(sock);
         xSemaphoreGive(s_mutex);
         uint8_t err_payload[1] = { UBCP_ERR_NET_WS_HANDSHAKE };
@@ -889,6 +997,7 @@ static void handle_client_connect(const ubcp_frame_t *req)
     conn->connect_time_sec = esp_timer_get_time() / 1000000;
     conn->is_client_side   = true;
     conn->active           = true;
+    conn->handshake_state  = 2;
 
     ESP_LOGI(TAG, "WS Client connected: handle=0x%04X, fd=%d", conn->conn_handle, sock);
     xSemaphoreGive(s_mutex);
@@ -1106,7 +1215,7 @@ static esp_err_t ws_init(void)
     if (!s_mutex) return ESP_ERR_NO_MEM;
 
     s_task_running = true;
-    BaseType_t ret = xTaskCreate(ws_event_task, "ws_event", 5120, NULL, 7, &s_ws_task);
+    BaseType_t ret = xTaskCreate(ws_event_task, "ws_event", 8192, NULL, 7, &s_ws_task);
     if (ret != pdPASS) {
         ESP_LOGE(TAG, "Failed to create WS event task");
         return ESP_ERR_NO_MEM;

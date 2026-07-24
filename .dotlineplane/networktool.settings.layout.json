@@ -2,5 +2,5 @@
   "netCenterViewOpen": "true",
   "netSplit1Mode": "发送",
   "netSingleActiveTab": "send",
-  "netActiveConn1": "tcp-cli-srv"
+  "netActiveConn1": "ws://127.0.0.1:8080/ws_C1"
 }

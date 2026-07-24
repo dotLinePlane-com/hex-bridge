@@ -617,6 +617,7 @@ static void handle_client_disconnect(const ubcp_frame_t *req)
     }
 
     uint16_t handle = ((uint16_t)req->payload[0] << 8) | req->payload[1];
+    uint8_t  method = req->payload[2];
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
     tcp_conn_t *conn = find_conn_by_handle(handle);
@@ -626,6 +627,11 @@ static void handle_client_disconnect(const ubcp_frame_t *req)
         return;
     }
 
+    if (method) {
+        struct linger l = { .l_onoff = 1, .l_linger = 0 };
+        setsockopt(conn->socket_fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l));
+    }
+    send_disconnect_event(conn, method ? 0x01 : 0x00);
     cleanup_conn(conn);
     xSemaphoreGive(s_mutex);
 
@@ -716,27 +722,31 @@ static void handle_accept_confirm(const ubcp_frame_t *req)
  * ======================================================================== */
 static void handle_close(const ubcp_frame_t *req)
 {
-    if (req->payload_len < 3) {
+    if (req->payload_len < 4) {
         msg_bus_send_status_response(req, UBCP_ERR_PARAM);
         return;
     }
 
     uint16_t handle      = ((uint16_t)req->payload[0] << 8) | req->payload[1];
     uint8_t  handle_type = req->payload[2];
+    uint8_t  force_flag  = req->payload[3];
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
 
     if (handle_type == 0) {
-        /* Close connection */
         tcp_conn_t *conn = find_conn_by_handle(handle);
         if (!conn) {
             xSemaphoreGive(s_mutex);
             msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
             return;
         }
+        if (force_flag) {
+            struct linger l = { .l_onoff = 1, .l_linger = 0 };
+            setsockopt(conn->socket_fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l));
+        }
+        send_disconnect_event(conn, force_flag ? 0x01 : 0x00);
         cleanup_conn(conn);
     } else if (handle_type == 1) {
-        /* Close server */
         tcp_server_t *svr = find_server_by_handle(handle);
         if (!svr) {
             xSemaphoreGive(s_mutex);
@@ -747,6 +757,11 @@ static void handle_close(const ubcp_frame_t *req)
         for (int i = 0; i < TCP_MAX_CONNS; i++) {
             if (s_conns[i].active && s_conns[i].is_server_child &&
                 s_conns[i].server_handle == handle) {
+                if (force_flag) {
+                    struct linger l = { .l_onoff = 1, .l_linger = 0 };
+                    setsockopt(s_conns[i].socket_fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l));
+                }
+                send_disconnect_event(&s_conns[i], force_flag ? 0x01 : 0x00);
                 cleanup_conn(&s_conns[i]);
             }
         }
