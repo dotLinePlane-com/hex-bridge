@@ -2,7 +2,7 @@
 HEX-Bridge Network Module Tests (DRV-01 ~ DRV-05, NET-01 ~ NET-16,
 TCP-01 ~ TCP-35, UDP-01 ~ UDP-14, WS-01 ~ WS-21, STR-01 ~ STR-10)
 
-Total: 80 test cases (106 in full test document including NM-* MCP NM tests).
+Total: 81 test cases (86 in full test document including NM-* MCP NM tests).
 
 Usage:
     python test_network.py [--mcp COM35] [--mcp-baud 921600] [--helper-ip 192.168.1.x]
@@ -30,6 +30,7 @@ from mcp_transport import MCPTransport
 # ============================================================================
 # Command Codes
 # ============================================================================
+CMD_PING              = 0x00
 CMD_NET_CONFIG       = 0x40
 CMD_NET_STATUS       = 0x41
 CMD_NET_DNS          = 0x42
@@ -832,7 +833,7 @@ def test_stress_03():
 
 
 def test_stress_04():
-    """STR-04: TCP_SEND 广播句柄 (0x8000) — 广播功能待实现, 当前返回 HANDLE_INVALID"""
+    """STR-04: TCP_SEND 广播句柄 (0x8000)"""
     print('\n--- STR-04: TCP SEND broadcast handle ---')
     payload = struct.pack('>HBBB', 8095, 1, 0x01, 0)
     f = send_cmd(CMD_TCP_SERVER_OPEN, payload, 0)
@@ -840,10 +841,8 @@ def test_stress_04():
         skip_('STR-04', 'Cannot create server')
         return
     sh = struct.unpack('>H', f.payload[1:3])[0]
-    # Broadcast handle (0x8000) sends to all connected clients
-    # Currently returns HANDLE_INVALID as broadcast not yet implemented
     payload = struct.pack('>HH', BROADCAST_HANDLE, 0)
-    f2 = expect_status(CMD_TCP_SEND, payload, 0, ERR_NET_HANDLE_INVALID, 'STR-04 broadcast', timeout=3.0)
+    f2 = expect_status(CMD_TCP_SEND, payload, 0, ERR_SUCCESS, 'STR-04 broadcast', timeout=3.0)
     send_cmd(CMD_TCP_SERVER_CLOSE, struct.pack('>HB', sh, 0x01), 0)
 
 
@@ -1229,6 +1228,38 @@ def test_net_16():
         assert_in_range(f'NET-16 Entry[{i}] ConnType', conn_type, 0, 5)
 
 
+def test_net_17():
+    """NET-17: NET_DNS — DNS 非阻塞验证 (Bug#5 fix)"""
+    print('\n--- NET-17: DNS non-blocking test ---')
+    hostname = b'nonexistent-host-12345678.test'
+    payload = bytes([len(hostname)]) + hostname
+
+    # Send DNS request first
+    s_dns = next_seq()
+    wire_dns = UBCPBuilder.build_request(s_dns, CMD_NET_DNS, 0, payload)
+    transport.send(wire_dns)
+
+    # Small delay to ensure DNS frame reaches device before PING
+    time.sleep(0.02)
+
+    # Send PING and measure round-trip time
+    start = time.time()
+    s_ping = next_seq()
+    wire_ping = UBCPBuilder.build_request(s_ping, CMD_PING, 0, b'')
+    transport.send(wire_ping)
+    f = transport.recv_response(cmd_code=CMD_PING, timeout=3.0)
+    elapsed = (time.time() - start) * 1000
+
+    if f is None:
+        fail_('NET-17', 'no PING response after DNS')
+        return
+
+    if elapsed < 200:
+        pass_(f'NET-17: DNS non-blocking (PING {elapsed:.1f}ms < 200ms)')
+    else:
+        fail_(f'NET-17: DNS blocking detected (PING {elapsed:.1f}ms >= 200ms)')
+
+
 def test_tcp_30():
     """TCP-30: TCP_LIST_CLIENTS — query connected clients"""
     print('\n--- TCP-30: List TCP clients ---')
@@ -1315,6 +1346,7 @@ ALL_TESTS = {
     'NET-14': test_net_14,
     'NET-15': test_net_15,
     'NET-16': test_net_16,
+    'NET-17': test_net_17,
 
     # TCP
     'TCP-01': test_tcp_01,

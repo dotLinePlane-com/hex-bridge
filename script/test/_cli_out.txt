@@ -1,0 +1,9 @@
+  cmd=TCP_SERVER_OPEN
+  cmd_code=0x50
+  flags=0x80
+  seq=0x0001
+  plen=1
+  status=ERR 0x48 (ERR_NET_MAX_CONN)
+  error=response too short
+
+Waiting for events: 0x55,0x56,0x58 (timeout=15s)...

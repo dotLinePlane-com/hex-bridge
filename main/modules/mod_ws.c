@@ -271,6 +271,20 @@ static int ws_send_101_response(int sock_fd, const char *ws_key)
     return 0;
 }
 
+static ws_server_t *find_server_by_handle(uint16_t handle);
+
+static int ws_send_404_response(int sock_fd)
+{
+    char response[] =
+        "HTTP/1.1 404 Not Found\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n"
+        "\r\n";
+
+    int ret = send(sock_fd, response, sizeof(response) - 1, MSG_DONTWAIT);
+    return (ret < 0) ? -1 : 0;
+}
+
 static int ws_handshake_try_read(ws_conn_t *conn)
 {
     uint32_t now_sec = esp_timer_get_time() / 1000000;
@@ -330,6 +344,29 @@ static int ws_handshake_try_read(ws_conn_t *conn)
         conn->active = false;
         conn->handshake_state = 0;
         return -1;
+    }
+
+    ws_server_t *svr = find_server_by_handle(conn->server_handle);
+    if (!svr) {
+        ESP_LOGW(TAG, "WS handshake: server gone, fd=%d", conn->socket_fd);
+        close(conn->socket_fd);
+        conn->socket_fd = -1;
+        conn->active = false;
+        conn->handshake_state = 0;
+        return -1;
+    }
+
+    if (svr->path_len > 0 && path_buf[0] != '\0') {
+        if (strcmp(svr->path, path_buf) != 0) {
+            ESP_LOGW(TAG, "WS path mismatch: server=%s, client=%s, fd=%d",
+                     svr->path, path_buf, conn->socket_fd);
+            ws_send_404_response(conn->socket_fd);
+            close(conn->socket_fd);
+            conn->socket_fd = -1;
+            conn->active = false;
+            conn->handshake_state = 0;
+            return -1;
+        }
     }
 
     if (ws_send_101_response(conn->socket_fd, ws_key) != 0) {

@@ -13,7 +13,7 @@
   "isShowRx": true,
   "isHexRx": false,
   "isAutoEnd": true,
-  "autoEndTimeOut": "20",
+  "autoEndTimeOut": "1",
   "isAddTimeHead": true,
   "isShowLine": true,
   "isShowTx": true,

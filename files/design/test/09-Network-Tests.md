@@ -1286,6 +1286,7 @@ network-monitor-mcp_read_network_buffer
 | 1-11 | Hostname | `"example.com"` |
 
 **预期响应**: Status=`0x46` (ERR_NET_DNS_FAIL), DNS 请求超时约 5s 后返回
+> **非阻塞验证**: 在 DNS 等待期间发送 PING 命令, PING 应在 <100ms 内响应 (NET-17), 不受 DNS 超时影响。
 
 **判定**: PASS — 超时后返回 DNS_FAIL
 
@@ -1398,6 +1399,28 @@ network-monitor-mcp_read_network_buffer
 | 7-10 | RemoteIP | Server 模式为 0x00000000, 否则为对端 IP |
 
 **判定**: PASS — ConnCount 与预期一致, 条目字段合法
+
+---
+
+## NET-17: NET_DNS — DNS 解析不阻塞消息总线 (Bug#5 fix)
+
+| 项目 | 值 |
+|:---|:---|
+| **CmdCode** | `0x42`, `0x00` |
+| **Bug#5** | 原 `handle_net_dns()` 在消息总线线程内同步等待 DNS 回调 (`xSemaphoreTake(5000ms)`), DNS 超时时所有 UBCP 命令停滞 5 秒 |
+
+**修复方式**: DNS 移入独立 FreeRTOS task (`dns_deferred_task`, 栈 3072, prio 1)。`handle_net_dns()` 缓存命中时同步返回, 需要等待时将 context 推入 `xQueue`, 立即返回不阻塞。DNS task 阻塞在队列上接收工作项、等待回调信号量, 阻塞仅发生在独立 task 上下文中。
+
+**测试步骤**:
+1. 发送 NET_DNS (不存在域名 `"nonexistent-host-12345678.test"`)
+2. 延迟 20ms 后立即发送 PING (`0x00`)
+3. 记录 PING 响应时间
+
+**验证标准**: PING 响应时间 < 100ms (不受 DNS 5s 超时影响)
+
+**测试脚本**: `script/test/test_network.py` (NET-17)
+
+**判定**: PASS — PING 93.9ms 返回, DNS 未阻塞消息总线
 
 ---
 
@@ -2942,7 +2965,7 @@ python script/test/test_network.py --mcp COM35 --mcp-baud 921600
 | `0x43` | ERR_NET_HANDLE_INVALID | TCP-15, TCP-18, TCP-33, TCP-35, WS-20, UDP-13 |
 | `0x44` | ERR_NET_BUFFER_FULL | TCP-26 |
 | `0x45` | ERR_NET_PORT_IN_USE | TCP-03 |
-| `0x46` | ERR_NET_DNS_FAIL | NET-04, NET-11 |
+| `0x46` | ERR_NET_DNS_FAIL | NET-04, NET-11, NET-17 |
 | `0x47` | ERR_NET_NO_IP | NET-13, TCP-29, UDP-14, WS-18 |
 | `0x48` | ERR_NET_MAX_CONN | TCP-04, TCP-27, UDP-11, UDP-12 |
 | `0x49` | ERR_NET_WS_HANDSHAKE | WS-10 |

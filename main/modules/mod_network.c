@@ -4,6 +4,7 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "freertos/semphr.h"
+#include "freertos/queue.h"
 #include "esp_netif.h"
 #include "esp_eth.h"
 #include "esp_event.h"
@@ -12,6 +13,7 @@
 #include "esp_timer.h"
 #include "lwip/sockets.h"
 #include "lwip/dns.h"
+#include "lwip/err.h"
 #include "modules/mod_network.h"
 #include "core/msg_bus.h"
 #include "core/seq_num.h"
@@ -147,16 +149,21 @@ static void net_ip_event_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
-/* ── DNS callback context ── */
+/* ── DNS callback context (deferred resolution) ── */
 typedef struct {
+    uint16_t          req_seq_num;
+    uint8_t           req_cmd_code;
+    uint8_t           req_channel_id;
     SemaphoreHandle_t sem;
     ip_addr_t         resolved_ip;
     bool              done;
-} dns_ctx_t;
+} dns_deferred_ctx_t;
+
+static QueueHandle_t g_dns_queue = NULL;
 
 static void dns_found_cb(const char *name, const ip_addr_t *ipaddr, void *arg)
 {
-    dns_ctx_t *ctx = (dns_ctx_t *)arg;
+    dns_deferred_ctx_t *ctx = (dns_deferred_ctx_t *)arg;
     if (ipaddr) {
         ctx->resolved_ip = *ipaddr;
     }
@@ -312,6 +319,76 @@ static void handle_net_status(const ubcp_frame_t *req)
 }
 
 /* ========================================================================
+ *  DNS 延迟解析 task helpers & task body
+ * ======================================================================== */
+static void send_dns_response(const dns_deferred_ctx_t *ctx)
+{
+    if (ctx->resolved_ip.type != IPADDR_TYPE_V4 || ctx->resolved_ip.u_addr.ip4.addr == 0) {
+        uint8_t err_payload[2] = { UBCP_ERR_NET_DNS_FAIL, 0 };
+        ubcp_frame_t resp;
+        memset(&resp, 0, sizeof(resp));
+        resp.version       = UBCP_VERSION;
+        resp.flags         = UBCP_FLAG_DIR;
+        resp.seq_num       = ctx->req_seq_num;
+        resp.cmd_code      = ctx->req_cmd_code;
+        resp.channel_id    = ctx->req_channel_id;
+        resp.has_timestamp = false;
+        resp.payload       = err_payload;
+        resp.payload_len   = sizeof(err_payload);
+        msg_bus_send_frame(&resp);
+        return;
+    }
+
+    uint32_t ip_addr = htonl(ctx->resolved_ip.u_addr.ip4.addr);
+    uint8_t payload[2 + 4];
+    payload[0] = UBCP_ERR_SUCCESS;
+    payload[1] = 1;
+    payload[2] = (uint8_t)(ip_addr >> 24);
+    payload[3] = (uint8_t)(ip_addr >> 16);
+    payload[4] = (uint8_t)(ip_addr >> 8);
+    payload[5] = (uint8_t)(ip_addr & 0xFF);
+
+    ubcp_frame_t resp;
+    memset(&resp, 0, sizeof(resp));
+    resp.version       = UBCP_VERSION;
+    resp.flags         = UBCP_FLAG_DIR;
+    resp.seq_num       = ctx->req_seq_num;
+    resp.cmd_code      = ctx->req_cmd_code;
+    resp.channel_id    = ctx->req_channel_id;
+    resp.has_timestamp = false;
+    resp.payload       = payload;
+    resp.payload_len   = sizeof(payload);
+    msg_bus_send_frame(&resp);
+}
+
+static void dns_deferred_task(void *pv)
+{
+    dns_deferred_ctx_t *ctx;
+    while (1) {
+        if (xQueueReceive(g_dns_queue, &ctx, portMAX_DELAY) == pdTRUE) {
+            if (xSemaphoreTake(ctx->sem, pdMS_TO_TICKS(5000)) == pdTRUE) {
+                send_dns_response(ctx);
+            } else {
+                uint8_t err_payload[2] = { UBCP_ERR_NET_DNS_FAIL, 0 };
+                ubcp_frame_t resp;
+                memset(&resp, 0, sizeof(resp));
+                resp.version       = UBCP_VERSION;
+                resp.flags         = UBCP_FLAG_DIR;
+                resp.seq_num       = ctx->req_seq_num;
+                resp.cmd_code      = ctx->req_cmd_code;
+                resp.channel_id    = ctx->req_channel_id;
+                resp.has_timestamp = false;
+                resp.payload       = err_payload;
+                resp.payload_len   = sizeof(err_payload);
+                msg_bus_send_frame(&resp);
+            }
+            vSemaphoreDelete(ctx->sem);
+            free(ctx);
+        }
+    }
+}
+
+/* ========================================================================
  *  NET_DNS (0x42)
  * ======================================================================== */
 static void handle_net_dns(const ubcp_frame_t *req)
@@ -346,55 +423,45 @@ static void handle_net_dns(const ubcp_frame_t *req)
     memcpy(hostname, &req->payload[1], name_len);
     hostname[name_len] = '\0';
 
-    dns_ctx_t ctx;
-    ctx.sem  = xSemaphoreCreateBinary();
-    ctx.done = false;
-    memset(&ctx.resolved_ip, 0, sizeof(ctx.resolved_ip));
-
-    ip_addr_t resolved;
-    err_t dns_err = dns_gethostbyname(hostname, &resolved, dns_found_cb, &ctx);
-    if (dns_err == ERR_OK) {
-        ctx.resolved_ip = resolved;
-        ctx.done = true;
+    dns_deferred_ctx_t *ctx = calloc(1, sizeof(dns_deferred_ctx_t));
+    if (!ctx) {
+        msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
+        return;
     }
-
-    if (!ctx.done) {
-        if (xSemaphoreTake(ctx.sem, pdMS_TO_TICKS(5000)) != pdTRUE) {
-            vSemaphoreDelete(ctx.sem);
-            uint8_t err_payload[2] = { UBCP_ERR_NET_DNS_FAIL, 0 };
-            ubcp_frame_t resp;
-            ubcp_frame_make_response(req, &resp);
-            resp.payload     = err_payload;
-            resp.payload_len = sizeof(err_payload);
-            msg_bus_send_frame(&resp);
-            return;
-        }
-    }
-    vSemaphoreDelete(ctx.sem);
-
-    if (ctx.resolved_ip.type != IPADDR_TYPE_V4 || ctx.resolved_ip.u_addr.ip4.addr == 0) {
-        uint8_t err_payload[2] = { UBCP_ERR_NET_DNS_FAIL, 0 };
-        ubcp_frame_t resp;
-        ubcp_frame_make_response(req, &resp);
-        resp.payload     = err_payload;
-        resp.payload_len = sizeof(err_payload);
-        msg_bus_send_frame(&resp);
+    ctx->req_seq_num   = req->seq_num;
+    ctx->req_cmd_code  = req->cmd_code;
+    ctx->req_channel_id = req->channel_id;
+    ctx->done = false;
+    ctx->sem  = xSemaphoreCreateBinary();
+    if (!ctx->sem) {
+        free(ctx);
+        msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
         return;
     }
 
-    uint32_t ip_addr = htonl(ctx.resolved_ip.u_addr.ip4.addr);
-    uint8_t payload[2 + 4];
-    payload[0] = UBCP_ERR_SUCCESS;
-    payload[1] = 1;
-    payload[2] = (uint8_t)(ip_addr >> 24);
-    payload[3] = (uint8_t)(ip_addr >> 16);
-    payload[4] = (uint8_t)(ip_addr >> 8);
-    payload[5] = (uint8_t)(ip_addr & 0xFF);
+    err_t dns_err = dns_gethostbyname(hostname, &ctx->resolved_ip, dns_found_cb, ctx);
+    if (dns_err == ERR_OK) {
+        send_dns_response(ctx);
+        vSemaphoreDelete(ctx->sem);
+        free(ctx);
+        return;
+    }
+    if (dns_err == ERR_INPROGRESS) {
+        if (xQueueSend(g_dns_queue, &ctx, 0) != pdTRUE) {
+            vSemaphoreDelete(ctx->sem);
+            free(ctx);
+            msg_bus_send_status_response(req, UBCP_ERR_BUSY);
+        }
+        return;
+    }
 
+    vSemaphoreDelete(ctx->sem);
+    free(ctx);
+    uint8_t err_payload[2] = { UBCP_ERR_NET_DNS_FAIL, 0 };
     ubcp_frame_t resp;
     ubcp_frame_make_response(req, &resp);
-    resp.payload     = payload;
-    resp.payload_len = sizeof(payload);
+    resp.payload     = err_payload;
+    resp.payload_len = sizeof(err_payload);
     msg_bus_send_frame(&resp);
 }
 
@@ -500,6 +567,12 @@ static esp_err_t network_init(void)
     }
 
     s_eth_initialized = true;
+
+    g_dns_queue = xQueueCreate(4, sizeof(dns_deferred_ctx_t *));
+    if (g_dns_queue) {
+        xTaskCreate(dns_deferred_task, "dns_defer", 3072, NULL, 1, NULL);
+    }
+
     ESP_LOGI(TAG, "网络配置模块初始化完成");
     return ESP_OK;
 }

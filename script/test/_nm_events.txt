@@ -1,0 +1,10 @@
+  cmd=TCP_SERVER_OPEN
+  cmd_code=0x50
+  flags=0x80
+  seq=0x0001
+  plen=5
+  status=OK
+  handle=0x1029
+  port=9192
+
+Waiting for events: 0x56,0x55,0x58 (timeout=30s)...

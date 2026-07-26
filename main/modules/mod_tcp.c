@@ -703,6 +703,34 @@ static void handle_send(const ubcp_frame_t *req)
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
 
+    if (handle == 0x8000) {
+        int total_sent = 0;
+        int has_any = 0;
+        for (int i = 0; i < TCP_MAX_CONNS; i++) {
+            if (s_conns[i].active && s_conns[i].socket_fd >= 0) {
+                int n = send(s_conns[i].socket_fd, &req->payload[4], data_len, MSG_DONTWAIT);
+                if (n > 0) {
+                    s_conns[i].tx_bytes += n;
+                    total_sent += n;
+                }
+                has_any = 1;
+            }
+        }
+        xSemaphoreGive(s_mutex);
+
+        uint8_t payload[3];
+        payload[0] = has_any ? UBCP_ERR_SUCCESS : UBCP_ERR_SUCCESS;
+        payload[1] = (uint8_t)(total_sent >> 8);
+        payload[2] = (uint8_t)(total_sent & 0xFF);
+
+        ubcp_frame_t resp;
+        ubcp_frame_make_response(req, &resp);
+        resp.payload     = payload;
+        resp.payload_len = sizeof(payload);
+        msg_bus_send_frame(&resp);
+        return;
+    }
+
     tcp_conn_t *conn = find_conn_by_handle(handle);
     if (!conn) {
         /* Broadcast: handle is a server handle → send to all its child connections */

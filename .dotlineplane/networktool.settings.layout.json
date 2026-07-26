@@ -2,5 +2,5 @@
   "netCenterViewOpen": "true",
   "netSplit1Mode": "发送",
   "netSingleActiveTab": "send",
-  "netActiveConn1": "nm-ws-srv"
+  "netActiveConn1": "nm-cli-udp"
 }
