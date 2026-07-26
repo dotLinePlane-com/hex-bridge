@@ -221,8 +221,8 @@ static void handle_server_open(const ubcp_frame_t *req)
 
     uint16_t port       = ((uint16_t)req->payload[0] << 8) | req->payload[1];
     uint8_t  broadcast  = req->payload[2];
-    uint32_t multicast  = ntohl(((uint32_t)req->payload[3] << 24) | ((uint32_t)req->payload[4] << 16) |
-                          ((uint32_t)req->payload[5] << 8)  |  (uint32_t)req->payload[6]);
+    uint32_t multicast  = ((uint32_t)req->payload[3] << 24) | ((uint32_t)req->payload[4] << 16) |
+                          ((uint32_t)req->payload[5] << 8)  |  (uint32_t)req->payload[6];
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
     udp_server_t *svr = NULL;
@@ -238,8 +238,13 @@ static void handle_server_open(const ubcp_frame_t *req)
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock < 0) {
         xSemaphoreGive(s_mutex);
-        msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_MAX_CONN);
         return;
+    }
+
+    {
+        int opt = 1;
+        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     }
 
     if (broadcast) {
@@ -337,8 +342,8 @@ static void handle_client_create(const ubcp_frame_t *req)
         return;
     }
 
-    uint32_t dest_ip   = ntohl(((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
-                         ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3]);
+    uint32_t dest_ip   = ((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
+                         ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3];
     uint16_t dest_port = ((uint16_t)req->payload[4] << 8) | req->payload[5];
     uint16_t local_port = ((uint16_t)req->payload[6] << 8) | req->payload[7];
 
@@ -356,12 +361,9 @@ static void handle_client_create(const ubcp_frame_t *req)
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock < 0) {
         xSemaphoreGive(s_mutex);
-        msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_MAX_CONN);
         return;
     }
-
-    int flags = fcntl(sock, F_GETFL, 0);
-    if (flags >= 0) fcntl(sock, F_SETFL, flags | O_NONBLOCK);
 
     if (local_port != 0) {
         struct sockaddr_in laddr;
@@ -445,8 +447,8 @@ static void handle_server_send(const ubcp_frame_t *req)
     }
 
     uint16_t handle   = ((uint16_t)req->payload[0] << 8) | req->payload[1];
-    uint32_t dest_ip  = ntohl(((uint32_t)req->payload[2] << 24) | ((uint32_t)req->payload[3] << 16) |
-                        ((uint32_t)req->payload[4] << 8)  |  (uint32_t)req->payload[5]);
+    uint32_t dest_ip  = ((uint32_t)req->payload[2] << 24) | ((uint32_t)req->payload[3] << 16) |
+                        ((uint32_t)req->payload[4] << 8)  |  (uint32_t)req->payload[5];
     uint16_t dest_port = ((uint16_t)req->payload[6] << 8) | req->payload[7];
     uint16_t data_len  = ((uint16_t)req->payload[8] << 8) | req->payload[9];
 
@@ -540,8 +542,8 @@ static void handle_client_send(const ubcp_frame_t *req)
             msg_bus_send_status_response(req, UBCP_ERR_PARAM);
             return;
         }
-        dest_ip   = ntohl(((uint32_t)req->payload[3] << 24) | ((uint32_t)req->payload[4] << 16) |
-                    ((uint32_t)req->payload[5] << 8)  |  (uint32_t)req->payload[6]);
+        dest_ip   = ((uint32_t)req->payload[3] << 24) | ((uint32_t)req->payload[4] << 16) |
+                    ((uint32_t)req->payload[5] << 8)  |  (uint32_t)req->payload[6];
         dest_port = ((uint16_t)req->payload[7] << 8) | req->payload[8];
         data_len  = ((uint16_t)req->payload[9] << 8) | req->payload[10];
         data_offset = 11;

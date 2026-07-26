@@ -95,9 +95,9 @@ static void update_ip_info(const esp_netif_ip_info_t *ip_info)
     uint32_t old_ip;
     xSemaphoreTake(s_state_mutex, portMAX_DELAY);
     old_ip         = s_current_ip;
-    s_current_ip   = ip_info->ip.addr;
-    s_subnet_mask  = ip_info->netmask.addr;
-    s_gateway      = ip_info->gw.addr;
+    s_current_ip   = htonl(ip_info->ip.addr);
+    s_subnet_mask  = htonl(ip_info->netmask.addr);
+    s_gateway      = htonl(ip_info->gw.addr);
     s_conn_state   = 1;  /* 已连接 */
     xSemaphoreGive(s_state_mutex);
 
@@ -205,9 +205,9 @@ static void handle_net_config(const ubcp_frame_t *req)
                                 ((uint32_t)req->payload[16] << 8)  |  (uint32_t)req->payload[17]);
 
         esp_netif_ip_info_t ip_info;
-        ip_info.ip.addr      = ip;
-        ip_info.netmask.addr = mask;
-        ip_info.gw.addr      = gw;
+        ip_info.ip.addr      = htonl(ip);
+        ip_info.netmask.addr = htonl(mask);
+        ip_info.gw.addr      = htonl(gw);
 
         if (s_netif_ptr) {
             esp_netif_dhcpc_stop(s_netif_ptr);
@@ -245,22 +245,22 @@ static void handle_net_config(const ubcp_frame_t *req)
     xSemaphoreGive(s_state_mutex);
 
     payload[0] = UBCP_ERR_SUCCESS;
-    payload[1]  = (uint8_t)(htonl(cur_ip) >> 24);
-    payload[2]  = (uint8_t)(htonl(cur_ip) >> 16);
-    payload[3]  = (uint8_t)(htonl(cur_ip) >> 8);
-    payload[4]  = (uint8_t)(htonl(cur_ip) & 0xFF);
-    payload[5]  = (uint8_t)(htonl(cur_mask) >> 24);
-    payload[6]  = (uint8_t)(htonl(cur_mask) >> 16);
-    payload[7]  = (uint8_t)(htonl(cur_mask) >> 8);
-    payload[8]  = (uint8_t)(htonl(cur_mask) & 0xFF);
-    payload[9]  = (uint8_t)(htonl(cur_gw) >> 24);
-    payload[10] = (uint8_t)(htonl(cur_gw) >> 16);
-    payload[11] = (uint8_t)(htonl(cur_gw) >> 8);
-    payload[12] = (uint8_t)(htonl(cur_gw) & 0xFF);
-    payload[13] = (uint8_t)(htonl(cur_dns) >> 24);
-    payload[14] = (uint8_t)(htonl(cur_dns) >> 16);
-    payload[15] = (uint8_t)(htonl(cur_dns) >> 8);
-    payload[16] = (uint8_t)(htonl(cur_dns) & 0xFF);
+    payload[1]  = (uint8_t)(cur_ip >> 24);
+    payload[2]  = (uint8_t)(cur_ip >> 16);
+    payload[3]  = (uint8_t)(cur_ip >> 8);
+    payload[4]  = (uint8_t)(cur_ip & 0xFF);
+    payload[5]  = (uint8_t)(cur_mask >> 24);
+    payload[6]  = (uint8_t)(cur_mask >> 16);
+    payload[7]  = (uint8_t)(cur_mask >> 8);
+    payload[8]  = (uint8_t)(cur_mask & 0xFF);
+    payload[9]  = (uint8_t)(cur_gw >> 24);
+    payload[10] = (uint8_t)(cur_gw >> 16);
+    payload[11] = (uint8_t)(cur_gw >> 8);
+    payload[12] = (uint8_t)(cur_gw & 0xFF);
+    payload[13] = (uint8_t)(cur_dns >> 24);
+    payload[14] = (uint8_t)(cur_dns >> 16);
+    payload[15] = (uint8_t)(cur_dns >> 8);
+    payload[16] = (uint8_t)(cur_dns & 0xFF);
 
     ubcp_frame_t resp;
     ubcp_frame_make_response(req, &resp);
@@ -294,14 +294,14 @@ static void handle_net_status(const ubcp_frame_t *req)
     payload[2]  = 0x00;  /* IntfIndex: ETH0 */
     payload[3]  = link;
     payload[4]  = conn;
-    payload[5]  = (uint8_t)(htonl(ip) >> 24);
-    payload[6]  = (uint8_t)(htonl(ip) >> 16);
-    payload[7]  = (uint8_t)(htonl(ip) >> 8);
-    payload[8]  = (uint8_t)(htonl(ip) & 0xFF);
-    payload[9]  = (uint8_t)(htonl(mask) >> 24);
-    payload[10] = (uint8_t)(htonl(mask) >> 16);
-    payload[11] = (uint8_t)(htonl(mask) >> 8);
-    payload[12] = (uint8_t)(htonl(mask) & 0xFF);
+    payload[5]  = (uint8_t)(ip >> 24);
+    payload[6]  = (uint8_t)(ip >> 16);
+    payload[7]  = (uint8_t)(ip >> 8);
+    payload[8]  = (uint8_t)(ip & 0xFF);
+    payload[9]  = (uint8_t)(mask >> 24);
+    payload[10] = (uint8_t)(mask >> 16);
+    payload[11] = (uint8_t)(mask >> 8);
+    payload[12] = (uint8_t)(mask & 0xFF);
     memcpy(&payload[13], mac, 6);
 
     ubcp_frame_t resp;
@@ -420,10 +420,10 @@ static void list_conns_collect_cb(const net_conn_entry_t *entry, void *ctx)
     lc->buf[lc->offset + 4] = (uint8_t)(entry->parent_handle & 0xFF);
     lc->buf[lc->offset + 5] = (uint8_t)(entry->local_port >> 8);
     lc->buf[lc->offset + 6] = (uint8_t)(entry->local_port & 0xFF);
-    lc->buf[lc->offset + 7] = (uint8_t)(htonl(entry->remote_ip) >> 24);
-    lc->buf[lc->offset + 8] = (uint8_t)(htonl(entry->remote_ip) >> 16);
-    lc->buf[lc->offset + 9] = (uint8_t)(htonl(entry->remote_ip) >> 8);
-    lc->buf[lc->offset + 10]= (uint8_t)(htonl(entry->remote_ip) & 0xFF);
+        lc->buf[lc->offset + 7] = (uint8_t)(entry->remote_ip >> 24);
+        lc->buf[lc->offset + 8] = (uint8_t)(entry->remote_ip >> 16);
+        lc->buf[lc->offset + 9] = (uint8_t)(entry->remote_ip >> 8);
+        lc->buf[lc->offset + 10]= (uint8_t)(entry->remote_ip & 0xFF);
     lc->offset += 10;
     lc->count++;
 }

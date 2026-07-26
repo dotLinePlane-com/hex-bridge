@@ -1,6 +1,6 @@
 {
   "screenSplit": "one",
-  "baud": "921600",
+  "baud": "115200",
   "dataBits": 8,
   "crc": "NONE",
   "stopBit": 1,

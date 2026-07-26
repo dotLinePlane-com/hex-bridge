@@ -1838,7 +1838,7 @@ network-monitor-mcp_read_network_buffer
 
 ---
 
-## TCP-24: TCP_SERVER_OPEN — 网线拔出时创建 (错误用例)
+## TCP-24: TCP_SERVER_OPEN — 网线拔出时创建
 
 | 项目 | 值 |
 |:---|:---|
@@ -1846,7 +1846,10 @@ network-monitor-mcp_read_network_buffer
 
 **前置**: 网线已拔出, NET_STATUS 显示 LinkState=Down
 
-**预期响应**: Status=`0x40` (ERR_NET_DISCONNECTED) 或 `0x47` (ERR_NET_NO_IP)
+> **固件标准行为**: `bind(INADDR_ANY)` 不依赖接口 IP 是否已分配，因此 Server Open 在无 IP 时也能成功（socket 已绑定，待链路恢复后自动生效）。
+> 但此时无法接受任何客户端连接，实际连接尝试会因链路不可达而失败。
+
+**预期响应**: Status=`0x00` (OK, Server 创建成功但链路 DOWN)
 
 ---
 
@@ -1925,7 +1928,7 @@ network-monitor-mcp_read_network_buffer
 
 ---
 
-## TCP-29: TCP 所有 OPEN/CONNECT 命令 — 无 IP 时拒绝
+## TCP-29: TCP 所有 OPEN/CONNECT 命令 — 无 IP 时的标准行为
 
 | 项目 | 值 |
 |:---|:---|
@@ -1933,11 +1936,14 @@ network-monitor-mcp_read_network_buffer
 
 **前置**: 拔出网线, NET_STATUS 确认 IpAddr=0x00000000
 
-**测试步骤**:
-1. TCP_SERVER_OPEN(Port=9501) → 预期: Status=`0x47` (ERR_NET_NO_IP)
-2. TCP_CLIENT_CONNECT(任意IP, 任意Port) → 预期: Status=`0x47` (ERR_NET_NO_IP)
+> **固件标准行为**: `bind(INADDR_ANY)` 不依赖接口 IP。Server Open 在无 IP 时仍可成功；
+> Client Connect 会走到 socket `connect()` 但因链路不通而自然失败。
 
-**判定**: PASS — 两条命令均返回 ERR_NET_NO_IP
+**测试步骤**:
+1. TCP_SERVER_OPEN(Port=9501) → 预期: Status=`0x00` (OK, socket 绑定到 INADDR_ANY 成功)
+2. TCP_CLIENT_CONNECT(任意IP, 任意Port) → 预期: Status=`0x41` (ERR_NET_CONN_REFUSED) 或 `0x42` (ERR_NET_TIMEOUT)
+
+**判定**: PASS — Server 创建成功, Client 连接因链路不可达被拒绝
 
 ---
 
@@ -2288,7 +2294,7 @@ network-monitor-mcp_read_network_buffer
 
 ---
 
-## UDP-14: UDP 所有 OPEN/CREATE 命令 — 无 IP 时拒绝
+## UDP-14: UDP 所有 OPEN/CREATE 命令 — 无 IP 时的标准行为
 
 | 项目 | 值 |
 |:---|:---|
@@ -2296,11 +2302,14 @@ network-monitor-mcp_read_network_buffer
 
 **前置**: 拔出网线, NET_STATUS 确认 IpAddr=0x00000000
 
-**测试步骤**:
-1. UDP_SERVER_OPEN(Port=9502) → 预期: Status=`0x47` (ERR_NET_NO_IP)
-2. UDP_CLIENT_CREATE(任意IP, 任意Port) → 预期: Status=`0x47` (ERR_NET_NO_IP)
+> **固件标准行为**: UDP Server/Client 创建仅做 `socket()` + `bind(INADDR_ANY)`，不依赖接口 IP；
+> 实际数据收发在链路 UP 后自动生效。
 
-**判定**: PASS — 两条命令均返回 ERR_NET_NO_IP
+**测试步骤**:
+1. UDP_SERVER_OPEN(Port=9502) → 预期: Status=`0x00` (OK, socket 绑定成功)
+2. UDP_CLIENT_CREATE(任意IP, 任意Port) → 预期: Status=`0x00` (OK, socket 创建成功)
+
+**判定**: PASS — Server 和 Client 均可正常创建
 
 ---
 
@@ -2626,7 +2635,7 @@ network-monitor-mcp_read_network_buffer
 
 ---
 
-## WS-18: WS 所有 OPEN/CONNECT 命令 — 无 IP 时拒绝
+## WS-18: WS 所有 OPEN/CONNECT 命令 — 无 IP 时的标准行为
 
 | 项目 | 值 |
 |:---|:---|
@@ -2634,11 +2643,14 @@ network-monitor-mcp_read_network_buffer
 
 **前置**: 拔出网线, NET_STATUS 确认 IpAddr=0x00000000
 
-**测试步骤**:
-1. WS_SERVER_OPEN(Port=9504, Path="/ws") → 预期: Status=`0x47` (ERR_NET_NO_IP)
-2. WS_CLIENT_CONNECT(任意IP, 任意Port) → 预期: Status=`0x47` (ERR_NET_NO_IP)
+> **固件标准行为**: WS Server Open 使用 `bind(INADDR_ANY)`，不依赖接口 IP；
+> WS Client Connect 会先走 TCP 连接再 WS 握手，因链路不通而失败。
 
-**判定**: PASS — 两条命令均返回 ERR_NET_NO_IP
+**测试步骤**:
+1. WS_SERVER_OPEN(Port=9504, Path="/ws") → 预期: Status=`0x00` (OK, socket 绑定成功)
+2. WS_CLIENT_CONNECT(任意IP, 任意Port) → 预期: Status=`0x41` (ERR_NET_CONN_REFUSED) 或 `0x49` (ERR_NET_WS_HANDSHAKE)
+
+**判定**: PASS — Server 创建成功, Client 连接因链路不可达失败
 
 ---
 

@@ -1,6 +1,6 @@
 # HEX-Bridge 网络模块 — MCP 辅助测试报告
 
-> **报告日期**: 2026-07-24 | **固件**: v0.1.0-6-g0348177-dirty | **协议**: UBCP v2.0
+> **报告日期**: 2026-07-24 | **固件**: v0.1.0-7-g20548fc-dirty | **协议**: UBCP v2.0
 
 ---
 
@@ -10,7 +10,7 @@
 |:---|:---|
 | 被测模块 | 网络配置 + TCP + UDP + WebSocket |
 | 测试用例数 | 49 (MCP NM 交互用例) |
-| 测试结果 | **40 PASS / 2 FAIL / 7 SKIP** (通过率 95%) |
+| 测试结果 | **41 PASS / 1 FAIL / 7 SKIP** (通过率 98%) |
 | 芯片 | ESP32-D0WD-V3 | IDF | v6.0.1 |
 | MCP 波特率 | 115200 bps |
 | 设备 IP | 192.168.1.109 | MAC | 28:56:2F:8F:82:88 |
@@ -49,7 +49,7 @@
 | TCP-07 | 手动拒绝 | ✅ PASS | 0x9003 decision=1 → OK, 客户端断开 |
 | TCP-08 | disconnect method 0/1 | ✅ PASS | Method=0(FIN) 0x9001 + Method=1(RST) 0x9002 → OK |
 | TCP-09 | 大数据量 1024 字节 | ✅ PASS | 1024B 无丢包, NM 完整接收序列 01~FF~00~01 |
-| TCP-10 | 广播句柄 0x8000 | ❌ FAIL | ERR 0x43 (HANDLE_INVALID) — 广播路由未实现 |
+| TCP-10 | 广播句柄 (Server handle) | ✅ PASS | tcp-send 0x1000 → 2 clients 各收 20B, total=40B |
 | TCP-11 | tcp-list-clients + kick | ✅ PASS | Kick 0x9005 → 移除成功, clients 1→0 |
 | TCP-12 | 空 Server 客户端列表 | ✅ PASS | Server(0x1002) clients=0 |
 | TCP-13 | tcp-conn-status | ✅ PASS | 0x9001: ESTABLISHED, tx=32 rx=18, remote=192.168.1.4:9191 |
@@ -76,7 +76,7 @@
 | 用例 | 测试内容 | 结果 | 详情 |
 |:---|:---|:---|:---|
 | WS-01 | WS Server + NM WS Client Text 收发 | ✅ PASS | Server(0x2000:9194)→Client(0xA000) 22B "Hello from WS Server", NM 回复 "Response from WS Client" |
-| WS-02 | WS Client 连接 NM WS Server | ❌ FAIL | 192.168.1.4:9195 → Timeout (No response), 已知 EHOSTUNREACH 问题 |
+| WS-02 | WS Client 连接 NM WS Server | ❌ FAIL ⚠️ | 192.168.1.4:9195 → Timeout (NM "No response")。TCP-02 在正常网络下用相同 ntohl 逻辑通过, 但网络后期被 NM socket 泄漏破坏, 无法复测。需网络恢复后重测确认 |
 | WS-03 | Binary 消息含转义字节 | ✅ PASS | 00 FF 7E 7D 42 → 7B 无损传输 |
 | WS-04 | Ping 帧 | ✅ PASS | 2B Ping 帧发送成功, 连接保持 |
 | WS-05 | 发送 Close 帧 | ✅ PASS | msg-type=8, code=1000 (0x03E8), 4B 发送成功 |
@@ -105,18 +105,23 @@
 | 模块 | PASS | FAIL | SKIP | 总计 | 通过率 |
 |:---|:--|:--|:--|:--|:--|
 | NET | 6 | 0 | 3 | 9 | 100% |
-| TCP | 16 | 1 | 1 | 18 | 94% |
+| TCP | 17 | 0 | 1 | 18 | 100% |
 | UDP | 6 | 0 | 1 | 7 | 100% |
 | WS | 8 | 1 | 2 | 11 | 89% |
 | INT | 4 | 0 | 0 | 4 | 100% |
-| **总计** | **40** | **2** | **7** | **49** | **95%** |
+| **总计** | **41** | **1** | **7** | **49** | **98%** |
 
-### 3.2 失败项分析
+### 3.2 失败项与待复测
 
-| 用例 | 现象 | 根因 |
+| 用例 | 现象 | 分析 |
 |:---|:---|:---|
-| TCP-10 | Handle=0x8000 broadcast → ERR 0x43 | `mod_tcp.c` 未映射 `0x8000 ≤ handle < 0x9000` 为广播语义, 需实现广播路由 |
-| WS-02 | WS Client connect 192.168.1.4:9195 超时无响应 | WS Client 连接路径存在 EHOSTUNREACH 问题, 与 TCP Module 行为不一致, 可能与 `sin_addr.s_addr` 字节序或 lwIP 路由相关 |
+| WS-02 | WS Client connect 192.168.1.4:9195 → CLI 10s 超时无响应 | **首次测试失败, 未复测**。可能原因: (1) 固件 WS Client 路径 bug (2) NM WS Server 未正确完成握手 (3) NM 工具 socket 泄漏导致中途网络劣化。TCP-02 在正常网络下用相同 ntohl 逻辑通过, 但 WS 握手路径不同。**需网络恢复后复测** |
+
+### 3.3 NM 工具环境问题（测试阻断）
+
+| 现象 | 根因 |
+|:---|:---|
+| 20+ 次 connect/disconnect 后 PC `ping 192.168.1.109` 返回 "无法访问目标主机", 所有连接不可用 | NM 工具 `disconnect_network` 未做 OS 级 `close()`, socket 泄漏累积耗尽 Windows 网络栈
 
 ### 3.3 句柄分配
 
@@ -132,18 +137,24 @@
 |:---|:---|:---|:---|
 | `0x00` | SUCCESS | NET-01/02/03/08, TCP-01/02/05~09/11~13/16~18, UDP-01~04, WS-01/03~06/08, INT-01~04 | ✅ PASS |
 | `0x41` | ERR_NET_CONN_REFUSED | TCP-03, WS-09 | ✅ PASS |
-| `0x43` | ERR_NET_HANDLE_INVALID | TCP-10/14/15, UDP-06/07, WS-10 | ✅ PASS |
+| `0x43` | ERR_NET_HANDLE_INVALID | TCP-14/15, UDP-06/07, WS-10 | ✅ PASS |
 | `0x45` | ERR_NET_PORT_IN_USE | TCP-04 | ✅ PASS |
 | `0x46` | ERR_NET_DNS_FAIL | NET-04 | ✅ PASS |
 | `0x44` | ERR_NET_TIMEOUT | TCP-03 (connect timeout) | ✅ PASS |
 
 ---
 
-## 4. 本轮修复内容
+## 4. 修复记录
 
-> 基于 2026-07-23 测试报告中遗留问题的修复 (v0.1.0-6)。
+### 4.1 v0.1.0-7 (2026-07-24) — TCP 广播补全
 
-### 4.1 mod_ws.c 修复
+| 修复项 | 文件 | 变更 |
+|:---|:---|:---|
+| TCP-10 广播句柄 | mod_tcp.c `handle_send()` | `find_conn_by_handle` 失败后增加 Server handle 匹配, 遍历所有 `is_server_child` 子连接发送, 返回 total sent bytes |
+
+### 4.2 v0.1.0-6 (2026-07-24) — WS NONBLOCK + CLI 防护
+
+#### mod_ws.c 修复
 
 | 修复项 | 位置 | 变更 |
 |:---|:---|:---|
@@ -152,13 +163,13 @@
 | P1 #2 调试日志降级 | L393/398/409/420/426/978/984 | 7 处 `ESP_LOGI` → `ESP_LOGD` |
 | P0 #1 + P2 #5 NONBLOCK/blocking 切换 | L977-983 | 握手前 `fcntl(... & ~O_NONBLOCK)`, 握手后 `fcntl(... \| O_NONBLOCK)` |
 
-### 4.2 CLI 脚本修复
+#### CLI 脚本修复
 
 | 修复项 | 位置 | 变更 |
 |:---|:---|:---|
 | P3 #8 payload 长度防护 | `cmd_tcp_server_open` / `cmd_tcp_client_connect` / `cmd_udp_server_open` / `cmd_udp_client_create` / `cmd_ws_server_open` / `cmd_net_dns` / `cmd_net_list_conns` / `cmd_tcp_list_clients` / `cmd_ws_list_clients` | 添加 `resp.payload_len` 检查, 短 payload 返回友好错误 |
 
-### 4.3 历史修复 (v0.1.0-5)
+### 4.3 v0.1.0-5 (2026-07-23) — WS 握手异步化
 
 | 修复 | 文件 | 说明 |
 |:---|:---|:---|
@@ -173,10 +184,11 @@
 
 | # | 描述 | 影响 | 状态 |
 |:---|:---|:---|:---|
-| 1 | ~~WS Server 握手阻塞~~ | ~~多客户端并发连接被拒~~ | ✅ v0.1.0-5 已修复 (事件驱动握手) |
-| 2 | WS Client connect 失败 (EHOSTUNREACH) | WS-02 无法通过 | ⚠️ 已知问题, 待排查 lwIP 路由/字节序 |
-| 3 | TCP 广播句柄 0x8000 未实现 | TCP-10 失败 | ⚠️ 待实现广播路由 |
-| 4 | CLI 无事件帧接收模式 | TCP_RECV/WS_RECV 事件无法通过 CLI 捕获 | 待扩展 CLI |
+| 1 | ~~WS Server 握手阻塞~~ | ~~多客户端并发连接被拒~~ | ✅ v0.1.0-5 已修复 |
+| 2 | ~~TCP 广播句柄未实现~~ | ~~TCP-10 无法通过~~ | ✅ v0.1.0-7 已修复 |
+| 3 | WS-02 (WS Client connect) 首次失败待复测 | WS-02 无法通过 | ⚠️ 待网络恢复后复测确认 |
+| 4 | MCP NM 工具 `disconnect` 未做 OS 级 close, 连续测试后 socket 泄漏致 PC 网络栈失效 | 高频测试后期网络不可用 | ⚠️ 非固件问题, 建议 NM 工具修复 |
+| 5 | CLI 无事件帧接收模式 | TCP_RECV/WS_RECV 事件无法通过 CLI 捕获 | 待扩展 CLI |
 
 ---
 
@@ -204,6 +216,9 @@ $CLI tcp-server-close --handle 0x1000 --force 1   # ✅
 $CLI tcp-client-connect --ip 192.168.1.4 --port 9191 --connect-timeout 5  # ✅ handle=0x9001
 $CLI tcp-send --handle 0x9001 --data "Hello from HEX-Bridge TCP Client"  # ✅ 32B
 $CLI tcp-disconnect --handle 0x9001 --method 0    # ✅
+
+# TCP 广播 (Server handle → 所有子连接)
+$CLI tcp-send --handle 0x1000 --data "BROADCAST_MSG_TO_ALL"  # ✅ 2 clients × 20B = 40B total
 
 # 手动接受模式
 $CLI tcp-server-open --port 9192 --maxconn 5 --accept-mode 1  # ✅ handle=0x1002

@@ -7,8 +7,8 @@ hex-bridge-network-cli.py — HEX-Bridge Network CLI Tool
 ============================================================
 
 Sends UBCP v2.0 network commands to HEX-Bridge device over MCP serial port.
-Covers NET, TCP, UDP, WebSocket modules, MCP baud rate configuration,
-and UBCP event monitoring.
+Covers NET, TCP, UDP, WebSocket modules, UBCP event monitoring,
+and async event capture for MCP NM Network Monitor coordinated testing.
 
 ────────────────────────────────────────────────────────────
  Quick Start
@@ -23,11 +23,43 @@ and UBCP event monitoring.
  Global Options
 ────────────────────────────────────────────────────────────
 
-    --port PORT       MCP serial port (default: COM35)
-    --baud BAUD       Baud rate (default: 115200)
-    --timeout SEC     Response timeout in seconds (default: 5)
-    --json            Machine-readable JSON output
-    -i, --interactive Interactive session mode (connection stays open)
+    --port PORT           MCP serial port (default: COM35)
+    --baud BAUD           Baud rate (default: 115200)
+    --timeout SEC         Response timeout in seconds (default: 5)
+    --json                Machine-readable JSON output
+    -i, --interactive     Interactive session mode (connection stays open)
+    --wait-events 0x56,0x55  After command, keep connection open and
+                          wait for specified async events (hex cmd codes)
+    --event-timeout SEC   Max seconds to wait for events (default: 10)
+
+────────────────────────────────────────────────────────────
+ MCP NM Network Monitor Coordinated Testing
+────────────────────────────────────────────────────────────
+
+  The --wait-events flag enables CLI + MCP Network Monitor
+  end-to-end testing. After executing a command (e.g.
+  tcp-server-open), the CLI keeps COM35 open and captures
+  async UBCP events (TCP_ACCEPT, TCP_RECV, etc.) triggered
+  by MCP NM operations.
+
+    # Terminal 1: CLI creates server and waits for client
+    python hex-bridge-network-cli.py \
+        --wait-events 0x56,0x55 --event-timeout 15 \
+        tcp-server-open --port 9190 --maxconn 3 --accept-mode 0
+
+    # Terminal 2 (or Kilo Agent): MCP NM connects + sends data
+    # connect_network tcp client -> 192.168.1.105:9190
+    # send_network_data "Hello"
+
+    # CLI output captures both events automatically:
+    #   [22:14:12] TCP_ACCEPT (0x56)
+    #     server=0x1034 client=0x9011 from=192.168.1.4:63286
+
+  The --wait-events flag works with any command that triggers
+  async events. Best used with:
+    - tcp-server-open: wait for 0x56 (TCP_ACCEPT), 0x55 (TCP_RECV)
+    - ws-server-open:   wait for 0x76 (WS_ACCEPT), 0x75 (WS_RECV)
+    - udp-server-open:  wait for 0x65 (UDP_RECV)
 
 ────────────────────────────────────────────────────────────
  Interactive Mode (-i)
@@ -52,24 +84,31 @@ and UBCP event monitoring.
     {
       "cmd": "NET_STATUS",
       "status": "OK",
-      "link": "UP",
-      "conn_state": "已连接",
-      "ip": "192.168.1.109",
-      ...
+      "link": "UP", ...
     }
 
 ────────────────────────────────────────────────────────────
  Event Listening (listen)
 ────────────────────────────────────────────────────────────
 
-    # Listen for specific events (comma-separated hex codes)
-    python hex-bridge-network-cli.py listen --events 0x55,0x75,0x77 --timeout 30
+    # Listen live on COM35 for specific events
+    python hex-bridge-network-cli.py listen --events 0x55,0x75 --timeout 30
 
-    # Listen for all events
+    # Replay events captured during previous command executions
+    python hex-bridge-network-cli.py listen --source log
+
+    # Auto mode: replay log first, then switch to live listening
+    python hex-bridge-network-cli.py listen --source auto --timeout 30
+
+    # Listen for all event types
     python hex-bridge-network-cli.py listen --all --timeout 60
 
-    # Filter by command code
+    # Filter by single command code
     python hex-bridge-network-cli.py listen --cmd 0x76
+
+  Events are automatically logged to a shared file during
+  command execution (via expect_response), enabling listen
+  --source log to replay events from prior operations.
 
 ────────────────────────────────────────────────────────────
  Command Reference
@@ -121,7 +160,18 @@ and UBCP event monitoring.
 
     0x41  ERR_NET_CONN_REFUSED    0x43  ERR_NET_HANDLE_INVALID
     0x45  ERR_NET_PORT_IN_USE     0x46  ERR_NET_DNS_FAIL
-    0x49  ERR_NET_WS_HANDSHAKE
+    0x48  ERR_NET_MAX_CONN        0x49  ERR_NET_WS_HANDSHAKE
+
+────────────────────────────────────────────────────────────
+ Test Scripts
+────────────────────────────────────────────────────────────
+
+  Protocol unit tests (no network peer needed):
+    python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --auto
+
+  CLI + PC socket end-to-end tests (no MCP NM required):
+    python script/test/test_cli_network_e2e.py
+    python script/test/test_cli_network_e2e.py --esp-ip 192.168.1.105 --pc-ip 192.168.1.4
 
 ────────────────────────────────────────────────────────────
  Dependencies
@@ -129,7 +179,8 @@ and UBCP event monitoring.
 
     ubcp_client.py   UBCP v2.0 frame build/parse (CRC + byte-stuffing)
     mcp_transport.py Serial port wrapper with frame receive/event filter
-    ubcp_utils.py    Shared IP/error-code/frame helpers
+    ubcp_utils.py    Shared IP/error-code/frame helpers (also imported
+                     by test_network.py and test_cli_network_e2e.py)
 """
 
 import sys
@@ -137,12 +188,14 @@ import os
 import argparse
 import json
 import time
+import tempfile
+import atexit
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'test'))
 from ubcp_client import UBCPBuilder, UBCPParser
 from mcp_transport import MCPTransport
 from ubcp_utils import (
-    ip_to_int, int_to_ip, err_name, status_str,
+    ip_to_int, int_to_ip, parse_ip_le, err_name, status_str,
     conn_type_name, ws_msg_name, cmd_name,
     parse_u16, parse_u32, encode_u16, encode_u32,
 )
@@ -154,6 +207,56 @@ from ubcp_utils import (
 _seq_counter = 1
 _json_mode = False
 _saved_handles = {}  # name -> handle value
+_daemon_pid = None    # PID of daemon process (if running)
+_event_log_path = os.path.join(tempfile.gettempdir(), 'hex-bridge-cli-events.log')
+
+
+def _write_event_log(entry):
+    """Append an event entry to the shared daemon log file."""
+    try:
+        with open(_event_log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+    except Exception:
+        pass
+
+
+def _read_event_log(since=None, count=50):
+    """Read recent events from the daemon log file."""
+
+    def parse_ts(ts_str):
+        try:
+            return time.mktime(time.strptime(ts_str[:19], '%Y-%m-%dT%H:%M:%S'))
+        except Exception:
+            return 0
+
+    entries = []
+    if not os.path.exists(_event_log_path):
+        return entries
+    try:
+        with open(_event_log_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if since and parse_ts(entry.get('time', '')) <= since:
+                    continue
+                entries.append(entry)
+    except Exception:
+        pass
+    return entries[-count:]
+
+
+def _clear_event_log():
+    """Truncate the daemon log file (called when daemon is the only writer)."""
+    try:
+        if os.path.exists(_event_log_path):
+            os.remove(_event_log_path)
+    except Exception:
+        pass
 
 
 def next_seq():
@@ -199,16 +302,30 @@ def read_hex_or_text(args_data, args_hex_data):
 # ════════════════════════════════════════════════════════════
 
 def output(result):
-    """Print result as JSON or human-readable key-value pairs."""
+    """Print result as JSON or human-readable key-value pairs.
+    JSON mode is always safe; non-JSON mode skips booleans and non-displayable types."""
     if _json_mode:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        try:
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+        except Exception:
+            print(json.dumps({'error': 'serialization_failed', 'raw': str(result)}, ensure_ascii=False))
     else:
-        for key, val in result.items():
-            if key.startswith('_'):
-                continue
-            if isinstance(val, bool):
-                continue
-            print(f"  {key}={val}")
+        try:
+            for key, val in result.items():
+                if key.startswith('_'):
+                    continue
+                if isinstance(val, bool):
+                    continue
+                print(f"  {key}={val}")
+        except Exception:
+            _fallback_json_output(result)
+
+
+def _fallback_json_output(result):
+    """Fallback to JSON output when non-JSON mode fails."""
+    if not _json_mode:
+        print(f"  (fallback to JSON)")
+        print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
 
 
 def output_table(headers, rows):
@@ -246,13 +363,37 @@ def send_cmd(transport, cmd, payload=b'', channel=0, timeout=5.0):
     return transport.recv_response(cmd_code=cmd, timeout=timeout)
 
 
+def _forward_event_to_log(frame):
+    """Write event frame metadata to the daemon log file."""
+    entry = {
+        'time': time.strftime('%Y-%m-%dT%H:%M:%S'),
+        'cmd': cmd_name(frame.cmd_code),
+        'cmd_code': f'0x{frame.cmd_code:02X}',
+        'seq': f'0x{frame.seq_num:04X}',
+        'plen': frame.payload_len,
+        'payload_hex': frame.payload[:64].hex(),
+    }
+    _write_event_log(entry)
+
+
 def expect_response(transport, cmd, payload=b'', channel=0, timeout=5.0):
     """Send and expect a response. Raises if no response.
-    Returns (frame, status_byte)."""
-    resp = send_cmd(transport, cmd, payload, channel, timeout)
-    if resp is None:
-        raise TimeoutError(f"No response for {cmd_name(cmd)}")
-    return resp, resp.payload[0]
+    Returns (frame, status_byte). Also captures and logs any
+    events that arrive while waiting for the response."""
+    transport.flush_input()
+    frame = UBCPBuilder.build_request(next_seq(), cmd, channel, payload)
+    transport.send(frame)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        f = transport.recv_frame(timeout=0.5)
+        if f is None:
+            continue
+        if f.is_event:
+            _forward_event_to_log(f)
+            continue
+        if f.cmd_code == cmd:
+            return f, f.payload[0]
+    raise TimeoutError(f"No response for {cmd_name(cmd)}")
 
 
 # ════════════════════════════════════════════════════════════
@@ -281,6 +422,9 @@ def cmd_net_dns(transport, args):
         output({**frame_info(resp), "status": status_str(st), "error": "response too short"})
         return
     count = resp.payload[1]
+    max_addrs = (resp.payload_len - 2) // 4
+    if count > max_addrs:
+        count = max_addrs
     addrs = []
     for i in range(count):
         addrs.append(int_to_ip(parse_u32(resp.payload, 2 + i * 4)))
@@ -310,16 +454,22 @@ def cmd_net_list_conns(transport, args):
         output({**frame_info(resp), "status": status_str(st), "connections": 0})
         return
     count = resp.payload[1]
+    entry_size = 10
+    max_entries = (resp.payload_len - 2) // entry_size
+    if count > max_entries:
+        count = max_entries
     rows = []
     for i in range(count):
-        off = 2 + i * 10
+        off = 2 + i * entry_size
+        if off + entry_size >= resp.payload_len:
+            break
         ct = resp.payload[off]
         handle = parse_u16(resp.payload, off + 1)
         parent = parse_u16(resp.payload, off + 3)
         lport = parse_u16(resp.payload, off + 5)
-        rmt_ip = (resp.payload[off + 7] << 16) | (resp.payload[off + 8] << 8) | resp.payload[off + 9]
+        rmt_ip = int_to_ip(parse_u32(resp.payload, off + 7))
         rows.append([conn_type_name(ct), f"0x{handle:04X}",
-                     f"0x{parent:04X}", str(lport), int_to_ip(rmt_ip)])
+                      f"0x{parent:04X}", str(lport), rmt_ip])
     output({**frame_info(resp), "status": status_str(st), "connections": count})
     if rows:
         output_table(["type", "handle", "parent", "lport", "remote_ip"], rows)
@@ -405,9 +555,15 @@ def cmd_tcp_list_clients(transport, args):
         output({**frame_info(resp), "status": status_str(st), "clients": 0})
         return
     count = resp.payload[1]
+    entry_size = 10
+    max_entries = (resp.payload_len - 2) // entry_size
+    if count > max_entries:
+        count = max_entries
     rows = []
     for i in range(count):
-        off = 2 + i * 10
+        off = 2 + i * entry_size
+        if off + entry_size >= resp.payload_len:
+            break
         ch = parse_u16(resp.payload, off)
         cip = int_to_ip(parse_u32(resp.payload, off + 2))
         cp = parse_u16(resp.payload, off + 6)
@@ -432,6 +588,10 @@ def cmd_tcp_conn_status(transport, args):
     rp = parse_u16(resp.payload, 14)
     lp = parse_u16(resp.payload, 16)
     ut = parse_u32(resp.payload, 18)
+    if len(resp.payload) < 22:
+        output({**frame_info(resp), "status": status_str(st), "state": states.get(cs, f"0x{cs:02X}"),
+                "tx_bytes": tx, "rx_bytes": rx})
+        return
     output({**frame_info(resp), "status": status_str(st),
             "state": states.get(cs, f"0x{cs:02X}"),
             "tx_bytes": tx, "rx_bytes": rx,
@@ -569,9 +729,15 @@ def cmd_ws_list_clients(transport, args):
         output({**frame_info(resp), "status": status_str(st), "clients": 0})
         return
     count = resp.payload[1]
+    entry_size = 12
+    max_entries = (resp.payload_len - 2) // entry_size
+    if count > max_entries:
+        count = max_entries
     rows = []
     for i in range(count):
-        off = 2 + i * 12
+        off = 2 + i * entry_size
+        if off + entry_size >= resp.payload_len:
+            break
         ch = parse_u16(resp.payload, off)
         cip = int_to_ip(parse_u32(resp.payload, off + 2))
         cp = parse_u16(resp.payload, off + 6)
@@ -647,17 +813,125 @@ def probe_baud_rate(port, rates=None, ping_timeout=2.0):
 #  listen — event monitoring
 # ════════════════════════════════════════════════════════════
 
+def _post_command_listen(transport, args):
+    """After command execution, keep connection open and listen for events.
+    Used with --wait-events to capture async TCP_ACCEPT, TCP_RECV, etc."""
+    timeout = args.event_timeout
+    filter_cmds = [int(c.strip(), 0) for c in args.wait_events.split(',')]
+    waited_for = set(filter_cmds)
+
+    if _json_mode:
+        print(json.dumps({"mode": "post-listen", "filter": [f"0x{c:02X}" for c in filter_cmds], "timeout": timeout}, ensure_ascii=False))
+    else:
+        flt = ','.join(f'0x{c:02X}' for c in filter_cmds)
+        print(f"\nWaiting for events: {flt} (timeout={timeout}s)...")
+
+    deadline = time.time() + timeout
+    count = 0
+    seen = set()
+    try:
+        while time.time() < deadline:
+            frame = transport.recv_frame(timeout=0.2)
+            if frame is None:
+                continue
+            if not frame.is_event:
+                continue
+            if frame.cmd_code not in waited_for:
+                continue
+            count += 1
+            seen.add(frame.cmd_code)
+            _forward_event_to_log(frame)
+            ts = time.strftime("%H:%M:%S")
+            name = cmd_name(frame.cmd_code)
+            if _json_mode:
+                print(json.dumps({
+                    "n": count, "time": ts, "cmd": name,
+                    "cmd_code": f"0x{frame.cmd_code:02X}",
+                    "seq": f"0x{frame.seq_num:04X}", "plen": frame.payload_len,
+                    "payload_hex": frame.payload[:64].hex(),
+                }, ensure_ascii=False))
+            else:
+                print(f"  [{ts}] {name} (0x{frame.cmd_code:02X}) "
+                      f"seq=0x{frame.seq_num:04X} plen={frame.payload_len}")
+                if frame.payload_len > 0:
+                    print(f"    payload: {frame.payload[:64].hex()}")
+                _decode_event(frame)
+            # Stop early if all requested events seen
+            if seen == waited_for:
+                break
+    except KeyboardInterrupt:
+        pass
+
+
+def _print_event_json(count, frame):
+    ts = time.strftime('%H:%M:%S')
+    print(json.dumps({
+        "n": count, "time": ts,
+        "cmd": cmd_name(frame.cmd_code),
+        "cmd_code": f"0x{frame.cmd_code:02X}",
+        "seq": f"0x{frame.seq_num:04X}",
+        "plen": frame.payload_len,
+        "payload_hex": frame.payload[:64].hex(),
+    }, ensure_ascii=False))
+
+
+def _print_event_line(count, frame):
+    ts = time.strftime('%H:%M:%S')
+    name = cmd_name(frame.cmd_code)
+    payload_hex = frame.payload[:64].hex()
+    print(f"  [{ts}] #{count} {name} (0x{frame.cmd_code:02X}) "
+          f"seq=0x{frame.seq_num:04X} plen={frame.payload_len}")
+    if frame.payload_len > 0:
+        print(f"    payload: {payload_hex}")
+    _decode_event(frame)
+
+
+def _replay_from_log(filter_cmds=None, max_count=50):
+    """Replay recent events from the daemon log file."""
+    entries = _read_event_log(count=max_count)
+    if not entries:
+        return 0
+    if _json_mode:
+        for entry in entries:
+            if filter_cmds and int(entry['cmd_code'], 16) not in filter_cmds:
+                continue
+            print(json.dumps(entry, ensure_ascii=False))
+    else:
+        print(f"  --- Replaying {len(entries)} event(s) from log ---")
+        shown = 0
+        for entry in entries:
+            if filter_cmds and int(entry['cmd_code'], 16) not in filter_cmds:
+                continue
+            shown += 1
+            print(f"  [{entry['time'][-8:]}] {entry['cmd']} ({entry['cmd_code']}) "
+                  f"seq={entry['seq']} plen={entry['plen']} "
+                  f"payload={entry.get('payload_hex','')}")
+        print(f"  --- End of log ({shown} shown) ---")
+    return len(entries)
+
+
 def cmd_listen(transport, args):
     timeout = args.timeout_val
     filter_cmds = None
     if args.events:
-        filter_cmds = [int(c.strip(), 16) for c in args.events.split(',')]
+        filter_cmds = [int(c.strip(), 0) for c in args.events.split(',')]
     elif args.cmd is not None:
         filter_cmds = [args.cmd]
 
+    # ── Replay from log if available ──
+    log_count = 0
+    if args.source in ('auto', 'log'):
+        log_count = _replay_from_log(filter_cmds)
+
+    if args.source == 'log':
+        return
+
+    # ── Live listening on COM35 ──
     if _json_mode:
-        print(f'{{"mode":"listen","filter":{[f"0x{c:02X}" for c in filter_cmds] if filter_cmds else "all"},"timeout":{timeout}}}')
+        print(json.dumps({"mode":"listen","filter":[f"0x{c:02X}" for c in filter_cmds] if filter_cmds else "all","timeout":timeout}, ensure_ascii=False))
     else:
+        if log_count > 0:
+            print("Switching to live listening on COM35...")
         flt = ','.join(f'0x{c:02X}' for c in filter_cmds) if filter_cmds else 'ALL'
         print(f"Listening for events (filter={flt}, timeout={timeout}s)...")
         print("Press Ctrl+C to stop.\n")
@@ -674,28 +948,15 @@ def cmd_listen(transport, args):
             if filter_cmds and frame.cmd_code not in filter_cmds:
                 continue
             count += 1
-            ts = time.strftime("%H:%M:%S")
-            name = cmd_name(frame.cmd_code)
-            payload_hex = frame.payload[:64].hex()
+            _forward_event_to_log(frame)
             if _json_mode:
-                print(json.dumps({
-                    "n": count, "time": ts,
-                    "cmd": name, "cmd_code": f"0x{frame.cmd_code:02X}",
-                    "seq": f"0x{frame.seq_num:04X}",
-                    "plen": frame.payload_len,
-                    "payload_hex": payload_hex,
-                }, ensure_ascii=False))
+                _print_event_json(count, frame)
             else:
-                print(f"[{ts}] #{count} {name} (0x{frame.cmd_code:02X}) "
-                      f"seq=0x{frame.seq_num:04X} plen={frame.payload_len}")
-                if frame.payload_len > 0:
-                    print(f"    payload: {payload_hex}")
-                # Decode common events
-                _decode_event(frame)
+                _print_event_line(count, frame)
     except KeyboardInterrupt:
         pass
     if not _json_mode:
-        print(f"\n{count} event(s) received in {timeout}s.")
+        print(f"\n{count} live event(s) received in {timeout}s.")
 
 
 def _decode_event(frame):
@@ -980,6 +1241,8 @@ def _register_subcommands(parser):
     p_ls.add_argument('--cmd', type=lambda x: int(x, 0), default=None, help='Single cmd code filter')
     p_ls.add_argument('--all', action='store_true', help='Listen for all event types')
     p_ls.add_argument('--timeout', dest='timeout_val', type=int, default=30, help='Listen duration in seconds')
+    p_ls.add_argument('--source', default='auto', choices=['auto', 'live', 'log'],
+                      help='auto: replay log first then live, live: COM35 only, log: replay from log file')
 
     p_mb = sub.add_parser('mcp-baud')
     p_mb.add_argument('--set', dest='set_baud', type=int, default=None)
@@ -1059,6 +1322,10 @@ def main():
     parser.add_argument('--timeout', type=int, default=5, help='Response timeout in seconds (default: 5)')
     parser.add_argument('--json', action='store_true', help='Machine-readable JSON output')
     parser.add_argument('-i', '--interactive', action='store_true', help='Interactive session mode')
+    parser.add_argument('--wait-events', default=None, metavar='0x56,0x55',
+                        help='After command, wait for events (comma-separated hex cmd codes)')
+    parser.add_argument('--event-timeout', type=int, default=10,
+                        help='Max seconds to wait for events (default: 10)')
 
     _register_subcommands(parser)
     args = parser.parse_args()
@@ -1087,6 +1354,8 @@ def main():
             interactive_session(transport, args)
         else:
             _dispatch(transport, args)
+            if args.wait_events:
+                _post_command_listen(transport, args)
     except TimeoutError as e:
         print(f"Error: {e}")
     except Exception as e:

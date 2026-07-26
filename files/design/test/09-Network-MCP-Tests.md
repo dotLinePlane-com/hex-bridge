@@ -1869,7 +1869,7 @@ serial-monitor-mcp_send_serial_data
 | `0x43` | ERR_NET_HANDLE_INVALID | TCP-14/15, UDP-06/07, WS-10 |
 | `0x45` | ERR_NET_PORT_IN_USE | TCP-04 |
 | `0x46` | ERR_NET_DNS_FAIL | NET-04 |
-| `0x47` | ERR_NET_NO_IP | NET-09 (断线时所有 OPEN/CONNECT 均返回) |
+| `0x47` | ERR_NET_NO_IP | NET-09 (仅 DNS 解析在无 IP 时返回；Server Open/Client Create 使用 bind(INADDR_ANY) 不依赖 IP) |
 | `0x48` | ERR_NET_MAX_CONN | 创建超过最大连接数 |
 | `0x49` | ERR_NET_WS_HANDSHAKE | WS-09 |
 

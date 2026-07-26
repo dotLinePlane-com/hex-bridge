@@ -58,6 +58,8 @@ hex-bridge/
 ├── sdkconfig                       # ESP-IDF 配置
 └── script/                         # 辅助脚本
     ├── cli/                        # CLI 工具
+    │   ├── hex-bridge-network-cli.py  # 网络模块 CLI (NET/TCP/UDP/WS/Ping/Listen)
+    │   ├── ubcp_utils.py              # CLI 与 test_network.py 共享的工具函数
     │   ├── hex-bridge-uart-cli.py  # UART 扩展口 CLI (Python, 推荐)
     │   ├── hex-bridge-uart-cli.js  # UART 扩展口 CLI (Node.js)
     │   ├── package.json            # Node.js 依赖 (serialport)
@@ -65,6 +67,8 @@ hex-bridge/
     ├── test/                       # 测试脚本
     │   ├── ubcp_client.py          # UBCP v2.0 Python 客户端库
     │   ├── mcp_transport.py        # COM35 串口传输封装
+    │   ├── test_network.py         # 网络模块协议测试 (73 PASS / 0 FAIL)
+    │   ├── test_cli_network_e2e.py # 网络模块端到端收发测试 (PC socket 对端)
     │   ├── test_uart.py            # UART 模块 57 项测试
     │   └── ...
     ├── init-idf-menuconfig.bat
@@ -77,7 +81,7 @@ hex-bridge/
 
 | 串口 | 用途 | 参数 |
 |:---|:---|:---|
-| COM35 | MCP 通信 (UART1) | 921600 bps, 8N1 |
+| COM35 | MCP 通信 (UART1) | 115200 bps, 8N1 |
 | COM24 | 扩展口 (UART2) | 默认 115200 bps, 8N1 |
 | COM34 | 调试输出 (UART0) | 115200 bps, 8N1 |
 
@@ -108,6 +112,14 @@ hex-bridge/
 | 编译+烧录+监视 (流水线) | — | `workflow` |
 | 内存分析 (.map/ELF) | — | `memory-analysis` |
 | 静态代码检查 | — | `static-analysis` |
+
+## 测试脚本速查
+
+| 测试范围 | 命令 |
+|:---|:---|
+| 网络协议层 (无对端) | `python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --auto` |
+| 网络端到端 (PC socket 对端) | `python script/test/test_cli_network_e2e.py` |
+| CLI + MCP NM 交互测试 | `python script/cli/hex-bridge-network-cli.py --wait-events 0x56,0x55 --event-timeout 15 tcp-server-open --port 9190` |
 
 
 ## 模块实现进度

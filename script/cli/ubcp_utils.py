@@ -25,6 +25,11 @@ def int_to_ip(val):
     return f"{(val >> 24) & 0xFF}.{(val >> 16) & 0xFF}.{(val >> 8) & 0xFF}.{val & 0xFF}"
 
 
+def parse_ip_le(data, offset):
+    """Parse 4-byte IP in little-endian (ESP32 host byte order) and return 'x.x.x.x'."""
+    return f"{data[offset+3]}.{data[offset+2]}.{data[offset+1]}.{data[offset]}"
+
+
 def ip_to_bytes(ip_str):
     """Convert '192.168.1.100' to 4 bytes big-endian."""
     return struct.pack('>I', ip_to_int(ip_str))

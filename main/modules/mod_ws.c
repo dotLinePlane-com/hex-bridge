@@ -360,15 +360,17 @@ static int ws_handshake_try_read(ws_conn_t *conn)
 /* ── WS Client handshake ── */
 static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_headers, uint8_t header_len)
 {
-    /* Generate random key (simplified) */
-    char key_buf[17];
+    /* Generate RFC 6455 Sec-WebSocket-Key: 16 random bytes → Base64 = 24 chars */
+    uint8_t raw_key[16];
     for (int i = 0; i < 16; i++) {
-        key_buf[i] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[(esp_random() % 64)];
+        raw_key[i] = (uint8_t)(esp_random() & 0xFF);
     }
-    key_buf[16] = '\0';
+    char key_buf[25];
+    base64_encode(raw_key, 16, key_buf, sizeof(key_buf));
 
     /* Build HTTP upgrade request */
     char request[1024];
+    static char response[512];
     int req_len = snprintf(request, sizeof(request),
         "GET %s HTTP/1.1\r\n"
         "Host: localhost\r\n"
@@ -409,7 +411,6 @@ static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_hea
     ESP_LOGD(TAG, "ws_client_handshake: select=%d", sel);
     if (sel <= 0) return -1;
 
-    char response[WS_RECV_BUF_SIZE];
     int total = 0;
     while (total < (int)sizeof(response) - 1) {
         int n = recv(sock_fd, response + total, sizeof(response) - 1 - total, 0);
@@ -627,6 +628,22 @@ static void ws_event_task(void *arg)
             if (!conn) {
                 close(client_fd);
                 continue;
+            }
+
+            /* Check per-server max_conn limit */
+            if (s_servers[i].max_conn > 0) {
+                int child_count = 0;
+                for (int j = 0; j < WS_MAX_CONNS; j++) {
+                    if (s_conns[j].active && !s_conns[j].is_client_side &&
+                        s_conns[j].server_handle == s_servers[i].server_handle) {
+                        child_count++;
+                    }
+                }
+                if (child_count >= s_servers[i].max_conn) {
+                    ESP_LOGW(TAG, "WS server max_conn=%d reached", s_servers[i].max_conn);
+                    close(client_fd);
+                    continue;
+                }
             }
 
             conn->conn_handle        = 0;
@@ -897,8 +914,8 @@ static void handle_client_connect(const ubcp_frame_t *req)
         return;
     }
 
-    uint32_t ip   = ntohl(((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
-                    ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3]);
+    uint32_t ip   = ((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
+                    ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3];
     uint16_t port = ((uint16_t)req->payload[4] << 8) | req->payload[5];
     uint8_t  path_len = req->payload[6];
 
@@ -938,7 +955,7 @@ static void handle_client_connect(const ubcp_frame_t *req)
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = ip;
+    addr.sin_addr.s_addr = htonl(ip);
     addr.sin_port        = htons(port);
 
     int cr = connect(sock, (struct sockaddr *)&addr, sizeof(addr));

@@ -6,6 +6,7 @@
 #include "freertos/semphr.h"
 #include "lwip/sockets.h"
 #include "lwip/netdb.h"
+#include "lwip/ip4_addr.h"
 #include "esp_timer.h"
 #include "modules/mod_tcp.h"
 #include "modules/mod_network.h"
@@ -258,6 +259,23 @@ static void tcp_event_task(void *arg)
                 continue;
             }
 
+            /* Check per-server max_conn limit */
+            if (s_servers[i].max_conn > 0) {
+                int child_count = 0;
+                for (int j = 0; j < TCP_MAX_CONNS; j++) {
+                    if (s_conns[j].active && s_conns[j].is_server_child &&
+                        s_conns[j].server_handle == s_servers[i].server_handle) {
+                        child_count++;
+                    }
+                }
+                if (child_count >= s_servers[i].max_conn) {
+                    ESP_LOGW(TAG, "Server max_conn=%d reached, rejecting client",
+                             s_servers[i].max_conn);
+                    close(client_fd);
+                    continue;
+                }
+            }
+
             /* Set non-blocking */
             int flags = fcntl(client_fd, F_GETFL, 0);
             if (flags >= 0) fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
@@ -384,8 +402,13 @@ static void handle_server_open(const ubcp_frame_t *req)
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
         xSemaphoreGive(s_mutex);
-        msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_MAX_CONN);
         return;
+    }
+
+    {
+        int opt = 1;
+        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     }
 
     struct sockaddr_in addr;
@@ -493,8 +516,8 @@ static void handle_client_connect(const ubcp_frame_t *req)
         return;
     }
 
-    uint32_t dest_ip   = ntohl(((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
-                         ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3]);
+    uint32_t dest_ip   = ((uint32_t)req->payload[0] << 24) | ((uint32_t)req->payload[1] << 16) |
+                         ((uint32_t)req->payload[2] << 8)  |  (uint32_t)req->payload[3];
     uint16_t dest_port = ((uint16_t)req->payload[4] << 8) | req->payload[5];
     uint8_t  timeout   = req->payload[6];
     uint8_t  keepalive = (req->payload_len > 7) ? req->payload[7] : 0;
@@ -508,6 +531,7 @@ static void handle_client_connect(const ubcp_frame_t *req)
     }
 
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: socket() -> %d (errno=%d)", sock, errno);
     if (sock < 0) {
         xSemaphoreGive(s_mutex);
         msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
@@ -516,14 +540,28 @@ static void handle_client_connect(const ubcp_frame_t *req)
 
     int flags = fcntl(sock, F_GETFL, 0);
     if (flags >= 0) fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+    ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: O_NONBLOCK set, flags=0x%x", flags);
 
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = dest_ip;
+    addr.sin_addr.s_addr = htonl(dest_ip);
     addr.sin_port        = htons(dest_port);
 
+    ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: connect() to "
+             IPSTR ":%d, timeout=%d",
+             IP2STR((esp_ip4_addr_t *)&dest_ip), dest_port, timeout);
+
+    ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: sockaddr_in raw bytes: "
+             "%02x %02x %02x %02x %02x %02x %02x %02x",
+             ((uint8_t *)&addr)[0], ((uint8_t *)&addr)[1],
+             ((uint8_t *)&addr)[2], ((uint8_t *)&addr)[3],
+             ((uint8_t *)&addr)[4], ((uint8_t *)&addr)[5],
+             ((uint8_t *)&addr)[6], ((uint8_t *)&addr)[7]);
+
     int cr = connect(sock, (struct sockaddr *)&addr, sizeof(addr));
+    ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: connect() -> %d (errno=%d: %s)",
+             cr, errno, strerror(errno));
     if (cr < 0 && errno != EINPROGRESS) {
         close(sock);
         xSemaphoreGive(s_mutex);
@@ -540,7 +578,12 @@ static void handle_client_connect(const ubcp_frame_t *req)
         tv.tv_sec  = timeout > 0 ? timeout : 5;
         tv.tv_usec = 0;
 
+        ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: select(sock+1=%d, timeout=%d.%06d)",
+                 sock + 1, (int)tv.tv_sec, (int)tv.tv_usec);
+
         int sel = select(sock + 1, NULL, &wfds, NULL, &tv);
+        ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: select() -> %d (errno=%d: %s)",
+                 sel, errno, strerror(errno));
         if (sel <= 0) {
             close(sock);
             xSemaphoreGive(s_mutex);
@@ -552,6 +595,8 @@ static void handle_client_connect(const ubcp_frame_t *req)
         int err = 0;
         socklen_t errlen = sizeof(err);
         getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &errlen);
+        ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: getsockopt(SO_ERROR) -> %d (err=%d: %s)",
+                 (int)errlen, err, strerror(err));
         if (err != 0) {
             close(sock);
             xSemaphoreGive(s_mutex);
@@ -657,8 +702,39 @@ static void handle_send(const ubcp_frame_t *req)
     }
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
+
     tcp_conn_t *conn = find_conn_by_handle(handle);
     if (!conn) {
+        /* Broadcast: handle is a server handle → send to all its child connections */
+        tcp_server_t *svr = find_server_by_handle(handle);
+        if (svr && svr->active) {
+            int total_sent = 0;
+            int has_any = 0;
+            for (int i = 0; i < TCP_MAX_CONNS; i++) {
+                if (s_conns[i].active && s_conns[i].is_server_child &&
+                    s_conns[i].server_handle == handle && s_conns[i].socket_fd >= 0) {
+                    int n = send(s_conns[i].socket_fd, &req->payload[4], data_len, MSG_DONTWAIT);
+                    if (n > 0) {
+                        s_conns[i].tx_bytes += n;
+                        total_sent += n;
+                    }
+                    has_any = 1;
+                }
+            }
+            xSemaphoreGive(s_mutex);
+
+            uint8_t payload[3];
+            payload[0] = has_any ? UBCP_ERR_SUCCESS : UBCP_ERR_SUCCESS;
+            payload[1] = (uint8_t)(total_sent >> 8);
+            payload[2] = (uint8_t)(total_sent & 0xFF);
+
+            ubcp_frame_t resp;
+            ubcp_frame_make_response(req, &resp);
+            resp.payload     = payload;
+            resp.payload_len = sizeof(payload);
+            msg_bus_send_frame(&resp);
+            return;
+        }
         xSemaphoreGive(s_mutex);
         msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
         return;
