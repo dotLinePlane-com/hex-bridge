@@ -9,7 +9,8 @@
 | `0x42` | NET_DNS | 请求-响应 | DNS 域名解析 |
 | `0x43` | NET_LINK_EVENT | 事件上报 | 网络链路状态变更 |
 | `0x44` | NET_LIST_CONNS | 请求-响应 | 查询所有活跃网络连接概况 |
-| `0x45-0x4F` | — | — | 保留 |
+| `0x45` | NET_CLOSE_ALL | 请求-响应 | 一键关闭所有 TCP/UDP/WS 连接 |
+| `0x46-0x4F` | — | — | 保留 |
 
 > **关于 IPv6**：当前版本所有 IP 地址字段均为 4 字节（IPv4）。IPv6 支持列为未来扩展计划，届时 IP 地址字段将改为可变长度（由地址族字段决定 4B 或 16B）。
 
@@ -167,3 +168,32 @@ Flags: DIR=1, EVT=1
 | `0x05` | WS_CONN | WebSocket 连接 |
 
 > **设计意图**: `NET_LIST_CONNS` 提供全局概览, 等效于 MCP Network Monitor 的 `list_network_connections` + `get_network_clients` 组合。 单次请求即可一览所有 TCP/UDP/WS 活跃连接, 无需逐模块查询。
+
+---
+
+## 8.6 NET_CLOSE_ALL (0x45) — 一键关闭所有网络连接
+
+### 请求
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| — | — | — | 无载荷 (空请求) |
+
+### 响应
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0 | Status | u8 | 0x00 = 成功 |
+
+### 说明
+
+遍历并关闭所有 TCP/UDP/WebSocket Server 和 Client 连接。
+
+- TCP: 关闭所有 Server 监听 fd + 所有 Client 连接 fd，发送 DISCONNECT_EVENT
+- UDP: 关闭所有 Server/Client fd
+- WebSocket: 关闭所有 Server 监听 fd + 所有 WS 连接 fd
+
+**典型应用场景**:
+1. 测试脚本 `test_network.py` 每次运行前调用，确保从零状态开始
+2. CLI 工具 `hex-bridge-network-cli.py` 添加 `net-close-all` 子命令
+3. 主机重新配置网络前回收所有连接资源

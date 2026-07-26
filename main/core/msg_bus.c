@@ -173,3 +173,14 @@ uint8_t msg_bus_collect_flow_states(flow_module_state_t *out, uint8_t max_count)
     }
     return count;
 }
+
+void msg_bus_stop_all_modules(void)
+{
+    HEX_LOGI(TAG, "停止所有模块...");
+    for (int i = s_module_count - 1; i >= 0; i--) {
+        if (s_modules[i]->stop) {
+            HEX_LOGI(TAG, "停止模块 '%s'", s_modules[i]->name);
+            s_modules[i]->stop();
+        }
+    }
+}

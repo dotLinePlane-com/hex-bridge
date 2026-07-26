@@ -15,6 +15,11 @@ HEX-Bridge 固件采用 **消息总线 + 模块化任务** 架构，基于 FreeR
 │  6. mcp_transport_init() — 启动 MCP 通信                       │
 │  7. 广播 SYS_BOOT_EVENT (0x06) 事件帧通知主机系统复位/启动原因  │
 │  app_main() 返回后，各 FreeRTOS 任务自行运行                     │
+│                                                                 │
+│  ── 关闭流程 (由 RESET(0x04) 触发) ──                           │
+│  1. msg_bus_stop_all_modules()  — 反向遍历注册表               │
+│  2. module->stop()  — 各模块关闭 socket、释放资源、停止任务     │
+│  3. esp_restart()  — 系统软复位                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -56,9 +61,36 @@ typedef struct {
 
 添加新模块只需：
 1. 创建 `modules/mod_xxx.h` 和 `modules/mod_xxx.c`
-2. 实现 `hex_module_t` 接口
+2. 实现 `hex_module_t` 接口（至少实现 `init` 和 `handle_cmd`；`stop` 可为 NULL）
 3. 在 `main.c` 中注册和初始化
 4. 在 `CMakeLists.txt` 中添加源文件
+
+### 1.4.1 模块生命周期
+
+```
+  启动流程                   关闭流程 (RESET 触发)
+  ────────                  ─────────────────────
+  msg_bus_register()        msg_bus_stop_all_modules()
+       │                           │
+       ▼                           ▼ (反向遍历注册表)
+  module->init()             module->stop()
+       │                           │
+       ├── 分配 socket              ├── 关闭所有 socket
+       ├── 启动 select task         ├── s_task_running = false
+       └── 注册 LIST_CONNS provider └── 发送 DISCONNECT_EVENT
+```
+
+**stop() 实现状态**:
+
+| 模块 | stop() 函数 | 行为 |
+|:---|:---|:---|
+| TCP | `tcp_stop()` | 设置 `s_task_running=false` → `tcp_close_all()` 关闭所有 socket |
+| UDP | `udp_stop()` | 同上 |
+| WebSocket | `ws_stop()` | 同上 |
+| Network | `network_stop()` | 注消 ETH/IP 事件处理器 |
+| System | `NULL` | 无需清理 |
+
+**关闭顺序**：`msg_bus_stop_all_modules()` 按注册顺序**反向**遍历：WS → UDP → TCP → Network，确保依赖关系正确释放。
 
 ## 1.5 代码目录结构
 

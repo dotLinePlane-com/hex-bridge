@@ -35,8 +35,8 @@
 | **扩展串口 2 (UART2)** | RXD2 | **GPIO 35** | **仅输入 (GPI)**| 外部必须接 10kΩ 上拉电阻到 3.3V |
 | | TXD2 | **GPIO 32** | 双向 | **UART2 TX**。与 I2C SCL 互换，避免 Strapping 引脚问题。GPIO32 无 Strapping 功能，完全安全。 |
 | **CAN FD (MCP2518FD)** | SCK | **GPIO 14** | 双向 | SPI 时钟线 |
-| *(SPI 接口)* | MOSI | **GPIO 13** | 双向 | SPI 数据输出线 |
-| | MISO | **GPIO 36** | **仅输入 (GPI)**| SPI 数据输入线，外部必须接 10kΩ 上拉电阻 |
+| *(SPI 接口)* | MOSI | **GPIO 13** | 双向 | SPI 数据输出线 sdi|
+| | MISO | **GPIO 36** | **仅输入 (GPI)**| SPI 数据输入线，外部必须接 10kΩ 上拉电阻 sdo |
 | | CS | **GPIO 15** | 双向 | **Strapping 引脚**。芯片内部有弱上拉，但模组内部没有硬上拉电阻。需在外部设计 10kΩ 上拉电阻（防止复位时 CS 被噪声误拉低，同时也保障启动高电平）。 |
 | | INT | **GPIO 39** | **仅输入 (GPI)**| 接收中断引脚 |
 | **EEPROM (24C02等)** | SCL | **GPIO 12 (MTDI)** | 双向 | I2C 时钟线，需外接 4.7kΩ 上拉电阻。GPIO12 是 MTDI Strapping 引脚控制 PSRAM VDD_SDIO。4.7kΩ 上拉确保复位期间保持高电平 (→1.8V PSRAM 安全)。 |

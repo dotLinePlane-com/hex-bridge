@@ -1424,6 +1424,24 @@ network-monitor-mcp_read_network_buffer
 
 ---
 
+## NET-18: NET_CLOSE_ALL — 一键关闭所有网络连接
+
+| 项目 | 值 |
+|:---|:---|
+| **CmdCode** | `0x45` |
+| **PayloadLen** | `0x0000` (无载荷) |
+
+**测试步骤**:
+1. 创建 TCP Server (Port=9500), UDP Server (Port=9501), WS Server (Port=9502)
+2. NET_LIST_CONNS → ConnCount=3
+3. 发送 NET_CLOSE_ALL(空载荷) → Status=0x00
+4. NET_LIST_CONNS → ConnCount=0
+5. 重新创建 TCP Server → Status=0x00 (验证模块未被破坏)
+
+**判定**: PASS — 3 个 Server 被闭, ConnCount=0, 可重新创建
+
+---
+
 # 第三部分：TCP 模块测试 (TCP, 0x50-0x5F)
 
 ---

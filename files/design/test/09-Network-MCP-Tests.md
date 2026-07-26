@@ -82,6 +82,7 @@
 | `net-status` | `0x41` | 查询网络状态 |
 | `net-dns` | `0x42` | DNS 域名解析 |
 | `net-list-conns` | `0x44` | 全局连接概览 |
+| `net-close-all` | `0x45` | 一键关闭所有 TCP/UDP/WS 连接 |
 | `tcp-server-open` | `0x50` | 创建 TCP Server |
 | `tcp-server-close` | `0x51` | 关闭 TCP Server |
 | `tcp-client-connect` | `0x52` | TCP Client 连接远端 |
@@ -154,6 +155,185 @@ connect_network: connId="nm-ws-cli", protocol="websocket", role="client", url="w
 | 查看状态 | `get_network_status(connId="<id>")` |
 | 断开连接 | `disconnect_network(connId="<id>")` |
 | 断开客户端 | `disconnect_network_client(connId="<id>", clientId="<client>")` |
+
+---
+
+## 批量自动化测试编排 (一次跑完)
+
+> **核心理念**: 将 49 个 MCP 测试用例拆分为 **4 个执行阶段**, 按依赖链顺序编排, 每阶段一次执行完毕后自动验证, 无需人工穿插操作。
+
+### 执行阶段总览
+
+| 阶段 | 依赖 | 命令数 | 测试用例 | 执行方式 |
+|:---|:---|:--|:---|:---|
+| **Phase 0** 无网络自测 | COM35 + 设备上电 | ~42 CLI | NET-08/09/10/12/14/16/17/18, TCP-01/02/03/04/15/18/19/28/29/30/31/32/33, UDP-01/10/11/12/13/14, WS-01/18/19/20, STR-03/04/06/07/08/09/10, DRV-01 | `python script/test/test_network.py --auto` |
+| **Phase 1** 基础网络 | 网线插入, DHCP 可用 | 12 CLI + 0 NM | NET-01/02/03/04/05, TCP-09 | `python script/test/test_network.py --test` |
+| **Phase 2** Server 对端 | Phase 1 + NM 工具 | 12 CLI + 7 NM | TCP-05/06/07, UDP-01/02/03, WS-01/02/03/04/05 | NM 创建 Client → CLI 操作 → NM 验证 |
+| **Phase 3** Client 变体 | Phase 2 | 18 CLI + 9 NM | TCP-08/12/20/21/22/23, UDP-05/06, WS-06/07/08/09/10/12/14/15/16/17/21, INT-01/02, NM-TCP-04/05, NM-WS-02, NM-INT-02, NM-STR-01 | NM 创建 Server → CLI 操作 → NM 验证 |
+
+### Phase 0: test_network.py --auto (开箱即用)
+
+```bash
+# 设备上电即可执行, 无需网线, 无需 NM 工具
+CLI="python script/cli/hex-bridge-network-cli.py --port COM35 --baud 115200"
+$CLI net-close-all                                          # 清理残留
+
+# 一键执行
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --auto
+
+# 补充执行 Phase 0 中未覆盖的容量/超时测试 (新版本已包含)
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test TCP-04
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test TCP-09
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test TCP-27
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test TCP-28
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test UDP-11
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test UDP-12
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test STR-07
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test NET-11
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test NET-17
+```
+
+### Phase 1: 网络链路确认 (需网线插入)
+
+```bash
+# 确认设备有 IP (NET-01, NET-02), DNS 正常 (NET-03/04/05), 连接超时 (TCP-09)
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test NET-01
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test NET-02
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test NET-03
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test NET-04
+python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --test NET-05
+
+# 获取设备 IP (后续 Phase 2/3 需要)
+$CLI net-status | grep ip
+# → ip=192.168.1.105
+```
+
+### Phase 2: Server→Client 端到端收发 (需 NM 工具创建 Client)
+
+```bash
+HEX_IP=192.168.1.105    # 从 Phase 1 获取
+PC_IP=192.168.1.4       # PC 本机 IP (ipconfig)
+CLI="python script/cli/hex-bridge-network-cli.py --port COM35 --baud 115200"
+
+# ==== 第2.1步: TCP Server 端到端 (TCP-05/06/07, NM-TCP-02) ====
+$CLI tcp-server-open --port 9191 --maxconn 3 --accept-mode 1
+# NM: connect_network(tcp, client, $HEX_IP:9191) → connId="nm-tcp-cli"
+$CLI tcp-list-clients --handle 0x<SH>
+# NM: send_network_data(connId="nm-tcp-cli", data="Hello from NM Client")
+$CLI tcp-send --handle 0x<SH> --data "Hello from HEX-Bridge"
+# NM: read_network_buffer(port="nm-tcp-cli") → 应包含 "Hello from HEX-Bridge"
+$CLI tcp-server-close --handle 0x<SH> --force 1
+# NM: disconnect_network(connId="nm-tcp-cli")
+
+# ==== 第2.2步: UDP Server 端到端 (UDP-01/02/03, NM-UDP-01) ====
+$CLI udp-server-open --port 9201
+# NM: connect_network(udp, client, $HEX_IP:9201) → connId="nm-udp-cli"
+# NM: send_network_data(connId="nm-udp-cli", data="UDP HELLO")
+$CLI udp-server-send --handle 0x<SH> --ip $PC_IP --port <NM_SrcPort> --data "UDP ACK"
+$CLI udp-server-close --handle 0x<SH>
+# NM: disconnect_network(connId="nm-udp-cli")
+
+# ==== 第2.3步: WS Server 端到端 (WS-01/02/03/04/05, NM-WS-01/03) ====
+$CLI ws-server-open --port 9201 --path /test --maxconn 3
+# NM: connect_network(websocket, client, ws://$HEX_IP:9201/test) → connId="nm-ws-cli"
+$CLI ws-list-clients --handle 0x<SH>                         # should show 1 client
+# NM: send_network_data(connId="nm-ws-cli", data="Hello WebSocket")
+$CLI ws-send --handle 0xA000 --msg-type 1 --data "WS ACK from HEX"
+# NM: read_network_buffer(port="nm-ws-cli") → "WS ACK from HEX"
+$CLI ws-send --handle 0xA000 --msg-type 2 --hex-data "00FF7E7D42"
+# NM: read_network_buffer(port="nm-ws-cli", display="hex") → 00 FF 7E 7D 42
+$CLI ws-client-disconnect --handle 0xA000 --close-code 1000
+$CLI ws-server-close --handle 0x<SH> --force 1
+# NM: disconnect_network(connId="nm-ws-cli")
+```
+
+### Phase 3: Client 变体 + 集成 (需 NM 工具创建 Server)
+
+```bash
+# ==== 第3.1步: TCP Client 端到端 + RST 断开 (TCP-08/12, NM-TCP-01) ====
+# NM: connect_network(tcp, server, listenPort=9192) → connId="nm-tcp-srv"
+$CLI tcp-client-connect --ip $PC_IP --port 9192 --connect-timeout 5
+$CLI tcp-send --handle 0x9001 --data "Hello from HEX Client"
+# NM: read_network_buffer(port="nm-tcp-srv") → "Hello from HEX Client"
+# NM: send_network_data(connId="nm-tcp-srv", data="Reply from NM Server")
+$CLI tcp-disconnect --handle 0x9001 --method 1               # TCP-12: RST
+# NM: disconnect_network(connId="nm-tcp-srv")
+
+# ==== 第3.2步: TCP 手动接受/拒绝 (TCP-22/23, NM-TCP-04/05) ====
+$CLI tcp-server-open --port 9194 --accept-mode 0              # manual mode
+# NM: connect_network(tcp, client, $HEX_IP:9194) → connId="nm-manual"
+$CLI tcp-list-clients --handle 0x<SH>                        # shows pending client
+$CLI tcp-accept --handle 0x<CH> --decision 0                  # accept → establish
+$CLI tcp-send --handle 0x<CH> --data "Manual ACK"
+# NM: read_network_buffer(port="nm-manual") → "Manual ACK"
+$CLI tcp-server-close --handle 0x<SH> --force 1
+# NM: disconnect_network(connId="nm-manual")
+
+# ==== 第3.3步: TCP Close HandleType=0 + 大数据 (TCP-20/21, NM-STR-01) ====
+# NM: connect_network(tcp, server, listenPort=9196) → connId="nm-big-srv"
+$CLI tcp-client-connect --ip $PC_IP --port 9196
+# 构造 1024 字节递增 hex 数据并发送
+$CLI tcp-send --handle 0x9001 --hex-data "<256B递增x4>"
+# NM: read_network_buffer(port="nm-big-srv", display="hex") → 1024B 完整
+$CLI tcp-close --handle 0x9001 --handle-type 0 --force 0    # TCP-20: FIN
+# NM: disconnect_network(connId="nm-big-srv")
+
+# ==== 第3.4步: WS Client 端到端 + Ping/Pong/Close (WS-06/07/09/12, NM-WS-02) ====
+# NM: connect_network(websocket, server, listenPort=9202, path="/echo") → connId="nm-ws-srv"
+$CLI ws-client-connect --ip $PC_IP --port 9202 --path /echo
+$CLI ws-send --handle 0xA000 --msg-type 1 --data "Hello from HEX WS Client"
+# NM: read_network_buffer(port="nm-ws-srv") → "Hello from HEX WS Client"
+$CLI ws-send --handle 0xA000 --msg-type 9                      # Ping
+$CLI ws-send --handle 0xA000 --msg-type 10                     # Pong
+$CLI ws-send --handle 0xA000 --msg-type 8 --hex-data "03E8"   # Close frame(1000)
+$CLI ws-client-disconnect --handle 0xA000 --close-code 1000
+# NM: disconnect_network(connId="nm-ws-srv")
+
+# ==== 第3.5步: WS 握手失败 + 自动 Pong (WS-10/14) ====
+# NM: connect_network(tcp, server, listenPort=9206) → connId="nm-tcp-not-ws"
+$CLI ws-client-connect --ip $PC_IP --port 9206 --path /
+# → 预期 ERR 0x49 (ERR_NET_WS_HANDSHAKE)
+# NM: disconnect_network(connId="nm-tcp-not-ws")
+
+# ==== 第3.6步: WS 错误路径拒绝 + WS KICK (WS-16/21) ====
+$CLI ws-server-open --port 9204 --path /ws-test --maxconn 3
+# NM: connect_network(websocket, client, ws://$HEX_IP:9204/wrong) → 应被拒绝
+$CLI ws-server-close --handle 0x<SH> --force 0               # graceful close
+# NM: disconnect_all()
+
+# ==== 第3.7步: 三协议 Client 并发 (NM-INT-02) ====
+# NM: connect_network(tcp, server, listenPort=9310) → int-srv-tcp
+# NM: connect_network(udp, server, listenPort=9311) → int-srv-udp
+# NM: connect_network(websocket, server, listenPort=9312, path="/echo") → int-srv-ws
+$CLI tcp-client-connect --ip $PC_IP --port 9310
+$CLI udp-client-create --ip $PC_IP --port 9311
+$CLI ws-client-connect --ip $PC_IP --port 9312 --path /echo
+$CLI tcp-send --handle 0x<CH_TCP> --data "CONCURRENT-TCP"
+$CLI udp-client-send --handle 0x<CH_UDP> --addr-mode 0 --data "CONCURRENT-UDP"
+$CLI ws-send --handle 0xA000 --msg-type 1 --data "CONCURRENT-WS"
+# NM: read_network_buffer → 3 protocol data all correct
+$CLI net-list-conns                                           # 验证汇总
+$CLI net-close-all
+# NM: disconnect_all()
+```
+
+### 阶段完成检查表
+
+| 阶段 | 验证条件 | 通过标准 |
+|:---|:---|:---|
+| Phase 0 | `test_network.py --auto` 输出 | PASS ≥ 90, FAIL = 0 |
+| Phase 0+ | `--test` 单独用例 | 全部 PASS 或 SKIP |
+| Phase 1 | NET-01 Link=UP, NET-03 DNS 解析成功 | IP 非零, AddrCount ≥ 1 |
+| Phase 2.1 | TCP Server → NM Client 双向收发 | NM rxBytes ≥ 21, CLI Status=OK |
+| Phase 2.2 | UDP Server → NM Client 双向收发 | CLI Status=OK, NM rxBuff 有数据 |
+| Phase 2.3 | WS Server → NM Client Text+Binary | NM rx: "WS ACK" + `00 FF 7E 7D 42` |
+| Phase 3.1 | TCP Client → NM Server + RST | NM rx: "Hello from HEX Client" |
+| Phase 3.2 | TCP 手动接受/发送 | NM rx: "Manual ACK" |
+| Phase 3.3 | 1024B 大数据 | NM rx: 1024B 递增序列完整 |
+| Phase 3.4 | WS Client Ping/Pong/Close | `ws-send --msg-type 8/9/10` → Status=OK |
+| Phase 3.5 | WS 握手失败 + 自动 Pong | ERR 0x49 / Pong OK |
+| Phase 3.6 | WS 错误路径 + KICK | wrong path → rejected, kick → disconnected |
+| Phase 3.7 | 三协议 Client 并发 | NM 3 Server 各收到正确数据, ConnCount ≥ 3 |
 
 ---
 

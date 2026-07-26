@@ -63,7 +63,8 @@ HEX-Bridge 网络命令集与 **MCP Network Monitor** 工具链 (`network-monito
 | `disconnect_network_client` | `*_KICK_CLIENT` | ✅ |
 | `get_network_status` | `TCP_CONN_STATUS`, `NET_STATUS` | ✅ |
 | `list_network_connections` | `NET_LIST_CONNS` | ✅ |
+| `close_all_connections` | `NET_CLOSE_ALL` | ✅ |
 | `update_network_client_label` | — | 未支持 |
 | `autoReconnect` | — | 未支持 |
 
-HEX-Bridge 超集能力 (MCP NM 不具备): TCP 手动接受模式、远程断开事件上报、DNS 设备侧解析、链路状态事件。
+HEX-Bridge 超集能力 (MCP NM 不具备): TCP 手动接受模式、远程断开事件上报、DNS 设备侧解析、链路状态事件、NET_CLOSE_ALL 一键关闭所有连接。

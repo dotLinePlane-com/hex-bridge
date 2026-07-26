@@ -324,6 +324,8 @@ static void handle_reset(const ubcp_frame_t *req)
     switch (reset_type) {
     case 0x00: /* 软复位 */
         HEX_LOGI(TAG, "执行软复位...");
+        msg_bus_stop_all_modules();
+        vTaskDelay(pdMS_TO_TICKS(100));
         esp_restart();
         break;
     case 0x03: /* 硬件看门狗复位 */

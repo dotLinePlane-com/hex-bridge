@@ -15,10 +15,10 @@
 | 0x10-0x1F | mod_can | ⬜ 待实现 |
 | 0x20-0x2F | mod_spi | ⬜ 待实现 |
 | 0x30-0x3F | mod_i2c | ⬜ 待实现 |
-| 0x40-0x4F | mod_network | ⬜ 待实现 |
-| 0x50-0x5F | mod_tcp | ⬜ 待实现 |
-| 0x60-0x6F | mod_udp | ⬜ 待实现 |
-| 0x70-0x7F | mod_websocket | ⬜ 待实现 |
+| 0x40-0x4F | mod_network | ✅ 已实现 |
+| 0x50-0x5F | mod_tcp | ✅ 已实现 |
+| 0x60-0x6F | mod_udp | ✅ 已实现 |
+| 0x70-0x7F | mod_websocket | ✅ 已实现 |
 | 0x80-0x8F | mod_gpio | ⬜ 待实现 |
 | 0x90-0x9F | mod_bulk | ⬜ 待实现 |
 | 0xA0-0xAF | mod_uart | ✅ 已实现 |
@@ -68,6 +68,9 @@ esp_err_t msg_bus_send_frame(const ubcp_frame_t *frame);
 
 // 便捷：发送仅含状态码的响应
 esp_err_t msg_bus_send_status_response(const ubcp_frame_t *req, uint8_t status);
+
+// 停止所有模块：反向遍历注册表，依次调用 module->stop()
+void msg_bus_stop_all_modules(void);
 ```
 
 ## 2.5 线程安全

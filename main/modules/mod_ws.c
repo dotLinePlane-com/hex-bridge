@@ -866,7 +866,7 @@ static void handle_server_open(const ubcp_frame_t *req)
     if (listen(sock, maxconn > 0 ? maxconn : 5) < 0) {
         close(sock);
         xSemaphoreGive(s_mutex);
-        msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_PORT_IN_USE);
         return;
     }
 
@@ -1265,6 +1265,8 @@ static void handle_kick_client(const ubcp_frame_t *req)
     msg_bus_send_status_response(req, UBCP_ERR_SUCCESS);
 }
 
+static void ws_close_all(void);
+
 /* ========================================================================
  *  Module init and dispatch
  * ======================================================================== */
@@ -1284,9 +1286,34 @@ static esp_err_t ws_init(void)
     }
 
     mod_network_register_conn_provider("WebSocket", ws_iterate_conns);
+    mod_network_register_close_provider("WebSocket", ws_close_all);
 
     ESP_LOGI(TAG, "WebSocket 模块初始化完成");
     return ESP_OK;
+}
+
+static void ws_close_all(void)
+{
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    for (int i = 0; i < WS_MAX_CONNS; i++) {
+        if (s_conns[i].active) {
+            cleanup_conn(&s_conns[i]);
+        }
+    }
+    for (int i = 0; i < WS_MAX_SERVERS; i++) {
+        if (s_servers[i].active) {
+            close(s_servers[i].listen_fd);
+            s_servers[i].active = false;
+        }
+    }
+    xSemaphoreGive(s_mutex);
+}
+
+static void ws_stop(void)
+{
+    HEX_LOGI(TAG, "WebSocket 模块停止");
+    s_task_running = false;
+    ws_close_all();
 }
 
 static void ws_handle_cmd(const ubcp_frame_t *frame)
@@ -1311,7 +1338,7 @@ static const hex_module_t s_ws_module = {
     .cmd_range_end   = UBCP_CMD_RANGE_WS_END,
     .init            = ws_init,
     .handle_cmd      = ws_handle_cmd,
-    .stop            = NULL,
+    .stop            = ws_stop,
 };
 
 const hex_module_t *mod_ws_get(void)

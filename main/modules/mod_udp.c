@@ -583,6 +583,8 @@ static void handle_client_send(const ubcp_frame_t *req)
     msg_bus_send_frame(&resp);
 }
 
+static void udp_close_all(void);
+
 /* ========================================================================
  *  Module init and dispatch
  * ======================================================================== */
@@ -602,9 +604,35 @@ static esp_err_t udp_init(void)
     }
 
     mod_network_register_conn_provider("UDP", udp_iterate_conns);
+    mod_network_register_close_provider("UDP", udp_close_all);
 
     ESP_LOGI(TAG, "UDP 模块初始化完成");
     return ESP_OK;
+}
+
+static void udp_close_all(void)
+{
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    for (int i = 0; i < UDP_MAX_SERVERS; i++) {
+        if (s_servers[i].active) {
+            close(s_servers[i].socket_fd);
+            s_servers[i].active = false;
+        }
+    }
+    for (int i = 0; i < UDP_MAX_CLIENTS; i++) {
+        if (s_clients[i].active) {
+            close(s_clients[i].socket_fd);
+            s_clients[i].active = false;
+        }
+    }
+    xSemaphoreGive(s_mutex);
+}
+
+static void udp_stop(void)
+{
+    HEX_LOGI(TAG, "UDP 模块停止");
+    s_task_running = false;
+    udp_close_all();
 }
 
 static void udp_handle_cmd(const ubcp_frame_t *frame)
@@ -628,7 +656,7 @@ static const hex_module_t s_udp_module = {
     .cmd_range_end   = UBCP_CMD_RANGE_UDP_END,
     .init            = udp_init,
     .handle_cmd      = udp_handle_cmd,
-    .stop            = NULL,
+    .stop            = udp_stop,
 };
 
 const hex_module_t *mod_udp_get(void)

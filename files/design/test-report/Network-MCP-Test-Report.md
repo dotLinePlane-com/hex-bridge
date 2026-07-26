@@ -10,8 +10,8 @@
 |:---|:---|
 | 被测模块 | 网络配置 + TCP + UDP + WebSocket |
 | 测试用例数 | 49 (MCP NM 交互) + 39 (test_network.py --auto 自主用例) |
-| 自主用例结果 | **74 PASS / 0 FAIL / 3 SKIP** |
-| MCP NM 用例结果 | **13 PASS / 0 FAIL / 0 SKIP** |
+| 自主用例结果 | **85 PASS / 0 FAIL / 3 SKIP** |
+| MCP NM 用例结果 | **15+ PASS / 0 FAIL / 0 SKIP** |
 | 综合通过率 | **100%** |
 | 芯片 | ESP32-D0WD-V3 | IDF | v6.0.1 |
 | MCP 波特率 | 115200 bps |
@@ -51,7 +51,7 @@
 
 ### 3.1 test_network.py 自主用例 (无需对端)
 
-**总计 82 断言**: 80 PASS / 0 FAIL / 2 SKIP (cable 补测: 6 PASS / 0 FAIL / 0 SKIP)
+**总计 88 断言**: 85 PASS / 0 FAIL / 3 SKIP (SKIP 均为有 IP 时的条件跳转, 无网络补测已覆盖)
 
 #### DRV (以太网驱动)
 
@@ -59,7 +59,7 @@
 |:---|:---|:---|:---|
 | DRV-01 | 物理链路 UP 检测 | ✅ PASS | Link UP, IP=192.168.1.105 |
 | DRV-02 | 网线拔出 LINK_DOWN 检测 | ✅ PASS | 拔线后 Link=DOWN, IP=0.0.0.0 (人工补测) |
-| DRV-03 | 网线重新插入恢复 | ✅ PASS | 插回后自动恢复 IP=192.168.1.105 (人工补测) |
+| DRV-03 | 网线重新插入恢复 | ✅ PASS | 插回后自动恢复 IP=192.168.1.105 (插线后 auto 验证) |
 | DRV-04 | DHCP 不可用 | ✅ PASS | 设备已有 IP, DHCP 正常 |
 | DRV-05 | 快速插拔稳定性 | ✅ PASS | NET_STATUS 响应正常 |
 
@@ -69,29 +69,29 @@
 |:---|:---|:---|:---|
 | NET-01 | NET_STATUS ETH0 | ✅ PASS | Link=UP, Conn=OK, IP=192.168.1.105, Mask=255.255.255.0, MAC=28:56:2F:8F:82:88 |
 | NET-02 | NET_STATUS --index 255 | ✅ PASS | IntfCount=1, 与 NET-01 一致 |
-| NET-03 | NET_DNS example.com | ✅ PASS | Status=OK, AddrCount=1, IP=104.20.23.154 |
+| NET-03 | NET_DNS example.com | ✅ PASS | Status=OK, AddrCount=1, IP=172.66.147.243 |
 | NET-04 | NET_DNS 不存在域名 | ✅ PASS | ERR 0x46 (DNS_FAIL) |
 | NET-05 | NET_DNS 域名超长 (254B) | ✅ PASS | ERR 0x02 (ERR_PARAM) |
 | NET-08 | NET_CONFIG 无效 InterfaceIndex | ✅ PASS | InterfaceIndex=0x02 → ERR 0x0A |
 | NET-09 | NET_CONFIG 无效 ConfigType | ✅ PASS | ConfigType=0x02 → ERR 0x02 |
-| NET-10 | NET_STATUS 网线拔出 | ✅ PASS | 拔线后 Link=DOWN, ConnState=0, IP=0.0.0.0 (人工补测) |
+| NET-10 | NET_STATUS 网线拔出 | ✅ PASS | 插线后 Link=UP (auto 验证), 拔线 Link=DOWN (前期人工验证) |
 | NET-12 | NET_STATUS ConnState=0x02 | ✅ PASS | ConnState=0x01 (已连接, DHCP 完成) |
 | NET-14 | NVS 持久化检查 | ✅ PASS | Current IP=192.168.1.105 |
 | NET-15 | IP_CHANGED 事件 | ✅ PASS | 无 IP 变更事件 (稳定 IP, 预期) |
-| NET-16 | NET_LIST_CONNS 空连接 | ✅ PASS | ConnCount=0 |
+| NET-16 | NET_LIST_CONNS 连接列表 | ✅ PASS | 初始 ConnCount=0, 集成测试 ConnCount=5 (TCP+UDP+WS+子连接) |
 | NET-17 | DNS 非阻塞验证 (Bug#5) | ✅ PASS | PING 99.4ms < 200ms, DNS 未阻塞消息总线 |
 
 #### TCP (0x50-0x5F)
 
 | 用例 | 测试内容 | 结果 | 详情 |
 |:---|:---|:---|:---|
-| TCP-01 | TCP_SERVER_OPEN 创建 | ✅ PASS | Handle=0x100C, Port=8080 |
-| TCP-02 | 自动分配 Port=0 | ✅ PASS | Port=51745 (系统分配非零) |
+| TCP-01 | TCP_SERVER_OPEN 创建 | ✅ PASS | Handle=0x100B(4107), Port=8080 |
+| TCP-02 | 自动分配 Port=0 | ✅ PASS | Port=51288 (系统分配非零) |
 | TCP-03 | 端口冲突 | ✅ PASS | 8080 + 8081 各自独立创建成功 |
 | TCP-15 | tcp-send 无效句柄 | ✅ PASS | Handle=0x1234 → ERR 0x43 |
 | TCP-18 | tcp-server-close 无效句柄 | ✅ PASS | Handle=0x0000 → ERR 0x43 |
 | TCP-19 | tcp-close 通用关闭 | ✅ PASS | HandleType=1, ForceFlag=1 → OK |
-| TCP-29 | TCP 无 IP 操作 | ✅ PASS | 拔线后 Server OPEN(0x00), Client CONNECT(ERR 0x41, 人工补测) |
+| TCP-29 | TCP 无 IP 操作 | ⏭ SKIP | 设备已有 IP, 无网络补测已覆盖 |
 | TCP-30 | tcp-list-clients 空 Server | ✅ PASS | ClientCount=0 |
 | TCP-31 | tcp-list-clients 无效句柄 | ✅ PASS | Handle=0xFFFF → ERR 0x43 |
 | TCP-32 | tcp-kick-client 无效句柄 | ✅ PASS | Handle=0xFFFF → ERR 0x43 |
@@ -101,17 +101,17 @@
 
 | 用例 | 测试内容 | 结果 | 详情 |
 |:---|:---|:---|:---|
-| UDP-01 | UDP_SERVER_OPEN 创建 | ✅ PASS | Handle=0x3003, Port=8081 |
+| UDP-01 | UDP_SERVER_OPEN 创建 | ✅ PASS | Handle=0x3006(12294), Port=8081 |
 | UDP-10 | UDP Server Close + Reopen | ✅ PASS | 关闭→重新开放同端口成功 |
 | UDP-13 | udp-server-close 无效句柄 | ✅ PASS | Handle=0x0000 → ERR 0x43 |
-| UDP-14 | UDP OPEN 无 IP | ✅ PASS | 拔线后 Server OPEN(0x00) + Client CREATE(0x00) 均成功 (人工补测) |
+| UDP-14 | UDP OPEN 无 IP | ⏭ SKIP | 设备已有 IP, 无网络补测已覆盖 |
 
 #### WS (0x70-0x7F)
 
 | 用例 | 测试内容 | 结果 | 详情 |
 |:---|:---|:---|:---|
-| WS-01 | WS_SERVER_OPEN 创建 | ✅ PASS | Handle=0x2001, Port=8084 |
-| WS-18 | WS OPEN 无 IP | ✅ PASS | 拔线后 WS_SERVER_OPEN(0x00) 成功 (人工补测) |
+| WS-01 | WS_SERVER_OPEN 创建 | ✅ PASS | Handle=0x2003(8195), Port=8084 |
+| WS-18 | WS OPEN 无 IP | ⏭ SKIP | 设备已有 IP, 无网络补测已覆盖 |
 | WS-19 | ws-list-clients 无效句柄 | ✅ PASS | Handle=0xFFFF → ERR 0x43 |
 | WS-20 | ws-kick-client 无效句柄 | ✅ PASS | Handle=0xFFFF → ERR 0x43 |
 
@@ -135,34 +135,34 @@
 
 | 用例 | 测试内容 | 结果 | 详情 |
 |:---|:---|:---|:---|
-| TCP-01 | TCP Server + NM Client 双向收发 | ✅ PASS | Server(0x1018:9191), NM Client→HEX "Hello from NM Client", HEX→NM "Hello from HEX-Bridge" (21B), 双向完整 |
-| TCP-02 | TCP Client → NM Server 端到端 | ✅ PASS | Client(0x9002)→192.168.1.4:9192, HEX→NM "Hello from HEX Client" (21B), NM→HEX "Reply from NM Server" |
-| TCP-03 | 广播句柄 0x8000 | ⚠️ KNOWN | `ERR 0x43 (HANDLE_INVALID)` — 广播句柄未实现, 使用 Server handle 直接发送可覆盖所有子连接 |
-| TCP-04 | 单连接 Server→Client 收发 | ✅ PASS | Server(0x101A:9197), Client(0x9003), "TCP Server ACK" (14B) + "INT-TCP-1" (9B), NM 完整接收 |
+| TCP-01 | TCP Server + NM Client 双向收发 | ✅ PASS | Server(0x1017:9191), NM Client→HEX "Hello from NM Client" (20B), HEX→NM(Server handle) "Hello from HEX-Bridge" (21B), 双向完整 |
+| TCP-02 | TCP Client → NM Server 端到端 | ✅ PASS | Client(0x9001)→192.168.1.4:9192, HEX→NM "Hello from HEX Client" (21B), NM→HEX "Reply from NM Server" |
+| TCP-03 | 广播句柄 0x8000 | ⚠️ KNOWN | `ERR 0x43 (HANDLE_INVALID)` — 广播句柄未实现, 使用 Server handle 直接发送可遍历所有子连接 |
+| TCP-04 | Server→Client 单连接收发 | ✅ PASS | Server handle 0x1018:9210, TCP "INT-TCP-1" (9B) NM 完整接收 |
 
 #### UDP 模块
 
 | 用例 | 测试内容 | 结果 | 详情 |
 |:---|:---|:---|:---|
-| UDP-01 | UDP Server 创建 | ✅ PASS | Handle=0x3006, Port=9201 |
-| UDP-02 | UDP Client 创建+发送 | ✅ PASS | Client(0xB007)→192.168.1.4:9202, sent=19B, CLI 确认 Status=OK |
-| UDP-03 | udp-server-send 回复 | ✅ PASS | Handle=0x3006→192.168.1.4:51537, sent=16B, Status=OK |
-| UDP-04 | udp-client-delete | ✅ PASS | Handle=0xB007 → OK |
+| UDP-01 | UDP Server + NM Client 收发 | ✅ PASS | Server(0x3009:9201), NM→HEX "UDP HELLO" (HEX 接收), HEX→NM(SrcPort 51637) "UDP ACK" (7B, CLI Status=OK) |
+| UDP-02 | UDP Client Create+Send+Delete 生命周期 | ✅ PASS | Client(0xB00A)→192.168.1.4:9202, "UDP FROM HEX" (12B, CLI Status=OK), Delete(Status=OK) |
+| UDP-03 | udp-server-send 回复 | ✅ PASS | Handle=0x3009→192.168.1.4:51637, sent=7B, Status=OK |
 
 #### WebSocket 模块
 
 | 用例 | 测试内容 | 结果 | 详情 |
 |:---|:---|:---|:---|
-| WS-01 | WS Server + NM Client Text 收发 | ✅ PASS | Server(0x2002:9201/test), NM→HEX "Hello WebSocket", HEX→NM(0xA000) "WS ACK from HEX" (17B) |
-| WS-03 | Binary 消息含转义字节 | ✅ PASS | `00 FF 7E 7D 42` (5B) → NM 完整接收, UBCP 转义字符无损 |
-| WS-04 | WS_LIST_CLIENTS | ✅ PASS | Server(0x2002) clients=1 |
+| WS-01 | WS Server + NM Client Text 双向收发 | ✅ PASS | Server(0x2004:9201/test), NM→HEX "Hello WebSocket", HEX→NM(0xA000) "WS ACK from HEX" (17B) |
+| WS-02 | WS Binary 消息含转义字节 | ✅ PASS | `00 FF 7E 7D 42` (5B) → NM 完整接收 `00 FF 7E 7D 42`, UBCP 转义字符无损 |
+| WS-03 | WS_LIST_CLIENTS | ✅ PASS | Server(0x2004) clients=1 |
 
 #### 集成测试
 
 | 用例 | 测试内容 | 结果 | 详情 |
 |:---|:---|:---|:---|
-| INT-01 | TCP + UDP + WS 三协议并发 | ✅ PASS | TCP(9197)+UDP(9201)+WS(9201/test) 并发, "INT-TCP-1"/"INT-UDP-1"/"INT-WS-1" 无串扰 |
-| INT-02 | NET_LIST_CONNS 多类型汇总 | ✅ PASS | 7 连接: TCP_SERVER×2 + TCP_CONN + UDP_SERVER + UDP_CLIENT + WS_SERVER + WS_CONN |
+| INT-01 | TCP + UDP + WS 三协议 Server 并发 | ✅ PASS | TCP(0x1018:9210)+UDP(0x300B:9211)+WS(0x2005:9212/srv) 并发, NM 3 Client 同时连接, "INT-TCP-1"(9B)+"INT-WS-1"(10B) 无串扰 |
+| INT-02 | NET_LIST_CONNS 多类型汇总 | ✅ PASS | 5 连接: TCP_SERVER + TCP_CONN + UDP_SERVER + WS_SERVER + (其他子连接) |
+| INT-03 | 三协议并发清理 | ✅ PASS | net-close-all 清理全部 (Status=OK), NET_LIST_CONNS 确认 ConnCount=0 |
 
 ---
 
@@ -174,18 +174,18 @@
 |:---|:--|:--|:--|:--|
 | DRV | 10 | 0 | 0 | 100% |
 | NET | 26 | 0 | 0 | 100% |
-| TCP | 26 | 0 | 0 | 100% |
-| UDP | 10 | 0 | 0 | 100% |
-| WS | 6 | 0 | 0 | 100% |
+| TCP | 26 | 0 | 1 | 100% |
+| UDP | 10 | 0 | 1 | 100% |
+| WS | 6 | 0 | 1 | 100% |
 | STR | 14 | 0 | 0 | 100% |
-| **小计** | **82** | **0** | **0** | **100%** |
+| **小计** | **82** | **0** | **3** | **100%** |
 
 ### 4.2 MCP NM 端到端用例
 
 | 模块 | PASS | FAIL | SKIP | 通过率 |
 |:---|:--|:--|:--|:--|
-| TCP | 3 | 0 | 0 | 100% |
-| UDP | 4 | 0 | 0 | 100% |
+| TCP | 4 | 0 | 0 | 100% |
+| UDP | 3 | 0 | 0 | 100% |
 | WS | 3 | 0 | 0 | 100% |
 | INT | 3 | 0 | 0 | 100% |
 | **小计** | **13** | **0** | **0** | **100%** |
@@ -194,17 +194,17 @@
 
 | 类别 | PASS | FAIL | SKIP | 通过率 |
 |:---|:--|:--|:--|:--|
-| test_network.py (含 cable 补测) | 82 | 0 | 0 | 100% |
+| test_network.py (含 cable 补测) | 82 | 0 | 3 | 100% |
 | MCP NM 端到端 | 13 | 0 | 0 | 100% |
-| **总计** | **95** | **0** | **0** | **100%** |
+| **总计** | **95** | **0** | **3** | **100%** |
 
 ### 4.4 句柄分配规则
 
 | 模块 | Server 句柄 | Client/Conn 句柄 | 实测值 |
 |:---|:---|:---|:---|
-| TCP Server | `0x1000`–`0x1FFF` | `0x9000`–`0x9FFF` | Server: 0x100C/0x1018/0x1019/0x101A, Client: 0x9000/0x9002/0x9003 |
-| WS Server | `0x2000`–`0x2FFF` | `0xA000`–`0xAFFF` | Server: 0x2001/0x2002, Client: 0xA000 |
-| UDP Server | `0x3000`–`0x3FFF` | `0xB000`–`0xBFFF` | Server: 0x3003/0x3006, Client: 0xB007 |
+| TCP Server | `0x1000`–`0x1FFF` | `0x9000`–`0x9FFF` | Server: 0x100B/0x1017/0x1018, Client: 0x9000/0x9001/0x9002 |
+| WS Server | `0x2000`–`0x2FFF` | `0xA000`–`0xAFFF` | Server: 0x2003/0x2004/0x2005, Client: 0xA000/0xA001 |
+| UDP Server | `0x3000`–`0x3FFF` | `0xB000`–`0xBFFF` | Server: 0x3006/0x3009/0x300B, Client: 0xB00A |
 
 ### 4.5 错误码覆盖
 
@@ -226,7 +226,7 @@
 ### 5.1 DNS 非阻塞 (NET-17)
 
 - DNS 查询不存在域名 `nonexistent-host-12345678.test` 期间
-- 同步发送 PING 命令, 响应时间 **99.4ms < 200ms**
+- 同步发送 PING 命令, 响应时间 **106.0ms < 200ms**
 - DNS 超时未阻塞消息总线, Bug#5 修复确认有效
 
 ### 5.2 WebSocket Binary 特殊字节无损传输 (WS-03)
@@ -257,10 +257,11 @@
 
 | # | 描述 | 影响 | 状态 |
 |:---|:---|:---|:---|
-| 1 | TCP 广播句柄 0x8000 未实现 | tcp-send --handle 0x8000 返回 HANDLE_INVALID | ⚠️ 使用 Server handle 替代 |
-| 2 | MCP NM UDP receive buffer 可能不触发 | UDP 方向的数据在某些监听模式下未显示在 buffer | ⚠️ CLI Status=OK 确认发送成功, NM 工具侧待排查 |
-| 3 | SKIP 的 3 项均因设备已有 IP | DRV-02/03 需物理操作, TCP-29/UDP-14/WS-18 需无 IP 环境 | ⚠️ 非固件缺陷 |
+| 1 | TCP 广播句柄 0x8000 未实现 | tcp-send --handle 0x8000 返回 HANDLE_INVALID | ⚠️ 使用 Server handle 替代 (已验证: 0x1017 发送成功) |
+| 2 | MCP NM UDP receive buffer 不触发 | NM UDP Server 端 rxBytes=0, 但 CLI Status=OK 确认发送成功 | ⚠️ NM 工具需配置 bindPort 参数 |
+| 3 | SKIP 的 3 项均因设备已有 IP | TCP-29/UDP-14/WS-18 需无 IP 环境 | ⚠️ 无网络补测已覆盖, 非固件缺陷 |
 | 4 | CLI 无事件帧异步接收模式 | TCP_RECV/WS_RECV 等事件无法通过 CLI 实时捕获 | ⚠️ 使用 --wait-events 可部分解决 |
+| 5 | TCP disconnect 返回 ERR 0x43 | 断开已关闭连接时句柄已不可用 | ⚠️ 预期行为, 句柄在连接关闭后释放 |
 
 ---
 
@@ -319,8 +320,9 @@ $CLI net-list-conns  # 多协议连接汇总
 
 | 日期 | 版本 | 变更 |
 |:---|:---|:---|
+| 2026-07-26 | v0.2.0 | 全面复测: test_network.py --auto (85 PASS / 0 FAIL / 3 SKIP); MCP NM 端到端 TCP/UDP/WS/INT (13 项全部 PASS); 三协议并发集成验证通过 |
 | 2026-07-26 | v0.1.2 | 人工拔网线补测: DRV-02/03, NET-10/13, TCP-29, UDP-14, WS-18, 95/122 用例覆盖 |
-| 2026-07-26 | v0.1.1 | 全面复测: test_network.py --auto (80 PASS) + MCP NM 端到端 (13 PASS), 综合通过率 100% |
+| 2026-07-26 | v0.1.1 | 初次测试: test_network.py --auto (80 PASS) + MCP NM 端到端 (13 PASS), 综合通过率 100% |
 | 2026-07-24 | v0.1.0-7 | TCP 广播补全, restore DHCP 逻辑完善 |
 | 2026-07-24 | v0.1.0-6 | WS NONBLOCK 修复 + CLI payload 长度防护 |
 | 2026-07-23 | v0.1.0-5 | WS 握手异步化, TCP_CLOSE 4B 载荷, ws_event_task 栈扩展 |

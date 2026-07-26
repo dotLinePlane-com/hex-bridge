@@ -71,6 +71,7 @@ and async event capture for MCP NM Network Monitor coordinated testing.
     > tcp-list-clients --handle $srv
     # Clients: 0
     > net-list-conns
+    > net-close-all
     > ws-server-open --port 9201 --path /test --save-as ws
     > quit
 
@@ -119,6 +120,7 @@ and async event capture for MCP NM Network Monitor coordinated testing.
     net-status     Network interface status (0x41)
     net-dns        DNS hostname resolution (0x42)
     net-list-conns Global connection overview (0x44)
+    net-close-all  Close all TCP/UDP/WS connections (0x45)
 
   TCP (0x50-0x5F):
     tcp-server-open       Create TCP server (0x50)
@@ -473,6 +475,11 @@ def cmd_net_list_conns(transport, args):
     output({**frame_info(resp), "status": status_str(st), "connections": count})
     if rows:
         output_table(["type", "handle", "parent", "lport", "remote_ip"], rows)
+
+
+def cmd_net_close_all(transport, args):
+    resp, st = expect_response(transport, 0x45, b'')
+    output({**frame_info(resp), "status": status_str(st)})
 
 
 # ════════════════════════════════════════════════════════════
@@ -1060,7 +1067,7 @@ def interactive_session(transport, global_args):
         if line in ('quit', 'exit', 'q'):
             break
         if line in ('help', 'h', '?'):
-            print("  Commands: net-status, net-dns <host>, net-list-conns,")
+            print("  Commands: net-status, net-dns <host>, net-list-conns, net-close-all,")
             print("    tcp-server-open/close, tcp-client-connect/disconnect/send,")
             print("    tcp-list-clients, tcp-conn-status, tcp-kick-client,")
             print("    udp-server-open/close, udp-client-create/delete/send,")
@@ -1115,6 +1122,7 @@ def _register_subcommands(parser):
     p_ns.add_argument('--index', type=int, default=None)
 
     sub.add_parser('net-list-conns')
+    sub.add_parser('net-close-all')
 
     # TCP
     p_tso = sub.add_parser('tcp-server-open')
@@ -1263,6 +1271,7 @@ DISPATCH = {
     'net-dns':              cmd_net_dns,
     'net-status':           cmd_net_status,
     'net-list-conns':       cmd_net_list_conns,
+    'net-close-all':        cmd_net_close_all,
     'tcp-server-open':      cmd_tcp_server_open,
     'tcp-server-close':     cmd_tcp_server_close,
     'tcp-client-connect':   cmd_tcp_client_connect,

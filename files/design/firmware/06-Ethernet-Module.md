@@ -2,7 +2,7 @@
 
 ## 6.1 概述
 
-HEX-Bridge 通过 LAN8720A 以太网 PHY 芯片提供 10/100 Mbps 有线网络接入能力。基于 ESP-IDF 内置的 `esp_eth` 框架实现 PHY 驱动、lwIP 协议栈集成以及 UBCP 协议中的网络命令组 (0x40-0x4F / 0x50-0x5F / 0x60-0x6F / 0x70-0x7F)。
+HEX-Bridge 通过 LAN8720A 以太网 PHY 芯片提供 10/100 Mbps 有线网络接入能力。基于 ESP-IDF 内置的 `esp_eth` 框架实现 PHY 驱动、lwIP 协议栈集成以及 UBCP 协议中的网络命令组 (0x40-0x4F / 0x50-0x5F / 0x60-0x6F / 0x70-0x7F)。支持 NET_CLOSE_ALL (0x45) 一键关闭所有连接，以及 RESET (0x04) 触发的模块级 stop() 清理钩子。
 
 ### 硬件配置
 
@@ -197,11 +197,8 @@ msg_bus_register_module(&hex_mod_ws);        // 0x70-0x7F
 
 | 命令码 | 名称 | 方向 | 状态 |
 |:---|:---|:---|:---|
-| `0x40` | NET_CONFIG | 请求-响应 | 设计阶段 |
-| `0x41` | NET_STATUS | 请求-响应 | 设计阶段 |
-| `0x42` | NET_DNS | 请求-响应 | 设计阶段 |
-| `0x43` | NET_LINK_EVENT | 事件上报 | 设计阶段 |
-| `0x44` | NET_LIST_CONNS | 请求-响应 | 设计阶段 |
+| `0x44` | NET_LIST_CONNS | 请求-响应 | ✅ 已实现 |
+| `0x45` | NET_CLOSE_ALL | 请求-响应 | ✅ 已实现 |
 
 ### 6.5.2 NET_CONFIG (0x40) — 网络配置
 
@@ -340,10 +337,30 @@ msg_bus_register_module(&hex_mod_ws);        // 0x70-0x7F
 | 7-10 | RemoteIP | u32 | 对端 IP (Server 模式为 `0x00000000`) |
 
 **实现要点**:
-- 遍历 `mod_tcp` + `mod_udp` + `mod_ws` 各自的连接管理表
-- 通过 msg_bus 跨模块查询 API 或直接调用各模块的导出查询函数
-- 各模块需要导出 `_get_conn_list()` 类函数供 `NET_LIST_CONNS` 汇总
-- 单个条目 10 字节, 最坏情况 (4 TCP Server × 4 连接 + 4 UDP + 8 UDP Client + 4 WS Server × 5 连接 + 其他) ≈ 60 条目 = 600 字节载荷, 在 UBCP 最大帧 1500 字节限制内
+- 遍历 `mod_tcp` + `mod_udp` + `mod_ws` 各自的连接管理表，通过 `mod_network_register_conn_provider()` 注册的回调函数收集
+- 单个条目 10 字节, 最坏情况 60 条目 = 600 字节载荷, 在 UBCP 最大帧 1500 字节限制内
+
+### 6.5.7 NET_CLOSE_ALL (0x45) — 一键关闭所有网络连接
+
+**请求**: 无载荷 (空请求体)
+
+**响应**:
+
+| 偏移 | 字段 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| 0 | Status | u8 | `0x00`=成功 |
+
+**实现要点**:
+- 通过 `mod_network_register_close_provider()` 注册的 TCP/UDP/WS 回调函数遍历关闭
+- TCP: 关闭所有 Server 监听 fd + 所有 Client 连接 fd，发送 DISCONNECT_EVENT
+- UDP: 关闭所有 Server/Client fd
+- WebSocket: 关闭所有 Server 监听 fd + 所有 WS 连接 fd
+- 关闭后模块状态不变，可继续创建新连接
+
+**典型使用**:
+- 测试脚本 `test_network.py` 每次运行前调用，确保从零状态开始
+- CLI `net-close-all` 子命令：`python hex-bridge-network-cli.py net-close-all`
+- 主机重新配置网络前回收所有连接资源
 
 ---
 
@@ -882,7 +899,7 @@ TCP_SEND / TCP_RECV 活动状态
 | `core/eth_init.h` | LAN8720 初始化接口声明 |
 | `core/eth_init.c` | PHY 复位时序 + esp_eth 驱动安装 (~200 行) |
 | `modules/mod_network.h` | 网络配置模块接口声明 |
-| `modules/mod_network.c` | NET_CONFIG / NET_STATUS / NET_DNS / NET_LINK_EVENT / NET_LIST_CONNS (~450 行) |
+| `modules/mod_network.c` | NET_CONFIG / NET_STATUS / NET_DNS / NET_LINK_EVENT / NET_LIST_CONNS / NET_CLOSE_ALL (~460 行) |
 | `modules/mod_tcp.h` | TCP 模块接口声明 | |
 | `modules/mod_tcp.c` | TCP Server/Client + select 事件循环 + LIST_CLIENTS / KICK_CLIENT / CONN_STATUS (~950 行) |
 | `modules/mod_udp.h` | UDP 模块接口声明 | |

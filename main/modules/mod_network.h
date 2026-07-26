@@ -22,5 +22,7 @@ typedef struct {
 } net_conn_entry_t;
 
 typedef void (*net_conn_iter_cb)(const net_conn_entry_t *entry, void *ctx);
+typedef void (*net_conn_close_all_cb)(void);
 
 void mod_network_register_conn_provider(const char *name, void (*iterate)(net_conn_iter_cb cb, void *ctx));
+void mod_network_register_close_provider(const char *name, net_conn_close_all_cb close_all);

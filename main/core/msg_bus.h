@@ -93,3 +93,5 @@ void msg_bus_update_flow_state(uint8_t module_id, uint8_t state,
  * @return 实际收集到的模块数量
  */
 uint8_t msg_bus_collect_flow_states(flow_module_state_t *out, uint8_t max_count);
+
+void msg_bus_stop_all_modules(void);

@@ -42,12 +42,24 @@ static struct {
 } s_conn_providers[MAX_CONN_PROVIDERS];
 static int s_conn_provider_count = 0;
 
+/* Cross-module close-all providers */
+static net_conn_close_all_cb s_close_providers[MAX_CONN_PROVIDERS];
+static int s_close_provider_count = 0;
+
 void mod_network_register_conn_provider(const char *name, void (*iterate)(net_conn_iter_cb cb, void *ctx))
 {
     if (s_conn_provider_count < MAX_CONN_PROVIDERS) {
         s_conn_providers[s_conn_provider_count].name    = name;
         s_conn_providers[s_conn_provider_count].iterate = iterate;
         s_conn_provider_count++;
+    }
+}
+
+void mod_network_register_close_provider(const char *name, net_conn_close_all_cb close_all)
+{
+    if (s_close_provider_count < MAX_CONN_PROVIDERS) {
+        HEX_LOGI(TAG, "注册关闭回调: %s", name);
+        s_close_providers[s_close_provider_count++] = close_all;
     }
 }
 
@@ -531,6 +543,20 @@ static void handle_net_list_conns(const ubcp_frame_t *req)
 }
 
 /* ========================================================================
+ *  NET_CLOSE_ALL (0x45)
+ * ======================================================================== */
+static void handle_net_close_all(const ubcp_frame_t *req)
+{
+    HEX_LOGI(TAG, "NET_CLOSE_ALL: 关闭 %d 个连接提供者上报的所有连接", s_close_provider_count);
+    for (int i = 0; i < s_close_provider_count; i++) {
+        if (s_close_providers[i]) {
+            s_close_providers[i]();
+        }
+    }
+    msg_bus_send_status_response(req, UBCP_ERR_SUCCESS);
+}
+
+/* ========================================================================
  *  Module dispatch and init
  * ======================================================================== */
 static esp_err_t network_init(void)
@@ -592,9 +618,23 @@ static void network_handle_cmd(const ubcp_frame_t *frame)
     case UBCP_CMD_NET_LIST_CONNS:
         handle_net_list_conns(frame);
         break;
+    case UBCP_CMD_NET_CLOSE_ALL:
+        handle_net_close_all(frame);
+        break;
     default:
         msg_bus_send_status_response(frame, UBCP_ERR_NOT_SUPPORT);
         break;
+    }
+}
+
+static void network_stop(void)
+{
+    HEX_LOGI(TAG, "Network 模块停止");
+    if (s_eth_initialized) {
+        esp_event_handler_unregister(ETH_EVENT, ETHERNET_EVENT_CONNECTED, net_eth_event_handler);
+        esp_event_handler_unregister(ETH_EVENT, ETHERNET_EVENT_DISCONNECTED, net_eth_event_handler);
+        esp_event_handler_unregister(IP_EVENT, IP_EVENT_ETH_GOT_IP, net_ip_event_handler);
+        esp_event_handler_unregister(IP_EVENT, IP_EVENT_ETH_LOST_IP, net_ip_event_handler);
     }
 }
 
@@ -604,7 +644,7 @@ static const hex_module_t s_network_module = {
     .cmd_range_end   = UBCP_CMD_RANGE_NET_END,
     .init            = network_init,
     .handle_cmd      = network_handle_cmd,
-    .stop            = NULL,
+    .stop            = network_stop,
 };
 
 const hex_module_t *mod_network_get(void)

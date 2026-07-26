@@ -427,7 +427,7 @@ static void handle_server_open(const ubcp_frame_t *req)
     if (listen(sock, maxconn > 0 ? maxconn : 5) < 0) {
         close(sock);
         xSemaphoreGive(s_mutex);
-        msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_PORT_IN_USE);
         return;
     }
 
@@ -1033,6 +1033,8 @@ static void handle_conn_status(const ubcp_frame_t *req)
     msg_bus_send_frame(&resp);
 }
 
+static void tcp_close_all(void);
+
 /* ========================================================================
  *  Module init and dispatch
  * ======================================================================== */
@@ -1053,9 +1055,42 @@ static esp_err_t tcp_init(void)
 
     /* Register with mod_network for NET_LIST_CONNS */
     mod_network_register_conn_provider("TCP", tcp_iterate_conns);
+    mod_network_register_close_provider("TCP", tcp_close_all);
 
     ESP_LOGI(TAG, "TCP 模块初始化完成");
     return ESP_OK;
+}
+
+static void tcp_close_all(void)
+{
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    for (int i = 0; i < TCP_MAX_CONNS; i++) {
+        if (s_conns[i].active) {
+            if (s_conns[i].socket_fd >= 0) {
+                close(s_conns[i].socket_fd);
+                s_conns[i].socket_fd = -1;
+            }
+            s_conns[i].active = false;
+            send_disconnect_event(&s_conns[i], 0x00);
+        }
+    }
+    for (int i = 0; i < TCP_MAX_SERVERS; i++) {
+        if (s_servers[i].active) {
+            if (s_servers[i].listen_fd >= 0) {
+                close(s_servers[i].listen_fd);
+                s_servers[i].listen_fd = -1;
+            }
+            s_servers[i].active = false;
+        }
+    }
+    xSemaphoreGive(s_mutex);
+}
+
+static void tcp_stop(void)
+{
+    HEX_LOGI(TAG, "TCP 模块停止");
+    s_task_running = false;
+    tcp_close_all();
 }
 
 static void tcp_handle_cmd(const ubcp_frame_t *frame)
@@ -1083,7 +1118,7 @@ static const hex_module_t s_tcp_module = {
     .cmd_range_end   = UBCP_CMD_RANGE_TCP_END,
     .init            = tcp_init,
     .handle_cmd      = tcp_handle_cmd,
-    .stop            = NULL,
+    .stop            = tcp_stop,
 };
 
 const hex_module_t *mod_tcp_get(void)

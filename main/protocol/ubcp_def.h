@@ -160,6 +160,7 @@
 #define UBCP_CMD_NET_DNS            0x42
 #define UBCP_CMD_NET_LINK_EVENT     0x43
 #define UBCP_CMD_NET_LIST_CONNS     0x44
+#define UBCP_CMD_NET_CLOSE_ALL      0x45
 
 /* ========================================================================
  * 命令码定义 — TCP (0x50-0x5F)
