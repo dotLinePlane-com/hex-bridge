@@ -495,7 +495,7 @@ typedef struct {
 static void list_conns_collect_cb(const net_conn_entry_t *entry, void *ctx)
 {
     list_conns_ctx_t *lc = (list_conns_ctx_t *)ctx;
-    if (lc->offset + 10 > lc->capacity) return;
+    if (lc->offset + 11 > lc->capacity) return;
 
     lc->buf[lc->offset + 0] = entry->conn_type;
     lc->buf[lc->offset + 1] = (uint8_t)(entry->handle >> 8);
@@ -508,7 +508,7 @@ static void list_conns_collect_cb(const net_conn_entry_t *entry, void *ctx)
         lc->buf[lc->offset + 8] = (uint8_t)(entry->remote_ip >> 16);
         lc->buf[lc->offset + 9] = (uint8_t)(entry->remote_ip >> 8);
         lc->buf[lc->offset + 10]= (uint8_t)(entry->remote_ip & 0xFF);
-    lc->offset += 10;
+    lc->offset += 11;
     lc->count++;
 }
 
@@ -516,7 +516,7 @@ static void handle_net_list_conns(const ubcp_frame_t *req)
 {
     /* First pass: count total entries */
     uint16_t max_entries = 60;
-    uint16_t buf_size = 2 + max_entries * 10;
+    uint16_t buf_size = 2 + max_entries * 11;
     uint8_t *payload = malloc(buf_size);
     if (!payload) {
         msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
@@ -526,7 +526,7 @@ static void handle_net_list_conns(const ubcp_frame_t *req)
     list_conns_ctx_t lc;
     lc.buf      = payload + 2;
     lc.offset   = 0;
-    lc.capacity = max_entries * 10;
+    lc.capacity = max_entries * 11;
     lc.count    = 0;
 
     for (int i = 0; i < s_conn_provider_count; i++) {

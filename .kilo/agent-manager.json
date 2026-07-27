@@ -1,42 +1,6 @@
 {
   "worktrees": {},
   "sessions": {
-    "ses_063db11baffe5FEVHbqJSGOyCd": {
-      "worktreeId": null,
-      "createdAt": "2026-07-26T01:58:13.863Z"
-    },
-    "ses_063c8de12ffezgHalXEy6J1eMp": {
-      "worktreeId": null,
-      "createdAt": "2026-07-26T02:18:06.718Z"
-    },
-    "ses_0639971dbffeXe53E6X1HIf85d": {
-      "worktreeId": null,
-      "createdAt": "2026-07-26T03:09:54.606Z"
-    },
-    "ses_063927abeffe9DQR5YXbYpOxl7": {
-      "worktreeId": null,
-      "createdAt": "2026-07-26T03:17:31.090Z"
-    },
-    "ses_0629ab1f4ffeguY8xOUDIeVnl1": {
-      "worktreeId": null,
-      "createdAt": "2026-07-26T07:48:09.887Z"
-    },
-    "ses_0622094abffeMx1OgAOO1mfTZX": {
-      "worktreeId": null,
-      "createdAt": "2026-07-26T10:01:32.781Z"
-    },
-    "ses_061817f09ffeS5uAioEUA3325M": {
-      "worktreeId": null,
-      "createdAt": "2026-07-26T12:55:18.542Z"
-    },
-    "ses_06109d0a9ffec8nq8goM6wlFFV": {
-      "worktreeId": null,
-      "createdAt": "2026-07-26T15:06:01.966Z"
-    },
-    "ses_05ed89cf9ffeu9GJMHw3sOpPSy": {
-      "worktreeId": null,
-      "createdAt": "2026-07-27T01:19:00.914Z"
-    },
     "ses_05e16a1fbffeWwUAxldPrKXo0z": {
       "worktreeId": null,
       "createdAt": "2026-07-27T04:50:53.590Z"
@@ -69,7 +33,6 @@
       "ses_0914cfee2ffe2fi5h6YzccPv5k",
       "ses_07857d070ffelkA2SG19UMGfv0",
       "ses_078243dd4ffepULdeARfN5ofow",
-      "pending:1",
       "ses_077849664ffemF0OifsGt3OGy1",
       "ses_0772fefe5ffeDg1WoNr9Pr3lZF",
       "ses_076e0da77ffekEg4RiJrWoRBRY",
@@ -79,16 +42,7 @@
       "ses_0676b7fd3ffe5g61VF1NiNtIZr",
       "ses_0675a5cd7ffeOe2Y2bman09q1Z",
       "ses_066e79fa4ffebYCSiG5Wqj6QfH",
-      "ses_063db11baffe5FEVHbqJSGOyCd",
-      "ses_063c8de12ffezgHalXEy6J1eMp",
-      "ses_0639971dbffeXe53E6X1HIf85d",
-      "ses_063927abeffe9DQR5YXbYpOxl7",
       "ses_063794d4dffeTpV5KUueX33I96",
-      "ses_0629ab1f4ffeguY8xOUDIeVnl1",
-      "ses_0622094abffeMx1OgAOO1mfTZX",
-      "ses_061817f09ffeS5uAioEUA3325M",
-      "ses_06109d0a9ffec8nq8goM6wlFFV",
-      "ses_05ed89cf9ffeu9GJMHw3sOpPSy",
       "ses_05e16a1fbffeWwUAxldPrKXo0z"
     ]
   },

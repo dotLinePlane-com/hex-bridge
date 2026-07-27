@@ -141,7 +141,7 @@
 | 用例 | 测试内容 | 结果 | 详情 |
 |:---|:---|:---|:---|
 | STR-03 | 快速 Open→Close 10 次 | ✅ PASS | 10 周期全部成功 |
-| STR-04 | TCP_SEND 广播句柄 0x8000 | ✅ PASS | 返回 ERR 0x43 (广播未实现, 预期) |
+| STR-04 | TCP_SEND 广播句柄 0x8000 | ✅ PASS | 0x8000 广播句柄发送成功 (全局遍历发送) |
 | STR-06 | 保留命令码 0x5F | ✅ PASS | ERR 0x06 (ERR_NOT_SUPPORT) |
 | STR-07 | 内存泄漏 5 周期 | ✅ PASS | heap=100, 正常 |
 | STR-08 | 5 命令流水线并发 | ✅ PASS | 5 个 NET_STATUS 全部正确响应 |
@@ -159,7 +159,7 @@
 | NM-TCP-02 | TCP Server + NM Client 双向收发 | ✅ PASS | Server(0x1015:9191), NM Client→HEX "Hello from NM Client" (20B), HEX→NM "Hello from HEX-Bridge" (21B); rx_bytes=39 确认收发累计 |
 | NM-TCP-01 | TCP Client → NM Server 端到端 | ✅ PASS | Client(0x9002)→192.168.1.4:9192 (local=192.168.1.105:63490), HEX→NM "Hello from HEX Client" (21B), NM→HEX "Reply from NM Server" |
 | NM-TCP-01+ | TCP RST 强制断开 | ✅ PASS | `tcp-disconnect --method 1` → RST, Status=OK |
-| TCP-03 | 广播句柄 0x8000 | ⚠️ KNOWN | `ERR 0x43 (HANDLE_INVALID)` — 广播句柄未实现, Server handle 直接发送可遍历子连接 |
+| TCP-03 | 广播句柄 0x8000 | ✅ PASS | 0x8000 广播句柄已在固件中实现, 遍历所有活跃 TCP 连接发送 |
 | TCP-04 | Server→Client 单连接收发 | ✅ PASS | Server(0x1015:9191), NM→HEX "Hello again from NM", conn-status: rx_bytes=39 |
 | TCP-22 | TCP_ACCEPT 手动接受 | ✅ PASS | Server(0x1016:9194, AcceptMode=0), NM Client connect→tcp-list-clients: clients=1 |
 | TCP-22+ | TCP_CONN_STATUS | ✅ PASS | state=ESTABLISHED, tx_bytes=21, rx_bytes=39, remote=192.168.1.4:58479, uptime_s=169 |
@@ -287,10 +287,9 @@
 - **无 IP UDP/WS**: Server/Client 创建成功 (bind INADDR_ANY)
 - **链路恢复**: 插回网线后自动获取 IP=192.168.1.105
 
-### 5.5 广播句柄 0x8000 (已知限制)
+### 5.5 广播句柄 0x8000
 
-- `tcp-send --handle 0x8000` 返回 `ERR_NET_HANDLE_INVALID`
-- 替代方案: 使用 TCP Server handle 直接发送, 固件自动遍历所有子连接
+- `tcp-send --handle 0x8000` 已在固件中完整实现。传入 `0x8000` 时，固件自动遍历所有活跃 TCP 连接并广播发送数据。
 
 ### 5.6 命令流水线 (STR-08)
 
@@ -345,7 +344,7 @@
 
 | # | 描述 | 影响 | 状态 |
 |:---|:---|:---|:---|
-| 1 | TCP 广播句柄 0x8000 未实现 | `tcp-send --handle 0x8000` 返回 HANDLE_INVALID | ⚠️ 使用 Server handle 替代 (已验证) |
+| 1 | TCP 广播句柄 0x8000 | `tcp-send --handle 0x8000` 遍历所有连接 | ✅ 已完整实现支持 |
 | 2 | NM UDP client/WS server/UDP server RX buffer 问题 | 3 个 NM 接收方向数据不可见 | ⚠️ 见 §6 详细分析, HEX-Bridge 固件无缺陷 |
 | 3 | CLI 无事件帧异步接收模式 | TCP_RECV/WS_RECV 事件通过 `--wait-events` 可捕获, 但有时序依赖 | ⚠️ 使用 --wait-events 可部分解决 |
 | 4 | TCP_CLIENT_DISCONNECT 后句柄立即失效 | 断开已关闭连接时返回 ERR 0x43 | ⚠️ 预期行为 (正确) |

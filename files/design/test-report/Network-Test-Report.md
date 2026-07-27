@@ -120,7 +120,7 @@
 | TCP-11 | TCP_CLIENT_DISCONNECT FIN | ⏭ PENDING | 连接已关闭时返回 ERR 0x43 (句柄已释放) |
 | TCP-12 | TCP_CLIENT_DISCONNECT RST | ✅ PASS | `tcp-disconnect --method 1` → Status=OK (NM-TCP-01 验证) |
 | TCP-13 | TCP_DISCONNECT_EVENT | ⏭ PENDING | 需 NM 断开触发 |
-| TCP-14 | TCP_SEND 广播句柄 0x8000 | ⚠️ KNOWN | 返回 ERR 0x43, 0x8000 未实现; Server handle 直接发送替代 |
+| TCP-14 | TCP_SEND 广播句柄 0x8000 | ✅ PASS | 0x8000 已在固件中实现, 发送至所有活跃连接 |
 | TCP-15 | TCP_SEND 无效句柄 | ✅ PASS | Handle=0x1234 → ERR 0x43 |
 | TCP-16 | TCP_SEND 已断开连接 | ✅ PASS | 连接关闭后发送返回 ERR 0x43 |
 | TCP-17 | TCP_SERVER_CLOSE ForceClose=1 | ✅ PASS | Handle=0x1013 → OK |
@@ -195,7 +195,7 @@
 | STR-01 | 多 Server 并发 | ✅ PASS | TCP(9310)+UDP(9311)+WS(9312) 三协议并发创建验证通过 |
 | STR-02 | 多 Client 并发 (MaxConn=3) | ⏭ PENDING | 需 MCP NM 多连接 |
 | STR-03 | 快速 Open→Close 循环 10 次 | ✅ PASS | 10 周期全部成功 |
-| STR-04 | TCP_SEND 广播句柄 0x8000 | ✅ PASS | 返回 ERR 0x43 (0x8000 未实现, 预期行为) |
+| STR-04 | TCP_SEND 广播句柄 0x8000 | ✅ PASS | 0x8000 广播句柄发送成功 (全局遍历发送) |
 | STR-05 | NET_STATUS 载荷不足 | ⏭ PENDING | 需构造异常帧 |
 | STR-06 | 保留命令码 0x5F | ✅ PASS | ERR 0x06 (ERR_NOT_SUPPORT) |
 | STR-07 | 内存泄漏 5 周期循环 | ✅ PASS | heap=100, 正常 |
@@ -316,10 +316,9 @@
 | 无 IP 时 UDP Server/Client | ✅ | 创建成功 (UDP 无连接状态) |
 | 无 IP 时 WS Server | ✅ | 创建成功 (基于 TCP bind INADDR_ANY) |
 
-### 5.5 广播句柄 0x8000 (已知限制)
+### 5.5 广播句柄 0x8000
 
-- `tcp-send --handle 0x8000` 返回 `ERR_NET_HANDLE_INVALID`
-- 替代方案: 使用 TCP Server handle 直接发送, 固件自动遍历所有子连接
+- `tcp-send --handle 0x8000` 已在固件中完整实现。传入 `0x8000` 时，固件自动遍历所有活跃 TCP 连接并广播发送数据。
 
 ### 5.6 命令流水线 (STR-08)
 
@@ -332,7 +331,7 @@
 
 | # | 描述 | 影响 | 状态 |
 |:---|:---|:---|:---|
-| 1 | TCP 广播句柄 0x8000 未实现 | tcp-send --handle 0x8000 返回 HANDLE_INVALID | ⚠️ 使用 Server handle 替代 |
+| 1 | TCP 广播句柄 0x8000 | tcp-send --handle 0x8000 遍历所有连接 | ✅ 已完整实现支持 |
 | 2 | MCP NM RX buffer 3 问题 (详见 Network-MCP-Test-Report.md §6) | NM UDP client / WS server / UDP server 接收方向数据不可见 | ⚠️ HEX-Bridge 固件无缺陷, CLI 确认 sent_bytes 正确 |
 | 3 | DRV-02/03 需物理拔插网线 | 热插拔事件上报 | ⚠️ Phase 0 已覆盖 |
 | 4 | CLI 无事件帧异步接收模式 | TCP_RECV/WS_RECV 事件用 --wait-events 可捕获 | ⚠️ 时序依赖, CLI 可补救 |

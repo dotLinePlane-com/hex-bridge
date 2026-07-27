@@ -197,6 +197,10 @@ msg_bus_register_module(&hex_mod_ws);        // 0x70-0x7F
 
 | 命令码 | 名称 | 方向 | 状态 |
 |:---|:---|:---|:---|
+| `0x40` | NET_CONFIG | 请求-响应 | ✅ 已实现 |
+| `0x41` | NET_STATUS | 请求-响应 | ✅ 已实现 |
+| `0x42` | NET_DNS | 请求-响应 | ✅ 已实现 |
+| `0x43` | NET_LINK_EVENT | 事件上报 | ✅ 已实现 |
 | `0x44` | NET_LIST_CONNS | 请求-响应 | ✅ 已实现 |
 | `0x45` | NET_CLOSE_ALL | 请求-响应 | ✅ 已实现 |
 
@@ -324,9 +328,9 @@ msg_bus_register_module(&hex_mod_ws);        // 0x70-0x7F
 |:---|:---|:---|:---|
 | 0 | Status | u8 | `0x00`=成功 |
 | 1 | ConnCount | u8 | 连接总数 (N) |
-| 2...(2+N*10-1) | Entries | — | N 个连接条目 (每个 10 字节) |
+| 2...(2+N*11-1) | Entries | — | N 个连接条目 (每个 11 字节) |
 
-**每个连接条目 (10 字节)**:
+**每个连接条目 (11 字节)**:
 
 | 偏移 | 字段 | 类型 | 说明 |
 |:---|:---|:---|:---|
@@ -338,7 +342,7 @@ msg_bus_register_module(&hex_mod_ws);        // 0x70-0x7F
 
 **实现要点**:
 - 遍历 `mod_tcp` + `mod_udp` + `mod_ws` 各自的连接管理表，通过 `mod_network_register_conn_provider()` 注册的回调函数收集
-- 单个条目 10 字节, 最坏情况 60 条目 = 600 字节载荷, 在 UBCP 最大帧 1500 字节限制内
+- 单个条目 11 字节, 最坏情况 60 条目 = 660 字节载荷, 在 UBCP 最大帧 1500 字节限制内
 
 ### 6.5.7 NET_CLOSE_ALL (0x45) — 一键关闭所有网络连接
 
@@ -394,7 +398,7 @@ TCP 模块基于 lwIP Socket API 实现, 采用 **select() 多路复用事件循
 | `0x0001-0x7FFF` | Server 句柄 | 设备分配, 自增, 循环使用 |
 | `0x8001-0xFFFE` | Client/连接 句柄 | 设备分配, 自增, 循环使用 |
 | `0x0000` | 无效句柄 | 表示错误 |
-| `0x8000` | 广播句柄 | 发送到 Server 所有已连接 Client |
+| `0x8000` | **广播句柄** | **全局广播**: 发送到所有 TCP 连接 (跨所有 Server) |
 | `0xFFFF` | 保留 | — |
 
 **句柄分配算法**:
@@ -447,18 +451,18 @@ typedef struct {
 
 | 命令码 | 名称 | 方向 | 状态 |
 |:---|:---|:---|:---|
-| `0x50` | TCP_SERVER_OPEN | 请求-响应 | 设计阶段 |
-| `0x51` | TCP_SERVER_CLOSE | 请求-响应 | 设计阶段 |
-| `0x52` | TCP_CLIENT_CONNECT | 请求-响应 | 设计阶段 |
-| `0x53` | TCP_CLIENT_DISCONNECT | 请求-响应 | 设计阶段 |
-| `0x54` | TCP_SEND | 请求-响应 | 设计阶段 |
-| `0x55` | TCP_RECV | 事件上报 | 设计阶段 |
-| `0x56` | TCP_ACCEPT | 事件上报/请求 | 设计阶段 |
-| `0x57` | TCP_CLOSE | 请求-响应 | 设计阶段 |
-| `0x58` | TCP_DISCONNECT_EVENT | 事件上报 | 设计阶段 |
-| `0x59` | TCP_LIST_CLIENTS | 请求-响应 | 设计阶段 |
-| `0x5A` | TCP_KICK_CLIENT | 请求-响应 | 设计阶段 |
-| `0x5B` | TCP_CONN_STATUS | 请求-响应 | 设计阶段 |
+| `0x50` | TCP_SERVER_OPEN | 请求-响应 | ✅ 已实现 |
+| `0x51` | TCP_SERVER_CLOSE | 请求-响应 | ✅ 已实现 |
+| `0x52` | TCP_CLIENT_CONNECT | 请求-响应 | ✅ 已实现 |
+| `0x53` | TCP_CLIENT_DISCONNECT | 请求-响应 | ✅ 已实现 |
+| `0x54` | TCP_SEND | 请求-响应 | ✅ 已实现 |
+| `0x55` | TCP_RECV | 事件上报 | ✅ 已实现 |
+| `0x56` | TCP_ACCEPT | 事件上报/请求 | ✅ 已实现 |
+| `0x57` | TCP_CLOSE | 请求-响应 | ✅ 已实现 |
+| `0x58` | TCP_DISCONNECT_EVENT | 事件上报 | ✅ 已实现 |
+| `0x59` | TCP_LIST_CLIENTS | 请求-响应 | ✅ 已实现 |
+| `0x5A` | TCP_KICK_CLIENT | 请求-响应 | ✅ 已实现 |
+| `0x5B` | TCP_CONN_STATUS | 请求-响应 | ✅ 已实现 |
 
 ### 6.6.5 TCP_SERVER_OPEN (0x50) — 创建 TCP Server
 
@@ -511,13 +515,68 @@ typedef struct {
 
 **实现流程**:
 ```
-1. 查表找到 conn_handle → socket_fd
-2. send(sockfd, data, len, MSG_DONTWAIT)
-3. 返回值 ≤ 0: 检查 errno
+1. 解析 Handle (u16) + DataLen (u16) + Data[]
+2. 确定发送目标:
+   ┌─ Handle == 0x8000 → 全局广播模式 → 遍历所有 active 连接发送
+   ├─ Handle 解析为 conn_handle → 查找对应 tcp_conn_t → 单点发送
+   └─ Handle 解析为 server_handle → Server 广播模式 → 遍历该 Server 的所有子连接发送
+3. send(sockfd, data, len, MSG_DONTWAIT)
+4. 返回值 ≤ 0: 检查 errno
      - ENOTCONN / EPIPE: 发送 TCP_DISCONNECT_EVENT, 返回 ERR_NET_DISCONNECTED (0x40)
      - EAGAIN / EWOULDBLOCK: 返回 ERR_NET_BUFFER_FULL (0x44)
-4. 成功: conn->tx_bytes += ActualLen, 返回 ActualLen
+5. 成功: conn->tx_bytes += ActualLen, 返回 total_sent (广播时累加所有连接)
 ```
+
+**TCP 广播模式详解**
+
+| 模式 | Handle 范围 | 触发条件 | 行为 |
+|:---|:---|:---|:---|
+| **全局广播** | `0x8000` (固定魔数) | Handle == 0x8000 | 遍历 `s_conns[]` 数组中**所有** `active` 且 `socket_fd >= 0` 的连接, 逐个 `send()` 发送数据 |
+| **Server 广播** | `0x0001-0x7FFF` (Server Handle) | 查 `find_conn_by_handle()` 返回 NULL, 再查 `find_server_by_handle()` 命中 | 遍历 `s_conns[]` 中 `is_server_child=true` 且 `server_handle` 匹配的子连接, 逐个发送 |
+| **单点发送** | `0x8001-0xFFFE` (Client Handle) | 查 `find_conn_by_handle()` 命中 | 仅向该连接发送 |
+
+**全局广播 (0x8000) 实现**:
+```c
+if (handle == 0x8000) {
+    int total_sent = 0;
+    for (int i = 0; i < TCP_MAX_CONNS; i++) {
+        if (s_conns[i].active && s_conns[i].socket_fd >= 0) {
+            int n = send(s_conns[i].socket_fd, &req->payload[4], data_len, MSG_DONTWAIT);
+            if (n > 0) {
+                s_conns[i].tx_bytes += n;
+                total_sent += n;
+            }
+        }
+    }
+    return total_sent;  /* 返回总发送字节数 */
+}
+```
+
+**Server 广播实现**:
+```c
+/* find_conn_by_handle() 返回 NULL 后, 检查是否为 Server Handle */
+tcp_server_t *svr = find_server_by_handle(handle);
+if (svr && svr->active) {
+    int total_sent = 0;
+    for (int i = 0; i < TCP_MAX_CONNS; i++) {
+        if (s_conns[i].active && s_conns[i].is_server_child &&
+            s_conns[i].server_handle == handle && s_conns[i].socket_fd >= 0) {
+            int n = send(s_conns[i].socket_fd, &req->payload[4], data_len, MSG_DONTWAIT);
+            if (n > 0) {
+                s_conns[i].tx_bytes += n;
+                total_sent += n;
+            }
+        }
+    }
+    return total_sent;
+}
+```
+
+> **设计要点**:
+> - 所有发送模式均使用 `MSG_DONTWAIT` 非阻塞标志, 单个连接发送失败不中断广播流程
+> - 全局广播和 Server 广播的响应载荷格式一致: `[Status(u8)][TotalSent(u16)]`, Status 恒为 `SUCCESS`
+> - CLI 支持: `tcp-send --handle 0x8000 --data "..."` (全局广播), `tcp-send --handle 0xXXXX --data "..."` (Server 广播或单点, 自动识别)
+> - Server 广播优先于单点发送: 当 handle 查找既不是 conn_handle 也不是 server_handle 时, 返回 `ERR_NET_HANDLE_INVALID (0x43)`
 
 ### 6.6.9 TCP_RECV (0x55) — 接收数据事件
 
@@ -611,13 +670,13 @@ typedef struct {
 
 | 命令码 | 名称 | 方向 | 状态 |
 |:---|:---|:---|:---|
-| `0x60` | UDP_SERVER_OPEN | 请求-响应 | 设计阶段 |
-| `0x61` | UDP_SERVER_CLOSE | 请求-响应 | 设计阶段 |
-| `0x62` | UDP_CLIENT_CREATE | 请求-响应 | 设计阶段 |
-| `0x63` | UDP_CLIENT_DELETE | 请求-响应 | 设计阶段 |
-| `0x64` | UDP_SERVER_SEND | 请求-响应 | 设计阶段 |
-| `0x65` | UDP_RECV | 事件上报 | 设计阶段 |
-| `0x66` | UDP_CLIENT_SEND | 请求-响应 | 设计阶段 |
+| `0x60` | UDP_SERVER_OPEN | 请求-响应 | ✅ 已实现 |
+| `0x61` | UDP_SERVER_CLOSE | 请求-响应 | ✅ 已实现 |
+| `0x62` | UDP_CLIENT_CREATE | 请求-响应 | ✅ 已实现 |
+| `0x63` | UDP_CLIENT_DELETE | 请求-响应 | ✅ 已实现 |
+| `0x64` | UDP_SERVER_SEND | 请求-响应 | ✅ 已实现 |
+| `0x65` | UDP_RECV | 事件上报 | ✅ 已实现 |
+| `0x66` | UDP_CLIENT_SEND | 请求-响应 | ✅ 已实现 |
 
 ### 6.7.2 内部数据结构
 
@@ -646,7 +705,59 @@ typedef struct {
 
 ### 6.7.3 UDP_SERVER_OPEN (0x60) — 创建 UDP Server
 
-与 TCP 不同, UDP Server 创建后就持续监听, 收到数据即通过 `UDP_RECV (0x65)` 事件帧上报。多播模式下需额外调用 `setsockopt(IP_ADD_MEMBERSHIP)`。
+与 TCP 不同, UDP Server 创建后就持续监听, 收到数据即通过 `UDP_RECV (0x65)` 事件帧上报。
+
+**UDP 广播与多播机制**:
+
+UDP Server 创建时通过载荷 `Broadcast` 和 `MulticastIP` 字段配置广播/多播能力:
+
+| 载荷字段 | 偏移 | 类型 | 说明 |
+|:---|:---|:---|:---|
+| Port | 0-1 | u16 | 监听端口 |
+| Broadcast | 2 | u8 | `0x01`=启用广播, `0x00`=关闭 |
+| MulticastIP | 3-6 | u32 | 多播组 IP, `0x00000000`=不使用 |
+
+**广播模式 (SO_BROADCAST)**:
+```c
+if (broadcast) {
+    int opt = 1;
+    setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &opt, sizeof(opt));
+}
+```
+- 启用后可通过 `sendto()` 向子网广播地址 (如 `192.168.1.255`) 发送数据
+- CLI: `udp-server-open --port 9607 --broadcast`
+- 发送时需显式指定目标 `255.255.255.255` 或子网广播地址
+- UDP Server 本身不区分广播/非广播发送, 仅靠 `SO_BROADCAST` sockopt 允许广播地址
+
+**多播模式 (IP_ADD_MEMBERSHIP)**:
+```c
+if (multicast) {
+    struct ip_mreq mreq;
+    mreq.imr_multiaddr.s_addr = multicast;
+    mreq.imr_interface.s_addr = INADDR_ANY;
+    setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+
+    uint8_t ttl = 1;
+    setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+
+    uint8_t loop = 1;
+    setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
+}
+```
+- 加入指定多播组 (如 `239.0.0.1`), 发送到该组的数据由路由器转发
+- CLI: `udp-server-open --port 9608 --multicast 239.0.0.1`
+- TTL=1 限制多播范围为同一子网
+- Loop=1 允许本机接收自己发送的多播数据
+
+**UDP 与 TCP 广播对比**:
+
+| 特性 | TCP | UDP |
+|:---|:---|:---|
+| 全局广播句柄 | `0x8000` → 所有 TCP 连接 | **无** — UDP 无连接概念 |
+| Server 级广播 | Server Handle → 该 Server 的子连接 | **N/A** — 通过指定目标地址实现 |
+| 网络层广播 | **N/A** — TCP 是点对点协议 | `SO_BROADCAST` → 可发送到 `255.255.255.255` |
+| 多播 | **N/A** — TCP 不支持多播 | `IP_ADD_MEMBERSHIP` → 加入多播组 (如 `239.0.0.1`) |
+| 发送方式 | 直接用 Handle 区分模式 | `sendto()` 显式指定 DestIP:DestPort |
 
 ### 6.7.4 UDP_CLIENT_CREATE (0x62) — 创建 UDP Client
 
@@ -735,16 +846,16 @@ WebSocket 模块基于 lwIP TCP Socket 之上实现 RFC 6455 WebSocket 协议栈
 
 | 命令码 | 名称 | 方向 | 状态 |
 |:---|:---|:---|:---|
-| `0x70` | WS_SERVER_OPEN | 请求-响应 | 设计阶段 |
-| `0x71` | WS_SERVER_CLOSE | 请求-响应 | 设计阶段 |
-| `0x72` | WS_CLIENT_CONNECT | 请求-响应 | 设计阶段 |
-| `0x73` | WS_CLIENT_DISCONNECT | 请求-响应 | 设计阶段 |
-| `0x74` | WS_SEND | 请求-响应 | 设计阶段 |
-| `0x75` | WS_RECV | 事件上报 | 设计阶段 |
-| `0x76` | WS_ACCEPT | 事件上报 | 设计阶段 |
-| `0x77` | WS_DISCONNECT_EVENT | 事件上报 | 设计阶段 |
-| `0x78` | WS_LIST_CLIENTS | 请求-响应 | 设计阶段 |
-| `0x79` | WS_KICK_CLIENT | 请求-响应 | 设计阶段 |
+| `0x70` | WS_SERVER_OPEN | 请求-响应 | ✅ 已实现 |
+| `0x71` | WS_SERVER_CLOSE | 请求-响应 | ✅ 已实现 |
+| `0x72` | WS_CLIENT_CONNECT | 请求-响应 | ✅ 已实现 |
+| `0x73` | WS_CLIENT_DISCONNECT | 请求-响应 | ✅ 已实现 |
+| `0x74` | WS_SEND | 请求-响应 | ✅ 已实现 |
+| `0x75` | WS_RECV | 事件上报 | ✅ 已实现 |
+| `0x76` | WS_ACCEPT | 事件上报 | ✅ 已实现 |
+| `0x77` | WS_DISCONNECT_EVENT | 事件上报 | ✅ 已实现 |
+| `0x78` | WS_LIST_CLIENTS | 请求-响应 | ✅ 已实现 |
+| `0x79` | WS_KICK_CLIENT | 请求-响应 | ✅ 已实现 |
 
 ### 6.8.5 WS_SEND (0x74) 帧编码流程
 

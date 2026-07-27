@@ -258,7 +258,7 @@ static void handle_server_open(const ubcp_frame_t *req)
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = multicast ? multicast : INADDR_ANY;
+    addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port        = htons(port);
 
     if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
@@ -273,6 +273,12 @@ static void handle_server_open(const ubcp_frame_t *req)
         mreq.imr_multiaddr.s_addr = multicast;
         mreq.imr_interface.s_addr = INADDR_ANY;
         setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+
+        uint8_t ttl = 1;
+        setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+
+        uint8_t loop = 1;
+        setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
     }
 
     struct sockaddr_in actual_addr;
@@ -363,6 +369,11 @@ static void handle_client_create(const ubcp_frame_t *req)
         xSemaphoreGive(s_mutex);
         msg_bus_send_status_response(req, UBCP_ERR_NET_MAX_CONN);
         return;
+    }
+
+    {
+        int opt = 1;
+        setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &opt, sizeof(opt));
     }
 
     if (local_port != 0) {
