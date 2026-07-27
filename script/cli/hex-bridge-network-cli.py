@@ -442,8 +442,8 @@ def cmd_net_status(transport, args):
     link = "UP" if resp.payload[3] else "DOWN"
     conn_map = {0: "未连接", 1: "已连接", 2: "获取IP中"}
     conn_state = conn_map.get(resp.payload[4] % 3, f"0x{resp.payload[4]:02X}")
-    ip = int_to_ip(parse_u32(resp.payload, 5))
-    mask = int_to_ip(parse_u32(resp.payload, 9))
+    ip = parse_ip_le(resp.payload, 5)
+    mask = parse_ip_le(resp.payload, 9)
     mac = ':'.join(f'{b:02X}' for b in resp.payload[13:19])
     output({**frame_info(resp), "status": status_str(st),
             "link": link, "conn_state": conn_state,
@@ -463,13 +463,13 @@ def cmd_net_list_conns(transport, args):
     rows = []
     for i in range(count):
         off = 2 + i * entry_size
-        if off + entry_size >= resp.payload_len:
+        if off + entry_size > resp.payload_len:
             break
         ct = resp.payload[off]
         handle = parse_u16(resp.payload, off + 1)
         parent = parse_u16(resp.payload, off + 3)
         lport = parse_u16(resp.payload, off + 5)
-        rmt_ip = int_to_ip(parse_u32(resp.payload, off + 7))
+        rmt_ip = parse_ip_le(resp.payload, off + 7)
         rows.append([conn_type_name(ct), f"0x{handle:04X}",
                       f"0x{parent:04X}", str(lport), rmt_ip])
     output({**frame_info(resp), "status": status_str(st), "connections": count})
@@ -569,10 +569,10 @@ def cmd_tcp_list_clients(transport, args):
     rows = []
     for i in range(count):
         off = 2 + i * entry_size
-        if off + entry_size >= resp.payload_len:
+        if off + entry_size > resp.payload_len:
             break
         ch = parse_u16(resp.payload, off)
-        cip = int_to_ip(parse_u32(resp.payload, off + 2))
+        cip = parse_ip_le(resp.payload, off + 2)
         cp = parse_u16(resp.payload, off + 6)
         ct = parse_u16(resp.payload, off + 8)
         rows.append([f"0x{ch:04X}", f"{cip}:{cp}", f"{ct}s"])
@@ -591,7 +591,7 @@ def cmd_tcp_conn_status(transport, args):
     cs = resp.payload[1]
     tx = parse_u32(resp.payload, 2)
     rx = parse_u32(resp.payload, 6)
-    rip = int_to_ip(parse_u32(resp.payload, 10))
+    rip = parse_ip_le(resp.payload, 10)
     rp = parse_u16(resp.payload, 14)
     lp = parse_u16(resp.payload, 16)
     ut = parse_u32(resp.payload, 18)
@@ -743,10 +743,10 @@ def cmd_ws_list_clients(transport, args):
     rows = []
     for i in range(count):
         off = 2 + i * entry_size
-        if off + entry_size >= resp.payload_len:
+        if off + entry_size > resp.payload_len:
             break
         ch = parse_u16(resp.payload, off)
-        cip = int_to_ip(parse_u32(resp.payload, off + 2))
+        cip = parse_ip_le(resp.payload, off + 2)
         cp = parse_u16(resp.payload, off + 6)
         sub = resp.payload[off + 8]
         plen = resp.payload[off + 9]
