@@ -33,6 +33,7 @@ static uint32_t s_gateway = 0;
 static uint32_t s_dns_primary = 0;
 static SemaphoreHandle_t s_state_mutex = NULL;
 static esp_netif_t *s_netif_ptr = NULL;
+static bool s_skip_ip_event = false;
 
 /* Cross-module connection list providers */
 #define MAX_CONN_PROVIDERS 4
@@ -106,6 +107,8 @@ static void update_conn_state(uint8_t new_state)
 
 static void update_ip_info(const esp_netif_ip_info_t *ip_info)
 {
+    if (s_skip_ip_event) return;
+
     uint32_t old_ip;
     xSemaphoreTake(s_state_mutex, portMAX_DELAY);
     old_ip         = s_current_ip;
@@ -230,7 +233,9 @@ static void handle_net_config(const ubcp_frame_t *req)
 
         if (s_netif_ptr) {
             esp_netif_dhcpc_stop(s_netif_ptr);
+            s_skip_ip_event = true;
             esp_netif_set_ip_info(s_netif_ptr, &ip_info);
+            s_skip_ip_event = false;
 
             esp_netif_dns_info_t dns;
             dns.ip.u_addr.ip4.addr = dns1;
@@ -239,7 +244,7 @@ static void handle_net_config(const ubcp_frame_t *req)
         }
 
         xSemaphoreTake(s_state_mutex, portMAX_DELAY);
-        s_current_ip  = ip;
+        s_current_ip  = htonl(ip);
         s_subnet_mask = mask;
         s_gateway     = gw;
         s_dns_primary = dns1;

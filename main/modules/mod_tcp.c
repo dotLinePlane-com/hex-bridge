@@ -204,10 +204,24 @@ static void tcp_event_task(void *arg)
         xSemaphoreTake(s_mutex, portMAX_DELAY);
 
         for (int i = 0; i < TCP_MAX_SERVERS; i++) {
-            if (s_servers[i].active && s_servers[i].listen_fd >= 0) {
-                FD_SET(s_servers[i].listen_fd, &read_fds);
-                if (s_servers[i].listen_fd > max_fd) max_fd = s_servers[i].listen_fd;
+            if (!s_servers[i].active || s_servers[i].listen_fd < 0) continue;
+
+            /* Skip server that has reached max_conn limit */
+            if (s_servers[i].max_conn > 0) {
+                int child_count = 0;
+                for (int j = 0; j < TCP_MAX_CONNS; j++) {
+                    if (s_conns[j].active && s_conns[j].is_server_child &&
+                        s_conns[j].server_handle == s_servers[i].server_handle) {
+                        child_count++;
+                    }
+                }
+                if (child_count >= s_servers[i].max_conn) {
+                    continue; /* Server full, don't monitor listen_fd */
+                }
             }
+
+            FD_SET(s_servers[i].listen_fd, &read_fds);
+            if (s_servers[i].listen_fd > max_fd) max_fd = s_servers[i].listen_fd;
         }
 
         for (int i = 0; i < TCP_MAX_CONNS; i++) {
