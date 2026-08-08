@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """
-hex-bridge-uart-cli.py — HEX-Bridge UART 扩展口 CLI 工具
+hex-bridge-uart-cli.py �?HEX-Bridge UART 扩展�?CLI 工具
 
-通过 MCP 通信口 (UART1, 默认 COM35 @ 921600 bps) 发送 UBCP v2.0 协议命令，
-控制 ESP32 上的 UART2 扩展口 (GPIO32/GPIO35)，实现远程串口收发。
-
+通过 MCP 通信�?(UART1, 默认 COM4 @ 921600 bps) 发�?UBCP v2.0 协议命令�?控制 ESP32 上的 UART2 扩展�?(GPIO32/GPIO35)，实现远程串口收发�?
 ============================================================================
 使用示例 (Usage Examples)
 ============================================================================
@@ -12,68 +10,56 @@ hex-bridge-uart-cli.py — HEX-Bridge UART 扩展口 CLI 工具
   # 1. 安装依赖
   #    pip install pyserial
 
-  # 2. 测试连通性
-  #    python hex-bridge-uart-cli.py --port COM35 ping
+  # 2. 测试连通�?  #    python hex-bridge-uart-cli.py --port COM4 ping
 
   # 3. 获取设备信息
-  #    python hex-bridge-uart-cli.py --port COM35 info
+  #    python hex-bridge-uart-cli.py --port COM4 info
 
   # 4. 打开 UART 通道 (被动上报模式)
-  #    python hex-bridge-uart-cli.py --port COM35 open --rxmode passive
+  #    python hex-bridge-uart-cli.py --port COM4 open --rxmode passive
 
   # 5. 配置波特率为 115200 8N1
-  #    python hex-bridge-uart-cli.py --port COM35 config --baud 115200
+  #    python hex-bridge-uart-cli.py --port COM4 config --baud 115200
 
-  # 6. 发送 hex 数据
-  #    python hex-bridge-uart-cli.py --port COM35 send --hex "48 65 6C 6C 6F"
+  # 6. 发�?hex 数据
+  #    python hex-bridge-uart-cli.py --port COM4 send --hex "48 65 6C 6C 6F"
 
   # 7. 发送字符串
-  #    python hex-bridge-uart-cli.py --port COM35 send --text "Hello World\r\n"
+  #    python hex-bridge-uart-cli.py --port COM4 send --text "Hello World\r\n"
 
-  # 8. 持续接收数据 (默认 10 秒)
-  #    python hex-bridge-uart-cli.py --port COM35 recv --timeout 10
+  # 8. 持续接收数据 (默认 10 �?
+  #    python hex-bridge-uart-cli.py --port COM4 recv --timeout 10
 
-  # 9. 查看 UART 状态
-  #    python hex-bridge-uart-cli.py --port COM35 status
+  # 9. 查看 UART 状�?  #    python hex-bridge-uart-cli.py --port COM4 status
 
-  # 10. 发送 Break 信号 100ms
-  #     python hex-bridge-uart-cli.py --port COM35 break --duration 100
+  # 10. 发�?Break 信号 100ms
+  #     python hex-bridge-uart-cli.py --port COM4 break --duration 100
 
-  # 11. 清空 RX 缓冲区
-  #     python hex-bridge-uart-cli.py --port COM35 flush --type rx
+  # 11. 清空 RX 缓冲�?  #     python hex-bridge-uart-cli.py --port COM4 flush --type rx
 
   # 12. 发送数据后等待回显
-  #     python hex-bridge-uart-cli.py --port COM35 sendrecv --text "AT\r\n" --timeout 3
+  #     python hex-bridge-uart-cli.py --port COM4 sendrecv --text "AT\r\n" --timeout 3
 
-  # 13. 一键完整流程 (打开→配置→发送→接收→状态→关闭)
-  #     python hex-bridge-uart-cli.py --port COM35 quick --text "ping\r\n" --timeout 3
+  # 13. 一键完整流�?(打开→配置→发送→接收→状态→关闭)
+  #     python hex-bridge-uart-cli.py --port COM4 quick --text "ping\r\n" --timeout 3
 
   # 14. 交互模式
-  #     python hex-bridge-uart-cli.py --port COM35 interactive
+  #     python hex-bridge-uart-cli.py --port COM4 interactive
 
 ============================================================================
 硬件连接说明
 ============================================================================
 
-  上位机                    ESP32 HEX-Bridge
-  ┌──────┐                  ┌──────────────┐
-  │ COM35├──────────────────┤UART1(MCP通信) │  GPIO4(TX), GPIO34(RX)
-  │      │   921600 8N1     │              │
-  │      │                  │  UART2(扩展口) │  GPIO32(TX), GPIO35(RX)
-  │      │                  └──────┬───────┘
-  └──────┘                         │
-                             ┌─────┴─────┐
-                             │  目标设备   │
-                             └───────────┘
-
+  上位�?                   ESP32 HEX-Bridge
+  ┌──────�?                 ┌──────────────�?  �?COM4├──────────────────┤UART1(MCP通信) �? GPIO4(TX), GPIO34(RX)
+  �?     �?  921600 8N1     �?             �?  �?     �?                 �? UART2(扩展�? �? GPIO32(TX), GPIO35(RX)
+  �?     �?                 └──────┬───────�?  └──────�?                        �?                             ┌─────┴─────�?                             �? 目标设备   �?                             └───────────�?
 ============================================================================
 RxMode 说明
 ============================================================================
 
-  passive (0x00) — 被动模式：收到数据立即上报
-  line    (0x01) — 行模式：  缓冲到 \\n 或 \\r\\n 后上报
-  fixed   (0x02) — 定长模式：累积到指定字节数后上报 (需配合 --threshold)
-  timeout (0x03) — 超时模式：首字节后空闲超时即上报 (需配合 --rx-timeout)
+  passive (0x00) �?被动模式：收到数据立即上�?  line    (0x01) �?行模式：  缓冲�?\\n �?\\r\\n 后上�?  fixed   (0x02) �?定长模式：累积到指定字节数后上报 (需配合 --threshold)
+  timeout (0x03) �?超时模式：首字节后空闲超时即上报 (需配合 --rx-timeout)
 """
 
 import argparse
@@ -342,7 +328,7 @@ class HexBridgeTransport:
     def close(self):
         if self.ser and self.ser.is_open:
             self.ser.close()
-            print(f"[INFO] 已关闭 {self.port}", file=sys.stderr)
+            print(f"[INFO] 已关�?{self.port}", file=sys.stderr)
 
     def send_sync(self, data):
         self.ser.write(data)
@@ -380,14 +366,14 @@ class HexBridgeTransport:
         self.parser.reset()
 
 # ============================================================================
-# ProtocoCommands — UART module
+# ProtocoCommands �?UART module
 # ============================================================================
 
 def cmd_ping(transport, seq, channel):
     transport.send_request(seq, CMD_PING, channel, b'')
     resp = transport.recv_frame(2.0)
     if not resp:
-        raise RuntimeError("PING 超时无响应")
+        raise RuntimeError("PING 超时无响�?)
     if not resp.is_response:
         raise RuntimeError("PING 响应方向错误")
     return resp
@@ -396,7 +382,7 @@ def cmd_get_info(transport, seq, channel):
     transport.send_request(seq, CMD_GET_INFO, channel, b'')
     resp = transport.recv_frame(2.0)
     if not resp:
-        raise RuntimeError("GET_INFO 超时无响应")
+        raise RuntimeError("GET_INFO 超时无响�?)
     if not resp.is_response:
         raise RuntimeError("GET_INFO 响应方向错误")
     return resp
@@ -405,7 +391,7 @@ def cmd_uart_open(transport, seq, channel, rx_mode):
     transport.send_request(seq, CMD_UART_OPEN, channel, bytes([rx_mode]))
     resp = transport.recv_frame(2.0)
     if not resp:
-        raise RuntimeError("UART_OPEN 超时无响应")
+        raise RuntimeError("UART_OPEN 超时无响�?)
     if not resp.is_response:
         raise RuntimeError("UART_OPEN 响应方向错误")
     return resp
@@ -414,7 +400,7 @@ def cmd_uart_close(transport, seq, channel):
     transport.send_request(seq, CMD_UART_CLOSE, channel, b'')
     resp = transport.recv_frame(2.0)
     if not resp:
-        raise RuntimeError("UART_CLOSE 超时无响应")
+        raise RuntimeError("UART_CLOSE 超时无响�?)
     if not resp.is_response:
         raise RuntimeError("UART_CLOSE 响应方向错误")
     return resp
@@ -426,7 +412,7 @@ def cmd_uart_config(transport, seq, channel, baud_rate, data_bits, stop_bits,
     transport.send_request(seq, CMD_UART_CONFIG, channel, payload)
     resp = transport.recv_frame(2.0)
     if not resp:
-        raise RuntimeError("UART_CONFIG 超时无响应")
+        raise RuntimeError("UART_CONFIG 超时无响�?)
     if not resp.is_response:
         raise RuntimeError("UART_CONFIG 响应方向错误")
     return resp
@@ -436,7 +422,7 @@ def cmd_uart_send(transport, seq, channel, data):
     transport.send_request(seq, CMD_UART_SEND, channel, payload)
     resp = transport.recv_frame(2.0)
     if not resp:
-        raise RuntimeError("UART_SEND 超时无响应")
+        raise RuntimeError("UART_SEND 超时无响�?)
     if not resp.is_response:
         raise RuntimeError("UART_SEND 响应方向错误")
     return resp
@@ -445,7 +431,7 @@ def cmd_uart_status(transport, seq, channel):
     transport.send_request(seq, CMD_UART_STATUS, channel, b'')
     resp = transport.recv_frame(2.0)
     if not resp:
-        raise RuntimeError("UART_STATUS 超时无响应")
+        raise RuntimeError("UART_STATUS 超时无响�?)
     if not resp.is_response:
         raise RuntimeError("UART_STATUS 响应方向错误")
     return resp
@@ -455,7 +441,7 @@ def cmd_uart_break(transport, seq, channel, duration_ms):
     transport.send_request(seq, CMD_UART_SET_BREAK, channel, payload)
     resp = transport.recv_frame(2.0)
     if not resp:
-        raise RuntimeError("UART_BREAK 超时无响应")
+        raise RuntimeError("UART_BREAK 超时无响�?)
     if not resp.is_response:
         raise RuntimeError("UART_BREAK 响应方向错误")
     return resp
@@ -464,7 +450,7 @@ def cmd_uart_flush(transport, seq, channel, flush_type):
     transport.send_request(seq, CMD_UART_FLUSH, channel, bytes([flush_type]))
     resp = transport.recv_frame(2.0)
     if not resp:
-        raise RuntimeError("UART_FLUSH 超时无响应")
+        raise RuntimeError("UART_FLUSH 超时无响�?)
     if not resp.is_response:
         raise RuntimeError("UART_FLUSH 响应方向错误")
     return resp
@@ -556,7 +542,7 @@ def parse_flush_type(s):
 def parse_hex(hex_str):
     cleaned = hex_str.replace(" ", "").replace(",", "").replace(";", "").replace(":", "")
     if len(cleaned) % 2 != 0:
-        raise ValueError(f"hex 字符串长度需为偶数: '{hex_str}'")
+        raise ValueError(f"hex 字符串长度需为偶�? '{hex_str}'")
     return bytes.fromhex(cleaned)
 
 def buffer_to_printable(buf):
@@ -597,58 +583,58 @@ def check_status(resp):
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        description="HEX-Bridge UART 扩展口 CLI 工具",
+        description="HEX-Bridge UART 扩展�?CLI 工具",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="更多示例见脚本文件头部注释。",
+        epilog="更多示例见脚本文件头部注释�?,
     )
 
-    parser.add_argument("--port", default="COM35", help="MCP 通信串口 (默认: COM35)")
-    parser.add_argument("--mcp-baud", type=int, default=921600, help="MCP 波特率 (默认: 921600)")
-    parser.add_argument("--channel", type=int, default=0, help="通道号 (默认: 0)")
-    parser.add_argument("--seq", type=int, default=1, dest="seq_start", help="起始序列号 (默认: 1)")
+    parser.add_argument("--port", default="COM4", help="MCP 通信串口 (默认: COM4)")
+    parser.add_argument("--mcp-baud", type=int, default=921600, help="MCP 波特�?(默认: 921600)")
+    parser.add_argument("--channel", type=int, default=0, help="通道�?(默认: 0)")
+    parser.add_argument("--seq", type=int, default=1, dest="seq_start", help="起始序列�?(默认: 1)")
     parser.add_argument("--baud", type=int, default=115200, help="扩展口波特率 (默认: 115200)")
-    parser.add_argument("--data-bits", type=int, default=8, choices=[5, 6, 7, 8], help="数据位 (默认: 8)")
-    parser.add_argument("--stop-bits", type=float, default=1, choices=[1, 1.5, 2], help="停止位 (默认: 1)")
-    parser.add_argument("--parity", default="none", choices=["none", "odd", "even"], help="校验位 (默认: none)")
+    parser.add_argument("--data-bits", type=int, default=8, choices=[5, 6, 7, 8], help="数据�?(默认: 8)")
+    parser.add_argument("--stop-bits", type=float, default=1, choices=[1, 1.5, 2], help="停止�?(默认: 1)")
+    parser.add_argument("--parity", default="none", choices=["none", "odd", "even"], help="校验�?(默认: none)")
     parser.add_argument("--rxmode", default="passive", choices=["passive", "line", "fixed", "timeout"],
                         help="接收模式 (默认: passive)")
-    parser.add_argument("--threshold", type=int, default=256, help="定长模式阈值 (默认: 256)")
+    parser.add_argument("--threshold", type=int, default=256, help="定长模式阈�?(默认: 256)")
     parser.add_argument("--rx-timeout", type=int, default=50, help="超时模式超时 ms (默认: 50)")
 
-    sub = parser.add_subparsers(dest="command", help="子命令")
+    sub = parser.add_subparsers(dest="command", help="子命�?)
 
-    p_ping = sub.add_parser("ping", help="测试设备连通性")
+    p_ping = sub.add_parser("ping", help="测试设备连通�?)
 
     p_info = sub.add_parser("info", help="获取设备信息")
 
     p_open = sub.add_parser("open", help="打开 UART 通道")
     p_open.add_argument("--rxmode", default=None, choices=["passive", "line", "fixed", "timeout"],
                         help="接收模式, 覆盖全局设置")
-    p_open.add_argument("--threshold", type=int, help="定长阈值")
+    p_open.add_argument("--threshold", type=int, help="定长阈�?)
     p_open.add_argument("--rx-timeout", type=int, help="超时时间")
 
     p_close = sub.add_parser("close", help="关闭 UART 通道")
 
     p_config = sub.add_parser("config", help="配置 UART 参数")
-    p_config.add_argument("--baud", type=int, dest="cfg_baud", help="波特率 (覆盖全局 --baud)")
-    p_config.add_argument("--data-bits", type=int, choices=[5, 6, 7, 8], dest="cfg_data_bits", help="数据位")
-    p_config.add_argument("--stop-bits", type=float, choices=[1, 1.5, 2], dest="cfg_stop_bits", help="停止位")
-    p_config.add_argument("--parity", choices=["none", "odd", "even"], dest="cfg_parity", help="校验位")
+    p_config.add_argument("--baud", type=int, dest="cfg_baud", help="波特�?(覆盖全局 --baud)")
+    p_config.add_argument("--data-bits", type=int, choices=[5, 6, 7, 8], dest="cfg_data_bits", help="数据�?)
+    p_config.add_argument("--stop-bits", type=float, choices=[1, 1.5, 2], dest="cfg_stop_bits", help="停止�?)
+    p_config.add_argument("--parity", choices=["none", "odd", "even"], dest="cfg_parity", help="校验�?)
 
-    p_send = sub.add_parser("send", help="发送数据")
+    p_send = sub.add_parser("send", help="发送数�?)
     p_send_group = p_send.add_mutually_exclusive_group(required=True)
-    p_send_group.add_argument("--hex", help="hex 数据 (如 '48 65 6C 6C 6F')")
+    p_send_group.add_argument("--hex", help="hex 数据 (�?'48 65 6C 6C 6F')")
     p_send_group.add_argument("--text", help="文本数据")
 
     p_recv = sub.add_parser("recv", help="接收数据")
     p_recv.add_argument("--timeout", type=float, default=10, help="超时秒数 (默认: 10)")
 
-    p_status = sub.add_parser("status", help="查看 UART 状态")
+    p_status = sub.add_parser("status", help="查看 UART 状�?)
 
-    p_break = sub.add_parser("break", help="发送 Break 信号")
+    p_break = sub.add_parser("break", help="发�?Break 信号")
     p_break.add_argument("--duration", type=int, default=0, help="持续时间 ms (默认: 10)")
 
-    p_flush = sub.add_parser("flush", help="清空缓冲区")
+    p_flush = sub.add_parser("flush", help="清空缓冲�?)
     p_flush.add_argument("--type", default="rx", choices=["rx", "tx", "all", "drain"], help="清空类型 (默认: rx)")
 
     p_sendrecv = sub.add_parser("sendrecv", help="发送数据后等待回显")
@@ -657,7 +643,7 @@ def build_parser():
     p_sr_group.add_argument("--text", help="文本数据")
     p_sendrecv.add_argument("--timeout", type=float, default=5, help="等待回显超时秒数 (默认: 5)")
 
-    p_quick = sub.add_parser("quick", help="一键完整流程 (打开→配置→发送→接收→状态→关闭)")
+    p_quick = sub.add_parser("quick", help="一键完整流�?(打开→配置→发送→接收→状态→关闭)")
     p_q_group = p_quick.add_mutually_exclusive_group(required=True)
     p_q_group.add_argument("--hex", help="hex 数据")
     p_q_group.add_argument("--text", help="文本数据")
@@ -693,10 +679,10 @@ def cmd_info_fn(transport, seq, channel, args):
     proto_ver = p[16]
     print("=== HEX-Bridge 设备信息 ===")
     print(f"  型号:       {model}")
-    print(f"  序列号:     {serial}")
+    print(f"  序列�?     {serial}")
     print(f"  固件版本:   {fw_ver}")
     print(f"  协议版本:   0x{proto_ver:02X}")
-    print(f"  最大载荷:   {max_pl} bytes")
+    print(f"  最大载�?   {max_pl} bytes")
     print(f"  能力:       0x{caps:04X}")
     print(f"  MCP 串口:   {transport.port} @ {transport.baudrate}")
 
@@ -715,7 +701,7 @@ def cmd_open_fn(transport, seq, channel, args):
 def cmd_close_fn(transport, seq, channel, args):
     resp = cmd_uart_close(transport, seq(), channel)
     status = check_status(resp)
-    print("UART_CLOSE 通道已关闭")
+    print("UART_CLOSE 通道已关�?)
     sys.exit(0 if status == ERR_SUCCESS else 1)
 
 def cmd_config_fn(transport, seq, channel, args):
@@ -740,9 +726,9 @@ def cmd_send_fn(transport, seq, channel, args):
     resp = cmd_uart_send(transport, seq(), channel, data)
     status, actual_len = parse_send_resp(resp)
     name = status_name(status)
-    print(f"UART_SEND 发送={actual_len}/{len(data)}B hex={data.hex().upper()}")
+    print(f"UART_SEND 发�?{actual_len}/{len(data)}B hex={data.hex().upper()}")
     if len(data) <= 256:
-        print(f"  可打印: {buffer_to_printable(data)}")
+        print(f"  可打�? {buffer_to_printable(data)}")
     print(f"  status=0x{status:02X} ({name})")
     sys.exit(0 if status == ERR_SUCCESS else 1)
 
@@ -752,28 +738,28 @@ def cmd_recv_fn(transport, seq, channel, args):
 
     frame = transport.recv_event(cmd_code=CMD_UART_RECV, timeout_s=timeout_s)
     if frame is None:
-        print("超时未收到数据", file=sys.stderr)
+        print("超时未收到数�?, file=sys.stderr)
         sys.exit(1)
 
     info = parse_recv_event(frame)
     print(f"UART_RECV 长度={info['data_len']}")
     print(f"  HEX: {info['data'].hex().upper()}")
-    print(f"  可打印: {buffer_to_printable(info['data'])}")
+    print(f"  可打�? {buffer_to_printable(info['data'])}")
 
 def cmd_status_fn(transport, seq, channel, args):
     resp = cmd_uart_status(transport, seq(), channel)
     s = parse_status_resp(resp)
     name = status_name(s.get("status", -1))
-    print("=== UART 状态 ===")
+    print("=== UART 状�?===")
     print(f"  status:      0x{s['status']:02X} ({name})" if "status" in s else "N/A")
     if "baud_rate" in s:
-        print(f"  波特率:      {s['baud_rate']}")
-        print(f"  TX 空闲:     {'是' if s['line_state']['tx_idle'] else '否'}")
-        print(f"  RX 活跃:     {'是' if s['line_state']['rx_active'] else '否'}")
-        print(f"  TX buf:      {s['tx_buf_used']} / —")
-        print(f"  RX buf:      {s['rx_buf_used']} / —")
-        print(f"  TX 总字节:   {s['tx_total']}")
-        print(f"  RX 总字节:   {s['rx_total']}")
+        print(f"  波特�?      {s['baud_rate']}")
+        print(f"  TX 空闲:     {'�? if s['line_state']['tx_idle'] else '�?}")
+        print(f"  RX 活跃:     {'�? if s['line_state']['rx_active'] else '�?}")
+        print(f"  TX buf:      {s['tx_buf_used']} / �?)
+        print(f"  RX buf:      {s['rx_buf_used']} / �?)
+        print(f"  TX 总字�?   {s['tx_total']}")
+        print(f"  RX 总字�?   {s['rx_total']}")
         print(f"  错误计数:    {s['error_count']}")
 
 def cmd_break_fn(transport, seq, channel, args):
@@ -808,12 +794,12 @@ def cmd_sendrecv_fn(transport, seq, channel, args):
     print(f"等待回显 (超时 {timeout_s}s)...")
     frame = transport.recv_event(cmd_code=CMD_UART_RECV, timeout_s=timeout_s)
     if frame is None:
-        print("超时未收到回显", file=sys.stderr)
+        print("超时未收到回�?, file=sys.stderr)
         sys.exit(1)
 
     info = parse_recv_event(frame)
     print(f"RECV {info['data_len']}B hex={info['data'].hex().upper()}")
-    print(f"     可打印: {buffer_to_printable(info['data'])}")
+    print(f"     可打�? {buffer_to_printable(info['data'])}")
 
 def cmd_quick_fn(transport, seq, channel, args):
     if args.hex:
@@ -846,7 +832,7 @@ def cmd_quick_fn(transport, seq, channel, args):
     resp = cmd_uart_send(transport, seq(), channel, data)
     status, actual_len = parse_send_resp(resp)
     if status != ERR_SUCCESS:
-        print(f"  发送失败: {status_name(status)}", file=sys.stderr)
+        print(f"  发送失�? {status_name(status)}", file=sys.stderr)
         sys.exit(1)
     print(f"  3. SEND {actual_len}B -> {data.hex().upper()}")
 
@@ -881,7 +867,7 @@ def cmd_interactive_fn(transport, seq, channel, args):
         try:
             line = input("> ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("\n再见。")
+            print("\n再见�?)
             break
 
         if not line:
@@ -922,7 +908,7 @@ def cmd_interactive_fn(transport, seq, channel, args):
                 if frame:
                     info = parse_recv_event(frame)
                     print(f"RECV {info['data_len']}B <- {info['data'].hex().upper()}")
-                    print(f"     可打印: {buffer_to_printable(info['data'])}")
+                    print(f"     可打�? {buffer_to_printable(info['data'])}")
                 else:
                     print("超时")
             elif cmd == "status":
@@ -973,9 +959,9 @@ def main():
         transport.open()
     except Exception as e:
         print(f"错误: 无法打开 {args.port}: {e}", file=sys.stderr)
-        print("\n请确保:", file=sys.stderr)
-        print("  1. 已安装 pyserial: pip install pyserial", file=sys.stderr)
-        print("  2. 设备已连接且串口号正确", file=sys.stderr)
+        print("\n请确�?", file=sys.stderr)
+        print("  1. 已安�?pyserial: pip install pyserial", file=sys.stderr)
+        print("  2. 设备已连接且串口号正�?, file=sys.stderr)
         print("  3. 串口未被其他程序占用", file=sys.stderr)
         sys.exit(1)
 

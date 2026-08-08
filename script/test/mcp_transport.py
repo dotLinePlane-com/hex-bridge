@@ -1,7 +1,7 @@
 """
-MCP Transport â€” Serial port wrapper for HEX-Bridge testing.
+MCP Transport â€?Serial port wrapper for HEX-Bridge testing.
 
-Connects to COM35 at 921600 bps for MCP communication.
+Connects to COM4 at 921600 bps for MCP communication.
 
 Usage:
     from mcp_transport import MCPTransport
@@ -17,7 +17,7 @@ from ubcp_client import UBCPParser
 
 
 class MCPTransport:
-    def __init__(self, port='COM35', baudrate=921600):
+    def __init__(self, port='COM4', baudrate=921600):
         self.port = port
         self.baudrate = baudrate
         self.ser = None

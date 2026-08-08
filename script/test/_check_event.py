@@ -2,7 +2,7 @@ import sys, time, struct
 sys.path.insert(0, 'script/test')
 from mcp_transport import MCPTransport
 
-t = MCPTransport(port='COM35', baudrate=115200)
+t = MCPTransport(port='COM4', baudrate=115200)
 t.open()
 # DO NOT flush - events might already be buffered
 print('Checking for TCP_RECV event (3s)...')

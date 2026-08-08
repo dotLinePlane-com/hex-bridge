@@ -1,5 +1,5 @@
 """
-Debug script: raw UBCP v2.0 PING + WS_CLIENT_CONNECT test over COM35.
+Debug script: raw UBCP v2.0 PING + WS_CLIENT_CONNECT test over COM4.
 
 Tests direct serial communication with HEX-Bridge device at UBCP protocol level.
 
@@ -66,19 +66,19 @@ def hexdump(data, indent="    "):
 def main():
     print("=" * 60)
     print("  UBCP v2.0 Raw Frame Debug")
-    print("  Target: COM35 @ 921600 bps")
+    print("  Target: COM4 @ 921600 bps")
     print("=" * 60)
     print()
 
-    transport = MCPTransport(port="COM35", baudrate=921600)
+    transport = MCPTransport(port="COM4", baudrate=921600)
 
     try:
         transport.open()
     except Exception as e:
-        print(f"[FAIL] Cannot open COM35: {e}")
+        print(f"[FAIL] Cannot open COM4: {e}")
         return 1
 
-    print("[1] COM35 opened at 921600 bps")
+    print("[1] COM4 opened at 921600 bps")
     transport.flush_input()
     time.sleep(0.2)
 
@@ -101,8 +101,8 @@ def main():
     if ping_resp is None:
         print("  => PING: NO RESPONSE (5.0s timeout)")
         print()
-        print("[FAIL] Device not responding on COM35 at 921600 bps.")
-        print("       The serial-monitor-mcp IDE process likely holds COM35")
+        print("[FAIL] Device not responding on COM4 at 921600 bps.")
+        print("       The serial-monitor-mcp IDE process likely holds COM4")
         print("       exclusively for its HEX-Bridge management channel.")
         print("       hex_bridge_discover() confirms device fw=0.1.0 is alive,")
         print("       but Python pyserial cannot share the port for reads.")

@@ -1,6 +1,6 @@
 HEX-Bridge Network Module Tests
 ============================================================
-Connected to COM35 @ 115200 bps
+Connected to COM4 @ 115200 bps
 
 --- TCP-25: Full TCP lifecycle ---
   [PASS] TCP-25 OPEN: 0x00

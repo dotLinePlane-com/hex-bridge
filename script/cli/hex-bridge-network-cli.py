@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-hex-bridge-network-cli.py — HEX-Bridge Network CLI Tool
+hex-bridge-network-cli.py �?HEX-Bridge Network CLI Tool
 
 ============================================================
   MCP Network Command-Line Tool for UBCP v2.0 Protocol
@@ -14,7 +14,7 @@ and async event capture for MCP NM Network Monitor coordinated testing.
  Quick Start
 ────────────────────────────────────────────────────────────
 
-    # Basic usage (default: COM35, 115200 bps)
+    # Basic usage (default: COM4, 115200 bps)
     python hex-bridge-network-cli.py net-status
     python hex-bridge-network-cli.py tcp-server-open --port 9191
     python hex-bridge-network-cli.py ws-send --handle 0xA000 --msg-type 1 --data "Hello"
@@ -23,7 +23,7 @@ and async event capture for MCP NM Network Monitor coordinated testing.
  Global Options
 ────────────────────────────────────────────────────────────
 
-    --port PORT           MCP serial port (default: COM35)
+    --port PORT           MCP serial port (default: COM4)
     --baud BAUD           Baud rate (default: 115200)
     --timeout SEC         Response timeout in seconds (default: 5)
     --json                Machine-readable JSON output
@@ -38,7 +38,7 @@ and async event capture for MCP NM Network Monitor coordinated testing.
 
   The --wait-events flag enables CLI + MCP Network Monitor
   end-to-end testing. After executing a command (e.g.
-  tcp-server-open), the CLI keeps COM35 open and captures
+  tcp-server-open), the CLI keeps COM4 open and captures
   async UBCP events (TCP_ACCEPT, TCP_RECV, etc.) triggered
   by MCP NM operations.
 
@@ -92,7 +92,7 @@ and async event capture for MCP NM Network Monitor coordinated testing.
  Event Listening (listen)
 ────────────────────────────────────────────────────────────
 
-    # Listen live on COM35 for specific events
+    # Listen live on COM4 for specific events
     python hex-bridge-network-cli.py listen --events 0x55,0x75 --timeout 30
 
     # Replay events captured during previous command executions
@@ -169,7 +169,7 @@ and async event capture for MCP NM Network Monitor coordinated testing.
 ────────────────────────────────────────────────────────────
 
   Protocol unit tests (no network peer needed):
-    python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --auto
+    python script/test/test_network.py --mcp COM4 --mcp-baud 115200 --auto
 
   CLI + PC socket end-to-end tests (no MCP NM required):
     python script/test/test_cli_network_e2e.py
@@ -440,7 +440,7 @@ def cmd_net_status(transport, args):
         output({**frame_info(resp), "status": status_str(st)})
         return
     link = "UP" if resp.payload[3] else "DOWN"
-    conn_map = {0: "未连接", 1: "已连接", 2: "获取IP中"}
+    conn_map = {0: "未连�?, 1: "已连�?, 2: "获取IP�?}
     conn_state = conn_map.get(resp.payload[4] % 3, f"0x{resp.payload[4]:02X}")
     ip = int_to_ip(parse_u32(resp.payload, 5))
     mask = int_to_ip(parse_u32(resp.payload, 9))
@@ -817,7 +817,7 @@ def probe_baud_rate(port, rates=None, ping_timeout=2.0):
 
 
 # ════════════════════════════════════════════════════════════
-#  listen — event monitoring
+#  listen �?event monitoring
 # ════════════════════════════════════════════════════════════
 
 def _post_command_listen(transport, args):
@@ -933,12 +933,12 @@ def cmd_listen(transport, args):
     if args.source == 'log':
         return
 
-    # ── Live listening on COM35 ──
+    # ── Live listening on COM4 ──
     if _json_mode:
         print(json.dumps({"mode":"listen","filter":[f"0x{c:02X}" for c in filter_cmds] if filter_cmds else "all","timeout":timeout}, ensure_ascii=False))
     else:
         if log_count > 0:
-            print("Switching to live listening on COM35...")
+            print("Switching to live listening on COM4...")
         flt = ','.join(f'0x{c:02X}' for c in filter_cmds) if filter_cmds else 'ALL'
         print(f"Listening for events (filter={flt}, timeout={timeout}s)...")
         print("Press Ctrl+C to stop.\n")
@@ -1051,7 +1051,7 @@ def _parse_interactive_line(line):
 
 def interactive_session(transport, global_args):
     """Run an interactive command loop. Parses each line as a CLI subcommand."""
-    print("HEX-Bridge Network CLI — Interactive Mode")
+    print("HEX-Bridge Network CLI �?Interactive Mode")
     print(f"  port={global_args.port}, baud={global_args.baud}")
     print("  Type 'help' for commands, 'quit' to exit.\n")
 
@@ -1250,7 +1250,7 @@ def _register_subcommands(parser):
     p_ls.add_argument('--all', action='store_true', help='Listen for all event types')
     p_ls.add_argument('--timeout', dest='timeout_val', type=int, default=30, help='Listen duration in seconds')
     p_ls.add_argument('--source', default='auto', choices=['auto', 'live', 'log'],
-                      help='auto: replay log first then live, live: COM35 only, log: replay from log file')
+                      help='auto: replay log first then live, live: COM4 only, log: replay from log file')
 
     p_mb = sub.add_parser('mcp-baud')
     p_mb.add_argument('--set', dest='set_baud', type=int, default=None)
@@ -1318,7 +1318,7 @@ def main():
     global _json_mode
 
     parser = argparse.ArgumentParser(
-        description='HEX-Bridge Network CLI — UBCP v2.0 MCP Command Tool',
+        description='HEX-Bridge Network CLI �?UBCP v2.0 MCP Command Tool',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='Examples:\n'
                '  %(prog)s net-status\n'
@@ -1326,7 +1326,7 @@ def main():
                '  %(prog)s --json net-list-conns\n'
                '  %(prog)s -i\n'
                '  %(prog)s listen --events 0x55,0x75')
-    parser.add_argument('--port', default='COM35', help='MCP COM port (default: COM35)')
+    parser.add_argument('--port', default='COM4', help='MCP COM port (default: COM4)')
     parser.add_argument('--baud', type=int, default=115200, help='Baud rate (default: 115200)')
     parser.add_argument('--timeout', type=int, default=5, help='Response timeout in seconds (default: 5)')
     parser.add_argument('--json', action='store_true', help='Machine-readable JSON output')

@@ -6,7 +6,7 @@ import sys, time, struct, json, subprocess
 
 HEX_IP = "192.168.1.105"
 PC_IP = "192.168.1.4"
-CLI_BASE = ["python", "script/cli/hex-bridge-network-cli.py", "--port", "COM35", "--baud", "115200", "--json"]
+CLI_BASE = ["python", "script/cli/hex-bridge-network-cli.py", "--port", "COM4", "--baud", "115200", "--json"]
 
 PASS = 0
 FAIL = 0

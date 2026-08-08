@@ -7,7 +7,7 @@ Usage:
     python run_all.py system               # system tests only
     python run_all.py uart                 # UART tests only
     python run_all.py protocol             # protocol tests only
-    python run_all.py uart --com24 COM24   # UART tests with COM24
+    python run_all.py uart --COM3 COM3   # UART tests with COM3
 """
 
 import sys, os, subprocess

@@ -3,7 +3,7 @@ sys.path.insert(0, 'script/test')
 from mcp_transport import MCPTransport
 from ubcp_client import UBCPBuilder
 
-t = MCPTransport(port='COM35', baudrate=115200)
+t = MCPTransport(port='COM4', baudrate=115200)
 t.open()
 
 # List all and close

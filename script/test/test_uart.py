@@ -1,7 +1,7 @@
 """
 HEX-Bridge UART Module Tests (UART-01 ~ UART-57)
 
-Run: python test_uart.py [--com24 COM24] [--ext-baud 115200]
+Run: python test_uart.py [--COM3 COM3] [--ext-baud 115200]
 """
 
 import sys, time, struct
@@ -39,7 +39,7 @@ FLUSH_DRAIN = 0x03
 passed = 0
 failed = 0
 skipped = 0
-com24 = None
+COM3 = None
 
 
 def pass_(name):
@@ -107,34 +107,34 @@ def uart_close(transport, seq, expected=ERR_SUCCESS):
                          expected, 'CLOSE')
 
 
-def open_com24(port, baud=115200):
-    global com24
+def open_COM3(port, baud=115200):
+    global COM3
     try:
         import serial
-        com24 = serial.Serial(port=port, baudrate=baud, timeout=0.1)
-        com24.flushInput()
+        COM3 = serial.Serial(port=port, baudrate=baud, timeout=0.1)
+        COM3.flushInput()
         return True
     except Exception as e:
-        print(f'  [INFO] COM24 not available: {e}')
+        print(f'  [INFO] COM3 not available: {e}')
         return False
 
 
-def com24_read(timeout=1.0):
-    if com24 is None:
+def COM3_read(timeout=1.0):
+    if COM3 is None:
         return b''
     deadline = time.time() + timeout
     buf = bytearray()
     while time.time() < deadline:
-        b = com24.read(com24.in_waiting or 1)
+        b = COM3.read(COM3.in_waiting or 1)
         if b:
             buf.extend(b)
     return bytes(buf)
 
 
-def com24_write(data):
-    if com24:
-        com24.write(data)
-        com24.flush()
+def COM3_write(data):
+    if COM3:
+        COM3.write(data)
+        COM3.flush()
 
 
 def test_uart01_open(transport, seq):
@@ -259,11 +259,11 @@ def test_uart13_send(transport, seq):
     if f and len(f.payload) >= 3:
         actual = struct.unpack('>H', f.payload[1:3])[0]
         assert_eq('ActualLen', actual, len(data))
-    # dump COM24 monitor data if available
-    ext_data = com24_read(timeout=0.3)
+    # dump COM3 monitor data if available
+    ext_data = COM3_read(timeout=0.3)
     if ext_data:
-        print(f'    COM24 received: {ext_data.hex()}')
-        pass_(f'COM24 data: {len(ext_data)} bytes')
+        print(f'    COM3 received: {ext_data.hex()}')
+        pass_(f'COM3 data: {len(ext_data)} bytes')
 
 
 def test_uart14_send_empty(transport, seq):
@@ -364,10 +364,10 @@ def test_uart23_break_default(transport, seq):
 
 
 def test_uart24_recv_event(transport, seq):
-    """UART-24: RECV event (needs COM24 injection)"""
+    """UART-24: RECV event (needs COM3 injection)"""
     print('\n--- UART-24: RECV event ---')
-    if com24 is None:
-        skip_('RECV event', 'COM24 not available for data injection')
+    if COM3 is None:
+        skip_('RECV event', 'COM3 not available for data injection')
         return
 
     # Ensure 115200 8N1 passive mode
@@ -376,7 +376,7 @@ def test_uart24_recv_event(transport, seq):
     uart_config(transport, seq, 115200); seq += 1
 
     transport.flush_input()
-    com24_write(b'ABC')
+    COM3_write(b'ABC')
     time.sleep(0.2)
 
     f = transport.recv_event(cmd_code=CMD_UART_RECV, timeout=2.0)
@@ -391,10 +391,10 @@ def test_uart24_recv_event(transport, seq):
 
 
 def test_uart25_line_mode(transport, seq):
-    """UART-25: Line mode (needs COM24 injection)"""
+    """UART-25: Line mode (needs COM3 injection)"""
     print('\n--- UART-25: Line mode ---')
-    if com24 is None:
-        skip_('Line mode', 'COM24 not available')
+    if COM3 is None:
+        skip_('Line mode', 'COM3 not available')
         return
 
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
@@ -402,7 +402,7 @@ def test_uart25_line_mode(transport, seq):
     uart_config(transport, seq, 115200); seq += 1
 
     transport.flush_input()
-    com24_write(b'Hello\nWorld\n')
+    COM3_write(b'Hello\nWorld\n')
     time.sleep(0.3)
 
     events = []
@@ -418,10 +418,10 @@ def test_uart25_line_mode(transport, seq):
 
 
 def test_uart26_fixed_mode(transport, seq):
-    """UART-26: Fixed-length mode (needs COM24)"""
+    """UART-26: Fixed-length mode (needs COM3)"""
     print('\n--- UART-26: Fixed mode ---')
-    if com24 is None:
-        skip_('Fixed mode', 'COM24 not available')
+    if COM3 is None:
+        skip_('Fixed mode', 'COM3 not available')
         return
 
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
@@ -429,7 +429,7 @@ def test_uart26_fixed_mode(transport, seq):
     uart_config(transport, seq, 115200, threshold=4); seq += 1
 
     transport.flush_input()
-    com24_write(bytes([0, 1, 2, 3, 4, 5, 6, 7]))
+    COM3_write(bytes([0, 1, 2, 3, 4, 5, 6, 7]))
     time.sleep(0.3)
 
     events = []
@@ -449,10 +449,10 @@ def test_uart26_fixed_mode(transport, seq):
 
 
 def test_uart27_timeout_mode(transport, seq):
-    """UART-27: Timeout mode (needs COM24)"""
+    """UART-27: Timeout mode (needs COM3)"""
     print('\n--- UART-27: Timeout mode ---')
-    if com24 is None:
-        skip_('Timeout mode', 'COM24 not available')
+    if COM3 is None:
+        skip_('Timeout mode', 'COM3 not available')
         return
 
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
@@ -460,7 +460,7 @@ def test_uart27_timeout_mode(transport, seq):
     uart_config(transport, seq, 115200, timeout=20); seq += 1
 
     transport.flush_input()
-    com24_write(b'\xAA\xBB\xCC')
+    COM3_write(b'\xAA\xBB\xCC')
     time.sleep(0.5)  # wait for timeout to trigger
 
     f = transport.recv_event(cmd_code=CMD_UART_RECV, timeout=2.0)
@@ -511,8 +511,8 @@ def test_uart29_flow_query_all(transport, seq):
 def test_uart30_flow_xoff(transport, seq):
     """UART-30: FLOW_CONTROL XOFF/XON sequence"""
     print('\n--- UART-30: FLOW_CONTROL XOFF/XON ---')
-    if com24 is None:
-        skip_('Flow XOFF/XON', 'COM24 not available')
+    if COM3 is None:
+        skip_('Flow XOFF/XON', 'COM3 not available')
         return
 
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
@@ -520,7 +520,7 @@ def test_uart30_flow_xoff(transport, seq):
     uart_config(transport, seq, 115200); seq += 1
 
     transport.flush_input()
-    com24.flushInput()
+    COM3.flushInput()
 
     # Query initial state
     f = send_cmd(transport, seq, CMD_FLOW_CONTROL, bytes([0xA0]))
@@ -532,11 +532,11 @@ def test_uart30_flow_xoff(transport, seq):
     block = bytes([i & 0xFF for i in range(256)])  # 256-byte block
     total_injected = 0
     for _ in range(16):  # 16 × 256 = 4096 bytes
-        com24_write(block)
+        COM3_write(block)
         total_injected += 256
         time.sleep(0.01)
 
-    print(f'    [COM24] Injected {total_injected} bytes → UART2')
+    print(f'    [COM3] Injected {total_injected} bytes �?UART2')
     time.sleep(0.3)
 
     # Check for XOFF/XON events
@@ -564,7 +564,7 @@ def test_uart30_flow_xoff(transport, seq):
 # ====================================================================
 
 def _ensure_open_passive(transport, seq):
-    """确保 UART 通道处于打开+被动上报+115200 8N1 状态"""
+    """确保 UART 通道处于打开+被动上报+115200 8N1 状�?""
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
     uart_open(transport, seq, RXMODE_PASSIVE); seq += 1
     uart_config(transport, seq, 115200); seq += 1
@@ -572,7 +572,7 @@ def _ensure_open_passive(transport, seq):
 
 
 def test_uart31_send_not_open(transport, seq):
-    """UART-31: SEND when closed → ERR_NOT_OPEN"""
+    """UART-31: SEND when closed �?ERR_NOT_OPEN"""
     print('\n--- UART-31: SEND not open ---')
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
     payload = struct.pack('>H', 5) + b'Hello'
@@ -582,7 +582,7 @@ def test_uart31_send_not_open(transport, seq):
 
 
 def test_uart32_break_not_open(transport, seq):
-    """UART-32: SET_BREAK when closed → ERR_NOT_OPEN"""
+    """UART-32: SET_BREAK when closed �?ERR_NOT_OPEN"""
     print('\n--- UART-32: SET_BREAK not open ---')
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
     payload = struct.pack('>H', 10)
@@ -592,7 +592,7 @@ def test_uart32_break_not_open(transport, seq):
 
 
 def test_uart33_flush_not_open(transport, seq):
-    """UART-33: FLUSH when closed → ERR_NOT_OPEN"""
+    """UART-33: FLUSH when closed �?ERR_NOT_OPEN"""
     print('\n--- UART-33: FLUSH not open ---')
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
     expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_ALL]), UART_CHANNEL, ERR_NOT_OPEN, 'FLUSH closed')
@@ -601,20 +601,20 @@ def test_uart33_flush_not_open(transport, seq):
 
 
 def test_uart34_config_short_payload(transport, seq):
-    """UART-34: CONFIG with short payload → ERR_PARAM"""
+    """UART-34: CONFIG with short payload �?ERR_PARAM"""
     print('\n--- UART-34: CONFIG short payload ---')
     payload = bytes([0x00, 0x01, 0x02, 0x03, 0x08])  # 5 bytes, need 11
     expect_status(transport, seq, CMD_UART_CONFIG, payload, UART_CHANNEL, ERR_PARAM, 'CONFIG short')
 
 
 def test_uart35_send_short_payload(transport, seq):
-    """UART-35: SEND payload < 2 bytes → ERR_PARAM"""
+    """UART-35: SEND payload < 2 bytes �?ERR_PARAM"""
     print('\n--- UART-35: SEND short payload ---')
     expect_status(transport, seq, CMD_UART_SEND, bytes([0x00]), UART_CHANNEL, ERR_PARAM, 'SEND short')
 
 
 def test_uart36_break_empty_payload(transport, seq):
-    """UART-36: SET_BREAK empty payload → uses default 10ms"""
+    """UART-36: SET_BREAK empty payload �?uses default 10ms"""
     print('\n--- UART-36: SET_BREAK empty payload ---')
     expect_status(transport, seq, CMD_UART_SET_BREAK, b'', UART_CHANNEL, ERR_SUCCESS, 'BREAK empty')
 
@@ -645,15 +645,15 @@ def test_uart39_flush_drain(transport, seq):
 def test_uart40_break_detect(transport, seq):
     """UART-40: RECV with BreakDetect (RxFlags Bit3)"""
     print('\n--- UART-40: BreakDetect ---')
-    if com24 is None:
-        skip_('BreakDetect', 'COM24 not available for loopback verification')
+    if COM3 is None:
+        skip_('BreakDetect', 'COM3 not available for loopback verification')
         return
 
     seq = _ensure_open_passive(transport, seq)
     transport.flush_input()
-    com24.flushInput()
+    COM3.flushInput()
 
-    # Send Break → GPIO32 TXD goes low, GPIO35 should see Break if loopback
+    # Send Break �?GPIO32 TXD goes low, GPIO35 should see Break if loopback
     payload = struct.pack('>H', 10)
     send_cmd(transport, seq, CMD_UART_SET_BREAK, payload); seq += 1
     transport.recv_frame(timeout=0.5)
@@ -668,22 +668,22 @@ def test_uart40_break_detect(transport, seq):
             pass_('BreakDetect (RxFlags Bit3=1)')
             break
     if not found_break:
-        skip_('BreakDetect', 'no loopback — Break not reflected to RX')
+        skip_('BreakDetect', 'no loopback �?Break not reflected to RX')
 
 
 def test_uart41_parity_error(transport, seq):
     """UART-41: RECV with ParityError (RxFlags Bit1)"""
     print('\n--- UART-41: ParityError ---')
-    if com24 is None:
-        skip_('ParityError', 'COM24 not available')
+    if COM3 is None:
+        skip_('ParityError', 'COM3 not available')
         return
 
     seq = _ensure_open_passive(transport, seq)
-    # Configure 7E1, but COM24 sends 8N1 → parity mismatch
+    # Configure 7E1, but COM3 sends 8N1 �?parity mismatch
     uart_config(transport, seq, 115200, data_bits=0x07, parity=0x02); seq += 1
 
     transport.flush_input()
-    com24_write(b'\x41\x42\x43')
+    COM3_write(b'\x41\x42\x43')
     time.sleep(0.2)
 
     found_parity = False
@@ -701,22 +701,22 @@ def test_uart41_parity_error(transport, seq):
 def test_uart42_frame_error(transport, seq):
     """UART-42: RECV with FrameError (RxFlags Bit2)"""
     print('\n--- UART-42: FrameError ---')
-    if com24 is None:
-        skip_('FrameError', 'COM24 not available')
+    if COM3 is None:
+        skip_('FrameError', 'COM3 not available')
         return
 
     seq = _ensure_open_passive(transport, seq)
     transport.flush_input()
 
-    # Configure 8N1, but COM24 sends with 2 stop bits → frame error
+    # Configure 8N1, but COM3 sends with 2 stop bits �?frame error
     import serial
     saved_baud = 115200
     try:
-        com24.baudrate = saved_baud
-        com24.stopbits = serial.STOPBITS_TWO
-        com24_write(b'\x41')
+        COM3.baudrate = saved_baud
+        COM3.stopbits = serial.STOPBITS_TWO
+        COM3_write(b'\x41')
         time.sleep(0.1)
-        com24.stopbits = serial.STOPBITS_ONE  # restore
+        COM3.stopbits = serial.STOPBITS_ONE  # restore
     except Exception:
         pass
 
@@ -734,18 +734,18 @@ def test_uart42_frame_error(transport, seq):
 def test_uart43_buffer_overflow(transport, seq):
     """UART-43: RECV with BufferOverflow (RxFlags Bit0)"""
     print('\n--- UART-43: BufferOverflow ---')
-    if com24 is None:
-        skip_('BufferOverflow', 'COM24 not available')
+    if COM3 is None:
+        skip_('BufferOverflow', 'COM3 not available')
         return
 
     seq = _ensure_open_passive(transport, seq)
     transport.flush_input()
-    com24.flushInput()
+    COM3.flushInput()
 
-    # Inject data at max COM24 speed to try to overflow RX buffer
+    # Inject data at max COM3 speed to try to overflow RX buffer
     block = bytes([i & 0xFF for i in range(256)])
     for _ in range(24):  # 24 × 256 = 6144 bytes > 2048 buffer
-        com24_write(block)
+        COM3_write(block)
         time.sleep(0.002)
 
     time.sleep(0.3)
@@ -757,7 +757,7 @@ def test_uart43_buffer_overflow(transport, seq):
             pass_('BufferOverflow (RxFlags Bit0=1)')
             break
     if not found_overflow:
-        pass_('No overflow — buffer keeps up')
+        pass_('No overflow �?buffer keeps up')
 
 
 def test_uart44_status_after_send(transport, seq):
@@ -780,13 +780,13 @@ def test_uart44_status_after_send(transport, seq):
 def test_uart45_status_after_recv(transport, seq):
     """UART-45: STATUS after RECV (RxCount > 0)"""
     print('\n--- UART-45: STATUS after RECV ---')
-    if com24 is None:
-        skip_('STATUS after RECV', 'COM24 not available')
+    if COM3 is None:
+        skip_('STATUS after RECV', 'COM3 not available')
         return
 
     seq = _ensure_open_passive(transport, seq)
     transport.flush_input()
-    com24_write(b'\x01\x02\x03\x04\x05' * 10)  # 50 bytes
+    COM3_write(b'\x01\x02\x03\x04\x05' * 10)  # 50 bytes
     time.sleep(0.3)
     # drain events
     for _ in range(4):
@@ -806,17 +806,17 @@ def test_uart46_status_error_count(transport, seq):
     seq = _ensure_open_passive(transport, seq)
     uart_config(transport, seq, 115200, data_bits=0x07, parity=0x02); seq += 1
 
-    if com24:
+    if COM3:
         transport.flush_input()
         # Inject data with parity mismatch
         for _ in range(8):
-            com24_write(b'\x41\x42\x43\x44')
+            COM3_write(b'\x41\x42\x43\x44')
         time.sleep(0.2)
 
     f = send_cmd(transport, seq, CMD_UART_STATUS)
     if f and len(f.payload) >= 19:
         err = f.payload[18]
-        if com24:
+        if COM3:
             pass_(f'ErrorCount={err}')
         else:
             pass_(f'ErrorCount={err} (no injection)')
@@ -852,8 +852,8 @@ def test_uart48_config_1200(transport, seq):
 def test_uart49_fixed_threshold_restart(transport, seq):
     """UART-49: Fixed mode threshold change triggers RX task restart"""
     print('\n--- UART-49: Fixed threshold restart ---')
-    if com24 is None:
-        skip_('Fixed threshold restart', 'COM24 not available')
+    if COM3 is None:
+        skip_('Fixed threshold restart', 'COM3 not available')
         return
 
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
@@ -861,7 +861,7 @@ def test_uart49_fixed_threshold_restart(transport, seq):
     uart_config(transport, seq, 115200, threshold=4); seq += 1
 
     transport.flush_input()
-    com24.flushInput()
+    COM3.flushInput()
 
     # Change threshold to 8 via CONFIG (triggers RX task restart)
     # Note: accumulated data from old task is lost on restart
@@ -869,8 +869,8 @@ def test_uart49_fixed_threshold_restart(transport, seq):
     transport.flush_input()
     time.sleep(0.2)
 
-    # Send 8 bytes → should report as one 8-byte chunk with new threshold
-    com24_write(bytes([0, 1, 2, 3, 4, 5, 6, 7]))
+    # Send 8 bytes �?should report as one 8-byte chunk with new threshold
+    COM3_write(bytes([0, 1, 2, 3, 4, 5, 6, 7]))
     time.sleep(0.3)
 
     f = transport.recv_event(cmd_code=CMD_UART_RECV, timeout=1.0)
@@ -884,8 +884,8 @@ def test_uart49_fixed_threshold_restart(transport, seq):
 def test_uart50_timeout_restart(transport, seq):
     """UART-50: Timeout mode timeout change triggers RX task restart"""
     print('\n--- UART-50: Timeout restart ---')
-    if com24 is None:
-        skip_('Timeout restart', 'COM24 not available')
+    if COM3 is None:
+        skip_('Timeout restart', 'COM3 not available')
         return
 
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
@@ -900,8 +900,8 @@ def test_uart50_timeout_restart(transport, seq):
     transport.flush_input()
     time.sleep(0.2)
 
-    # Send data → should report after 10ms timeout with NEW task
-    com24_write(b'\xAA\xBB\xCC')
+    # Send data �?should report after 10ms timeout with NEW task
+    COM3_write(b'\xAA\xBB\xCC')
     time.sleep(0.3)  # > 10ms, should trigger report
 
     f = transport.recv_event(cmd_code=CMD_UART_RECV, timeout=1.0)
@@ -940,10 +940,10 @@ def test_uart53_break_long(transport, seq):
 
 
 def test_uart54_close_reopen(transport, seq):
-    """UART-54: CLOSE → re-OPEN with different RxMode"""
+    """UART-54: CLOSE �?re-OPEN with different RxMode"""
     print('\n--- UART-54: Close-reopen ---')
-    if com24 is None:
-        skip_('Close-reopen', 'COM24 not available')
+    if COM3 is None:
+        skip_('Close-reopen', 'COM3 not available')
         return
 
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
@@ -951,7 +951,7 @@ def test_uart54_close_reopen(transport, seq):
     uart_config(transport, seq, 115200, threshold=4); seq += 1
 
     transport.flush_input()
-    com24_write(b'\x00\x01\x02\x03\x04\x05\x06\x07')
+    COM3_write(b'\x00\x01\x02\x03\x04\x05\x06\x07')
     time.sleep(0.3)
 
     events = []
@@ -986,15 +986,15 @@ def test_uart55_config_then_send(transport, seq):
 def test_uart56_concurrent_send_recv(transport, seq):
     """UART-56: Full-duplex SEND + RECV"""
     print('\n--- UART-56: Concurrent SEND+RECV ---')
-    if com24 is None:
-        skip_('Concurrent SEND+RECV', 'COM24 not available')
+    if COM3 is None:
+        skip_('Concurrent SEND+RECV', 'COM3 not available')
         return
 
     seq = _ensure_open_passive(transport, seq)
     transport.flush_input()
-    com24.flushInput()
+    COM3.flushInput()
 
-    # Send 100 bytes while simultaneously COM24 injects 50 bytes
+    # Send 100 bytes while simultaneously COM3 injects 50 bytes
     send_data = bytes([i & 0xFF for i in range(100)])
     send_payload = struct.pack('>H', 100) + send_data
     f_send = send_cmd(transport, seq, CMD_UART_SEND, send_payload)
@@ -1005,7 +1005,7 @@ def test_uart56_concurrent_send_recv(transport, seq):
         fail_('SEND response', 'no response')
 
     recv_data = bytes([0x80 + i for i in range(50)])
-    com24_write(recv_data)
+    COM3_write(recv_data)
 
     time.sleep(0.3)
     recv_event = transport.recv_event(cmd_code=CMD_UART_RECV, timeout=1.0)
@@ -1057,17 +1057,17 @@ def test_uart57_lifecycle(transport, seq):
     assert_bool('7.CLOSE', f is not None and f.payload[0] == ERR_SUCCESS)
     seq += 1
 
-    # 8. STATUS (after close) → ERR_NOT_OPEN
+    # 8. STATUS (after close) �?ERR_NOT_OPEN
     f = expect_status(transport, seq, CMD_UART_STATUS, b'', UART_CHANNEL, ERR_NOT_OPEN, '8.STATUS closed')
 
     pass_('Full lifecycle complete')
 
 
 def main():
-    global passed, failed, skipped, com24
+    global passed, failed, skipped, COM3
     import argparse
     ap = argparse.ArgumentParser()
-    ap.add_argument('--com24', default='COM24', help='COM24 port for ext device')
+    ap.add_argument('--COM3', default='COM3', help='COM3 port for ext device')
     ap.add_argument('--ext-baud', type=int, default=115200,
                     help='External device baud rate')
     args = ap.parse_args()
@@ -1083,14 +1083,13 @@ def main():
         print(f'FATAL: Cannot open {transport.port}: {e}')
         return 1
 
-    # Try opening COM24 for external data injection/monitoring
-    open_com24(args.com24, args.ext_baud)
+    # Try opening COM3 for external data injection/monitoring
+    open_COM3(args.COM3, args.ext_baud)
 
     seq = 10
     try:
         transport.flush_input()
-        # 预清理：确保 UART 通道初始为关闭状态
-        send_cmd(transport, 1, CMD_UART_CLOSE, b'', 0)
+        # 预清理：确保 UART 通道初始为关闭状�?        send_cmd(transport, 1, CMD_UART_CLOSE, b'', 0)
         transport.recv_frame(timeout=1.0)  # 丢弃可能的旧响应
         transport.flush_input()
 
@@ -1154,8 +1153,8 @@ def main():
         test_uart57_lifecycle(transport, seq)
     finally:
         transport.close()
-        if com24:
-            com24.close()
+        if COM3:
+            COM3.close()
 
     print(f'\n{"=" * 50}')
     print(f'Results: {passed} PASS, {failed} FAIL, {skipped} SKIP')

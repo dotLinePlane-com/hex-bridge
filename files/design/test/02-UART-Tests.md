@@ -1,97 +1,94 @@
 # 02. UART 扩展模块测试用例
 
-> 命令码范围：`0xA0-0xAF` | 模块：`mod_uart` | UART2 → 外部串口设备
+> 命令码范围：`0xA0-0xAF` | 模块：`mod_uart` | UART2 �?外部串口设备
 >
 > **测试脚本**: `script/test/test_uart.py` (57 用例, UART-01 ~ UART-57)
 
 **测试拓朴**:
 ```
-PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 ←── COM24(PC 监控)
+PC(COM4) ── MCP ──�?HEX-Bridge ── UART2 ──�?外部设备 ←── COM3(PC 监控)
 ```
 
-所有 MCP 命令通过 COM35 发送，UART2 数据流通可通过 COM24 监控/注入。
-
+所�?MCP 命令通过 COM4 发送，UART2 数据流通可通过 COM3 监控/注入�?
 ---
 
-## UART-01: UART_OPEN — 正常打开（被动上报模式）
+## UART-01: UART_OPEN �?正常打开（被动上报模式）
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA0` |
 | **PayloadLen** | `0x0001` |
 
 **请求载荷**:
-| 偏移 | 字段 | 值 |
+| 偏移 | 字段 | �?|
 |:---|:---|:---|
 | 0 | RxMode | `0x00` (被动上报) |
 
 **预期响应**:
-| 偏移 | 字段 | 预期值 |
+| 偏移 | 字段 | 预期�?|
 |:---|:---|:---|
 | 0 | Status | `0x00` |
 | 1-2 | RxBufSize | `0x0800` (2048, 大端) |
 | 3-4 | TxBufSize | `0x0400` (1024, 大端) |
 
-**判定**: PASS — Status=0x00, RxBufSize=2048, TxBufSize=1024
+**判定**: PASS �?Status=0x00, RxBufSize=2048, TxBufSize=1024
 
 ---
 
-## UART-02: UART_OPEN — 重复打开（错误用例）
+## UART-02: UART_OPEN �?重复打开（错误用例）
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA0` |
 | **PayloadLen** | `0x0001` |
 
-**前置**: 先执行 UART-01 成功打开
+**前置**: 先执�?UART-01 成功打开
 
-**请求载荷**: 同 UART-01
+**请求载荷**: �?UART-01
 
 **预期响应**: Status=`0x0B` (ERR_ALREADY_OPEN)
 
-**判定**: PASS — 拒绝重复打开
+**判定**: PASS �?拒绝重复打开
 
 ---
 
-## UART-03: UART_OPEN — 无效 RxMode（错误用例）
+## UART-03: UART_OPEN �?无效 RxMode（错误用例）
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA0` |
 | **PayloadLen** | `0x0001` |
 
-**前置**: 先执行 UART_CLOSE 确保关闭
+**前置**: 先执�?UART_CLOSE 确保关闭
 
-**请求载荷**: RxMode = `0x04` (> TIMEOUT 最大值 0x03)
+**请求载荷**: RxMode = `0x04` (> TIMEOUT 最大�?0x03)
 
 **预期响应**: Status=`0x02` (ERR_PARAM)
 
 ---
 
-## UART-04: UART_OPEN — 行模式
-
-| 项目 | 值 |
+## UART-04: UART_OPEN �?行模�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA0` |
 | **PayloadLen** | `0x0001` |
 
-**前置**: 先执行 UART_CLOSE
+**前置**: 先执�?UART_CLOSE
 
-**请求载荷**: RxMode = `0x01` (行模式)
+**请求载荷**: RxMode = `0x01` (行模�?
 
-**预期响应**: Status=`0x00`, BufSize 与 UART-01 一致
-
+**预期响应**: Status=`0x00`, BufSize �?UART-01 一�?
 ---
 
-## UART-05: UART_CONFIG — 配置波特率 921600
+## UART-05: UART_CONFIG �?配置波特�?921600
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 | **PayloadLen** | `0x000B` (11 字节) |
 
 **请求载荷**:
-| 偏移 | 字段 | 值 |
+| 偏移 | 字段 | �?|
 |:---|:---|:---|
 | 0-3 | BaudRate | `0x000E1000` (921600) |
 | 4 | DataBits | `0x08` |
@@ -102,18 +99,18 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 | 10 | RxTimeout | `0x14` (20ms) |
 
 **预期响应**:
-| 偏移 | 字段 | 预期值 |
+| 偏移 | 字段 | 预期�?|
 |:---|:---|:---|
 | 0 | Status | `0x00` |
 | 1-4 | ActualBaud | 接近 921600 (±3% 偏差) |
 
-**判定**: PASS — 接近 921600 (±3% 偏差)
+**判定**: PASS �?接近 921600 (±3% 偏差)
 
 ---
 
-## UART-06: UART_CONFIG — 配置波特率 115200
+## UART-06: UART_CONFIG �?配置波特�?115200
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 | **PayloadLen** | `0x000B` (11 字节) |
@@ -122,13 +119,13 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 **预期响应**: Status=`0x00`, ActualBaud 接近 115200 (±1%)
 
-**判定**: PASS — ActualBaud≈115201 (±0.001%)
+**判定**: PASS �?ActualBaud�?15201 (±0.001%)
 
 ---
 
-## UART-07: UART_CONFIG — 配置 7E1 数据格式
+## UART-07: UART_CONFIG �?配置 7E1 数据格式
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 | **PayloadLen** | `0x000B` |
@@ -137,13 +134,12 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 **预期响应**: Status=`0x00`
 
-**判定**: PASS — 7 位数据 + 偶校验配置成功
-
+**判定**: PASS �?7 位数�?+ 偶校验配置成�?
 ---
 
-## UART-08: UART_CONFIG — 无效 DataBits（错误用例）
+## UART-08: UART_CONFIG �?无效 DataBits（错误用例）
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 | **PayloadLen** | `0x000B` |
@@ -152,13 +148,13 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 **预期响应**: Status=`0x02` (ERR_PARAM)
 
-**判定**: PASS — DataBits=`0x04` 不在合法范围 {5,6,7,8}
+**判定**: PASS �?DataBits=`0x04` 不在合法范围 {5,6,7,8}
 
 ---
 
-## UART-09: UART_CONFIG — 无效 StopBits（错误用例）
+## UART-09: UART_CONFIG �?无效 StopBits（错误用例）
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 | **PayloadLen** | `0x000B` |
@@ -167,28 +163,26 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 **预期响应**: Status=`0x02` (ERR_PARAM)
 
-**判定**: PASS — StopBits=`0x04` 不在合法范围 {1, 1.5, 2}
+**判定**: PASS �?StopBits=`0x04` 不在合法范围 {1, 1.5, 2}
 
 ---
 
-## UART-10: UART_CONFIG — Mark/Space 校验（不支持）
-
-| 项目 | 值 |
+## UART-10: UART_CONFIG �?Mark/Space 校验（不支持�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 | **PayloadLen** | `0x000B` |
 
-**请求载荷**: BaudRate=115200, DataBits=`0x08`, StopBits=`0x01`, Parity=`0x03` (Mark) 或 `0x04` (Space)
+**请求载荷**: BaudRate=115200, DataBits=`0x08`, StopBits=`0x01`, Parity=`0x03` (Mark) �?`0x04` (Space)
 
 **预期响应**: Status=`0x06` (ERR_NOT_SUPPORT)
 
-**判定**: PASS — ESP32 UART 硬件不支持 Mark/Space 校验
+**判定**: PASS �?ESP32 UART 硬件不支�?Mark/Space 校验
 
 ---
 
-## UART-11: UART_CONFIG — 硬件流控（不支持）
-
-| 项目 | 值 |
+## UART-11: UART_CONFIG �?硬件流控（不支持�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 | **PayloadLen** | `0x000B` |
@@ -197,13 +191,12 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 **预期响应**: Status=`0x06` (ERR_NOT_SUPPORT)
 
-**判定**: PASS — UART2 无 RTS/CTS 硬件引脚
+**判定**: PASS �?UART2 �?RTS/CTS 硬件引脚
 
 ---
 
-## UART-12: UART_CONFIG — 未打开时调用（错误用例）
-
-| 项目 | 值 |
+## UART-12: UART_CONFIG �?未打开时调用（错误用例�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 
@@ -213,86 +206,78 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 ---
 
-## UART-13: UART_SEND — 发送数据到外部设备
+## UART-13: UART_SEND �?发送数据到外部设备
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode (SEND)** | `0xA3` |
 | **事件 (RECV)** | `0xA4` |
 
 **测试步骤**:
-1. UART_OPEN(被动上报) + UART_CONFIG(115200, 8N1) — 匹配外部设备参数
-2. 通过 MCP (COM35) 发送 SEND 命令:
+1. UART_OPEN(被动上报) + UART_CONFIG(115200, 8N1) �?匹配外部设备参数
+2. 通过 MCP (COM4) 发�?SEND 命令:
 
 **请求载荷** (UART_SEND):
-| 偏移 | 字段 | 值 |
+| 偏移 | 字段 | �?|
 |:---|:---|:---|
 | 0-1 | DataLen | `0x000B` (11) |
 | 2-12 | Data | `"Hello World"` (ASCII) |
 
-**预期 SEND 响应** (COM35): Status=`0x00`, ActualLen=`0x000B`
+**预期 SEND 响应** (COM4): Status=`0x00`, ActualLen=`0x000B`
 
-**验证 (COM24)**: 在 COM24 上监听到 HEX-Bridge UART2 发出的 `"Hello World"`。
-
-**验证 (外部设备)**: 如果外部设备会回复数据，预期收到 UART_RECV 事件 (CmdCode=`0xA4`)：
-| 偏移 | 字段 | 说明 |
+**验证 (COM3)**: �?COM3 上监听到 HEX-Bridge UART2 发出�?`"Hello World"`�?
+**验证 (外部设备)**: 如果外部设备会回复数据，预期收到 UART_RECV 事件 (CmdCode=`0xA4`)�?| 偏移 | 字段 | 说明 |
 |:---|:---|:---|
 | 0 | RxFlags | 错误标志，正常为 `0x00` |
 | 1-2 | DataLen | 外部设备回复数据长度 |
 | 3... | Data | 外部设备回复数据 |
 
-**判决**: PASS — SEND 响应 Status=0x00 + COM24 可监听到发送数据
-
+**判决**: PASS �?SEND 响应 Status=0x00 + COM3 可监听到发送数�?
 ---
 
-## UART-14: UART_SEND — 空载荷
-
-| 项目 | 值 |
+## UART-14: UART_SEND �?空载�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA3` |
 
-**请求载荷**: DataLen=`0x0000`, 无 Data 字段
+**请求载荷**: DataLen=`0x0000`, �?Data 字段
 
 **预期响应**: Status=`0x00`, ActualLen=`0x0000`
 
-**验证 (COM24)**: 无任何字节输出
-
+**验证 (COM3)**: 无任何字节输�?
 ---
 
-## UART-15: UART_SEND — 载荷长度声明不匹配（错误用例）
-
-| 项目 | 值 |
+## UART-15: UART_SEND �?载荷长度声明不匹配（错误用例�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA3` |
 
-**请求载荷**: DataLen=`0x000A` (声明 10 字节), Data 仅 `0x48 0x45` (2 字节)
+**请求载荷**: DataLen=`0x000A` (声明 10 字节), Data �?`0x48 0x45` (2 字节)
 
-**帧 PayloadLen**: `2 + 2 = 4` (PayloadLen=4, DataLen 字段声明=10)
+**�?PayloadLen**: `2 + 2 = 4` (PayloadLen=4, DataLen 字段声明=10)
 
 **预期响应**: Status=`0x02` (ERR_PARAM)
 
 ---
 
-## UART-16: UART_CLOSE — 正常关闭
+## UART-16: UART_CLOSE �?正常关闭
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA1` |
 | **PayloadLen** | `0x0000` |
 
 **前置**: UART 通道已打开
 
-**请求载荷**: 空
-
+**请求载荷**: �?
 **预期响应**: Status=`0x00`
 
 **验证**: 关闭后可重新 UART_OPEN 成功
 
 ---
 
-## UART-17: UART_CLOSE — 未打开时关闭（错误用例）
-
-| 项目 | 值 |
+## UART-17: UART_CLOSE �?未打开时关闭（错误用例�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA1` |
 
@@ -302,20 +287,19 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 ---
 
-## UART-18: UART_STATUS — 查询运行状态
-
-| 项目 | 值 |
+## UART-18: UART_STATUS �?查询运行状�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA6` |
 | **PayloadLen** | `0x0000` |
 
 **前置**: UART 通道已打开
 
-**预期响应** (Payload 共 19 字节):
-| 偏移 | 字段 | 预期值 |
+**预期响应** (Payload �?19 字节):
+| 偏移 | 字段 | 预期�?|
 |:---|:---|:---|
 | 0 | Status | `0x00` |
-| 1-4 | BaudRate | 当前波特率 |
+| 1-4 | BaudRate | 当前波特�?|
 | 5 | LineState | Bit0 (TxIdle) = 1 if TX buffer empty, else 0 |
 | 6-7 | TxBufUsed | `0x0000` |
 | 8-9 | RxBufUsed | `>= 0` |
@@ -323,13 +307,11 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 | 14-17 | RxCount | `>= 0` |
 | 18 | ErrorCount | `0x00` |
 
-**判定**: PASS — Status=0x00, LineState 包含 TxIdle, 各计数器为非负值
-
+**判定**: PASS �?Status=0x00, LineState 包含 TxIdle, 各计数器为非负�?
 ---
 
-## UART-19: UART_STATUS — 未打开时查询
-
-| 项目 | 值 |
+## UART-19: UART_STATUS �?未打开时查�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA6` |
 
@@ -337,9 +319,8 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 ---
 
-## UART-20: UART_FLUSH — 清空接收缓冲区
-
-| 项目 | 值 |
+## UART-20: UART_FLUSH �?清空接收缓冲�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA7` |
 | **PayloadLen** | `0x0001` |
@@ -350,127 +331,119 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 ---
 
-## UART-21: UART_FLUSH — 无效 FlushType
+## UART-21: UART_FLUSH �?无效 FlushType
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA7` |
 | **PayloadLen** | `0x0001` |
 
-**请求载荷**: FlushType=`0x04` (> DRAIN 最大值 0x03)
+**请求载荷**: FlushType=`0x04` (> DRAIN 最大�?0x03)
 
 **预期响应**: Status=`0x02` (ERR_PARAM)
 
 ---
 
-## UART-22: UART_SET_BREAK — 发送 Break 信号
+## UART-22: UART_SET_BREAK �?发�?Break 信号
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA5` |
 | **PayloadLen** | `0x0002` |
 
 **请求载荷**:
-| 偏移 | 字段 | 值 |
+| 偏移 | 字段 | �?|
 |:---|:---|:---|
 | 0-1 | DurationMs | `0x000A` (10ms) |
 
 **预期响应**: Status=`0x00`
 
-**验证 (COM24)**: 外部设备侧可观察到 RX 线被拉低约 10ms（Break 信号）。
-
+**验证 (COM3)**: 外部设备侧可观察�?RX 线被拉低�?10ms（Break 信号）�?
 ---
 
-## UART-23: UART_SET_BREAK — 默认持续时间
+## UART-23: UART_SET_BREAK �?默认持续时间
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA5` |
 | **PayloadLen** | `0x0002` |
 
-**请求载荷**: DurationMs=`0x0000` (0 → 应使用默认 10ms)
+**请求载荷**: DurationMs=`0x0000` (0 �?应使用默�?10ms)
 
 **预期响应**: Status=`0x00`
 
 ---
 
-## UART-24: 外部数据接收 — RECV 事件上报
+## UART-24: 外部数据接收 �?RECV 事件上报
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA4` (事件) |
 
 **测试步骤**:
 1. UART_OPEN(被动上报) + UART_CONFIG(115200, 8N1)
-2. 通过 COM24 向外部设备侧发送数据 `0x41 0x42 0x43` (ASCII "ABC")，数据会到达 HEX-Bridge UART2 RX 引脚
+2. 通过 COM3 向外部设备侧发送数�?`0x41 0x42 0x43` (ASCII "ABC")，数据会到达 HEX-Bridge UART2 RX 引脚
 
-**预期**: 通过 COM35 收到 UART_RECV 事件:
-| 偏移 | 字段 | 预期值 |
+**预期**: 通过 COM4 收到 UART_RECV 事件:
+| 偏移 | 字段 | 预期�?|
 |:---|:---|:---|
 | 0 | RxFlags | `0x00` |
 | 1-2 | DataLen | `0x0003` |
 | 3-5 | Data | `0x41 0x42 0x43` |
 
-**判定**: PASS — 收到 RECV 事件，数据与 COM24 发出的完全一致
-
+**判定**: PASS �?收到 RECV 事件，数据与 COM3 发出的完全一�?
 ---
 
-## UART-25: 接收模式 — 行模式
-
-| 项目 | 值 |
+## UART-25: 接收模式 �?行模�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA4` (事件) |
 
 **测试步骤**:
-1. UART_OPEN(行模式, RxMode=`0x01`) + UART_CONFIG(115200, 8N1)
-2. 通过 COM24 发送 `"Hello\nWorld\n"`
+1. UART_OPEN(行模�? RxMode=`0x01`) + UART_CONFIG(115200, 8N1)
+2. 通过 COM3 发�?`"Hello\nWorld\n"`
 
-**预期**: 收到 2 条 RECV 事件：
-- 第 1 条: Data=`"Hello\n"`
-- 第 2 条: Data=`"World\n"`
+**预期**: 收到 2 �?RECV 事件�?- �?1 �? Data=`"Hello\n"`
+- �?2 �? Data=`"World\n"`
 
-**判定**: PASS — 按行分割上报
+**判定**: PASS �?按行分割上报
 
 ---
 
-## UART-26: 接收模式 — 定长模式
+## UART-26: 接收模式 �?定长模式
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA4` (事件) |
 
 **测试步骤**:
 1. UART_OPEN(定长模式, RxMode=`0x02`) + UART_CONFIG(115200, 8N1, RxThreshold=`0x0004`)
-2. 通过 COM24 发送 8 字节: `0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07`
+2. 通过 COM3 发�?8 字节: `0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07`
 
-**预期**: 收到 2 条 RECV 事件：
-- 第 1 条: DataLen=4, Data=`0x00 0x01 0x02 0x03`
-- 第 2 条: DataLen=4, Data=`0x04 0x05 0x06 0x07`
+**预期**: 收到 2 �?RECV 事件�?- �?1 �? DataLen=4, Data=`0x00 0x01 0x02 0x03`
+- �?2 �? DataLen=4, Data=`0x04 0x05 0x06 0x07`
 
-**判定**: PASS — 按 RxThreshold=4 分块上报
+**判定**: PASS �?�?RxThreshold=4 分块上报
 
 ---
 
-## UART-27: 接收模式 — 超时模式
+## UART-27: 接收模式 �?超时模式
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA4` (事件) |
 
 **测试步骤**:
 1. UART_OPEN(超时模式, RxMode=`0x03`) + UART_CONFIG(115200, 8N1, RxTimeout=`0x14`=20ms)
-2. 通过 COM24 发送 3 字节: `0xAA 0xBB 0xCC`
-3. 等待超过 20ms，确保超时触发上报
+2. 通过 COM3 发�?3 字节: `0xAA 0xBB 0xCC`
+3. 等待超过 20ms，确保超时触发上�?
+**预期**: 收到 1 �?RECV 事件，DataLen=3, Data=`0xAA 0xBB 0xCC`
 
-**预期**: 收到 1 条 RECV 事件，DataLen=3, Data=`0xAA 0xBB 0xCC`
-
-**判定**: PASS — 超时后一次性上报累积数据
-
+**判定**: PASS �?超时后一次性上报累积数�?
 ---
 
-## UART-28: FLOW_CONTROL — 查询流控状态
-
-| 项目 | 值 |
+## UART-28: FLOW_CONTROL �?查询流控状�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0x05` |
 | **PayloadLen** | `0x0001` |
@@ -478,71 +451,62 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 **前置**: UART 通道已打开，无大量数据注入
 
 **请求载荷**:
-| 偏移 | 字段 | 值 |
+| 偏移 | 字段 | �?|
 |:---|:---|:---|
 | 0 | ModuleID | `0xA0` (UART 模块) |
 
 **预期响应**:
-| 偏移 | 字段 | 预期值 |
+| 偏移 | 字段 | 预期�?|
 |:---|:---|:---|
 | 0 | Status | `0x00` |
 | 1 | Count | `0x01` |
 | 2 | ModuleID | `0xA0` |
 | 3 | State | `0x00` (normal) |
 | 4-5 | BufUsage | `< BufCapacity` |
-| 6 | BufPercent | `0x00-0x50` (低水位) |
+| 6 | BufPercent | `0x00-0x50` (低水�? |
 
-**判定**: PASS — State=0x00 (normal), 缓冲区使用率低
-
+**判定**: PASS �?State=0x00 (normal), 缓冲区使用率�?
 ---
 
-## UART-29: FLOW_CONTROL — 查询所有模块
-
-| 项目 | 值 |
+## UART-29: FLOW_CONTROL �?查询所有模�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0x05` |
 | **PayloadLen** | `0x0001` |
 
 **请求载荷**: ModuleID=`0xFF` (查询全部)
 
-**预期响应**: Count>=1, 包含所有已注册的模块状态（至少 UART 0xA0）
-
-**判定**: PASS — 返回全部模块流控状态
-
+**预期响应**: Count>=1, 包含所有已注册的模块状态（至少 UART 0xA0�?
+**判定**: PASS �?返回全部模块流控状�?
 ---
 
-## UART-30: FLOW_CONTROL — XOFF/XON 序列
+## UART-30: FLOW_CONTROL �?XOFF/XON 序列
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
-| **事件 CmdCode** | `0x05` (FLOW_CONTROL, 设备→主机) |
+| **事件 CmdCode** | `0x05` (FLOW_CONTROL, 设备→主�? |
 
 **测试步骤**:
 1. UART_OPEN(被动上报) + UART_CONFIG(115200, 8N1)
-2. 查询流控 → State=normal
-3. 通过 COM24 持续注入大量数据 (如 4000+ bytes at 115200 bps) 填满 UART2 RX 缓冲区
-4. 监听 FLOW_CONTROL 事件 (CmdCode=`0xA4` for RECV + `0x05` for flow)
+2. 查询流控 �?State=normal
+3. 通过 COM3 持续注入大量数据 (�?4000+ bytes at 115200 bps) 填满 UART2 RX 缓冲�?4. 监听 FLOW_CONTROL 事件 (CmdCode=`0xA4` for RECV + `0x05` for flow)
 
 **预期**: 
 - 数据注入期间可能收到 XOFF 事件 (Action=`0x00`, ModuleID=`0xA0`)
-- 数据停止后缓冲区排空，收到 XON 事件 (Action=`0x01`, ModuleID=`0xA0`)
-- 或：缓冲区未达到 80% 高水位，不触发 XOFF (正常)
+- 数据停止后缓冲区排空，收�?XON 事件 (Action=`0x01`, ModuleID=`0xA0`)
+- 或：缓冲区未达到 80% 高水位，不触�?XOFF (正常)
 
-**判定**: PASS — RX 缓冲区水位检测正常工作，或缓冲区未溢出
-
+**判定**: PASS �?RX 缓冲区水位检测正常工作，或缓冲区未溢�?
 ---
 
 # 补充测试用例 (v0.2.0)
 
-> 以下用例覆盖评估报告识别的缺口：请求层错误路径、RxFlags 错误标志、FLUSH 子类型、STATUS 深度查询、边界/压力、整合场景。
-
+> 以下用例覆盖评估报告识别的缺口：请求层错误路径、RxFlags 错误标志、FLUSH 子类型、STATUS 深度查询、边�?压力、整合场景�?
 ---
 
-## 请求层错误路径
-
-### UART-31: UART_SEND — 未打开时调用（错误用例）
-
-| 项目 | 值 |
+## 请求层错误路�?
+### UART-31: UART_SEND �?未打开时调用（错误用例�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA3` |
 
@@ -554,9 +518,8 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 ---
 
-### UART-32: UART_SET_BREAK — 未打开时调用（错误用例）
-
-| 项目 | 值 |
+### UART-32: UART_SET_BREAK �?未打开时调用（错误用例�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA5` |
 
@@ -568,9 +531,8 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 ---
 
-### UART-33: UART_FLUSH — 未打开时调用（错误用例）
-
-| 项目 | 值 |
+### UART-33: UART_FLUSH �?未打开时调用（错误用例�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA7` |
 
@@ -582,64 +544,60 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 ---
 
-### UART-34: UART_CONFIG — 载荷不足（错误用例）
+### UART-34: UART_CONFIG �?载荷不足（错误用例）
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
-| **PayloadLen** | `0x0005` (仅 5 字节, 需要 11) |
+| **PayloadLen** | `0x0005` (�?5 字节, 需�?11) |
 
 **前置**: UART 通道已打开
 
-**请求载荷**: 仅 `0x00 0x01 0x02 0x03 0x08` (截断)
+**请求载荷**: �?`0x00 0x01 0x02 0x03 0x08` (截断)
 
 **预期响应**: Status=`0x02` (ERR_PARAM)
 
 ---
 
-### UART-35: UART_SEND — 载荷不足（错误用例）
+### UART-35: UART_SEND �?载荷不足（错误用例）
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA3` |
-| **PayloadLen** | `0x0001` (仅 1 字节, 至少需要 2 字节的 DataLen 字段) |
+| **PayloadLen** | `0x0001` (�?1 字节, 至少需�?2 字节�?DataLen 字段) |
 
 **前置**: UART 通道已打开
 
-**请求载荷**: 仅 `0x00` (缺少 DataLen 高字节)
+**请求载荷**: �?`0x00` (缺少 DataLen 高字�?
 
 **预期响应**: Status=`0x02` (ERR_PARAM)
 
 ---
 
-### UART-36: UART_SET_BREAK — 空载荷（使用默认值）
+### UART-36: UART_SET_BREAK �?空载荷（使用默认值）
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA5` |
 | **PayloadLen** | `0x0000` |
 
 **前置**: UART 通道已打开
 
-**请求载荷**: 空（应使用默认 10ms）
-
+**请求载荷**: 空（应使用默�?10ms�?
 **预期响应**: Status=`0x00`
 
-**验证**: 行为与 UART-23（DurationMs=0）相同
-
+**验证**: 行为�?UART-23（DurationMs=0）相�?
 ---
 
-## FLUSH 子类型
+## FLUSH 子类�?
+### UART-37: UART_FLUSH �?清空发送缓冲区 (TX)
 
-### UART-37: UART_FLUSH — 清空发送缓冲区 (TX)
-
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA7` |
 | **PayloadLen** | `0x0001` |
 
-**前置**: UART 通道已打开，先 SEND 大数据（如 512 字节），等待写入缓冲区
-
+**前置**: UART 通道已打开，先 SEND 大数据（�?512 字节），等待写入缓冲�?
 **请求载荷**: FlushType=`0x01` (清空 TX)
 
 **预期响应**: Status=`0x00`
@@ -648,9 +606,9 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 ---
 
-### UART-38: UART_FLUSH — 清空所有缓冲区 (ALL)
+### UART-38: UART_FLUSH �?清空所有缓冲区 (ALL)
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA7` |
 | **PayloadLen** | `0x0001` |
@@ -661,13 +619,12 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 **预期响应**: Status=`0x00`
 
-**验证**: RX 和 TX 缓冲区均被清空
-
+**验证**: RX �?TX 缓冲区均被清�?
 ---
 
-### UART-39: UART_FLUSH — 等待发送完成后清空 (DRAIN)
+### UART-39: UART_FLUSH �?等待发送完成后清空 (DRAIN)
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA7` |
 | **PayloadLen** | `0x0001` |
@@ -678,137 +635,131 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 **预期响应**: Status=`0x00`
 
-**验证**: 命令返回前数据已从 TX 缓冲区发出，然后 RX 缓冲区也被清空
-
+**验证**: 命令返回前数据已�?TX 缓冲区发出，然后 RX 缓冲区也被清�?
 ---
 
 ## RxFlags 错误标志
 
-### UART-40: RECV 事件 — BreakDetect (RxFlags Bit3)
+### UART-40: RECV 事件 �?BreakDetect (RxFlags Bit3)
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA4` (事件) |
 
 **测试步骤**:
 1. UART_OPEN(被动上报) + UART_CONFIG(115200, 8N1)
 2. 执行 UART_SET_BREAK (10ms)
-3. 等待 COM24 回环到达 UART2 RX 引脚
+3. 等待 COM3 回环到达 UART2 RX 引脚
 
-**预期**: 通过 COM35 收到 UART_RECV 事件，RxFlags Bit3 (BreakDetect) = 1
+**预期**: 通过 COM4 收到 UART_RECV 事件，RxFlags Bit3 (BreakDetect) = 1
 
-**注意**: 需 UART2 TX/RX 回环连接（短接 GPIO32 与 GPIO35），使 Break 信号反馈到接收端
+**注意**: 需 UART2 TX/RX 回环连接（短�?GPIO32 �?GPIO35），�?Break 信号反馈到接收端
 
 ---
 
-### UART-41: RECV 事件 — ParityError (RxFlags Bit1)
+### UART-41: RECV 事件 �?ParityError (RxFlags Bit1)
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA4` (事件) |
 
 **测试步骤**:
 1. UART_OPEN(被动上报) + UART_CONFIG(115200, 7E1)
-2. 通过 COM24 以 115200/8N1 参数发送数据 `0x41 0x42`（对方无校验 → 接收端检测到校验不匹配）
+2. 通过 COM3 �?115200/8N1 参数发送数�?`0x41 0x42`（对方无校验 �?接收端检测到校验不匹配）
 
-**预期**: 通过 COM35 收到 UART_RECV 事件，RxFlags Bit1 (ParityError) = 1
+**预期**: 通过 COM4 收到 UART_RECV 事件，RxFlags Bit1 (ParityError) = 1
 
 ---
 
-### UART-42: RECV 事件 — FrameError (RxFlags Bit2)
+### UART-42: RECV 事件 �?FrameError (RxFlags Bit2)
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA4` (事件) |
 
 **测试步骤**:
 1. UART_OPEN(被动上报) + UART_CONFIG(115200, 8N1)
-2. 通过 COM24 以 115200/8N2 参数发送数据 `0x41`（对方 2 停止位 → 接收端期望 1 停止位，检测到帧错误）
+2. 通过 COM3 �?115200/8N2 参数发送数�?`0x41`（对�?2 停止�?�?接收端期�?1 停止位，检测到帧错误）
 
-**预期**: 通过 COM35 收到 UART_RECV 事件，RxFlags Bit2 (FrameError) = 1
+**预期**: 通过 COM4 收到 UART_RECV 事件，RxFlags Bit2 (FrameError) = 1
 
 ---
 
-### UART-43: RECV 事件 — BufferOverflow (RxFlags Bit0)
+### UART-43: RECV 事件 �?BufferOverflow (RxFlags Bit0)
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA4` (事件) |
 
 **测试步骤**:
-1. UART_OPEN(被动上报) + UART_CONFIG(128000, 8N1)（使用非标准高速率）
-2. 通过 COM24 以 ≥ 921600 bps 持续高速注入 4000+ 字节，超过 RX 缓冲区
-3. 观察是否有 RECV 事件携带 BufferOverflow 标志
+1. UART_OPEN(被动上报) + UART_CONFIG(128000, 8N1)（使用非标准高速率�?2. 通过 COM3 �?�?921600 bps 持续高速注�?4000+ 字节，超�?RX 缓冲�?3. 观察是否�?RECV 事件携带 BufferOverflow 标志
 
-**预期**: 注入速率超过 RX 任务排水速率时，通过 COM35 收到 RECV 事件，RxFlags Bit0 (BufferOverflow) = 1
+**预期**: 注入速率超过 RX 任务排水速率时，通过 COM4 收到 RECV 事件，RxFlags Bit0 (BufferOverflow) = 1
 
-**注意**: 此用例依赖硬件注入速率 > 固件排水速率，可能无法在低速 PC 串口上触发
-
+**注意**: 此用例依赖硬件注入速率 > 固件排水速率，可能无法在低�?PC 串口上触�?
 ---
 
 ## STATUS 深度查询
 
-### UART-44: UART_STATUS — 发送数据后查询
+### UART-44: UART_STATUS �?发送数据后查询
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA6` |
 
 **测试步骤**:
 1. UART_OPEN(被动上报) + UART_CONFIG(115200, 8N1)
-2. 先查询 STATUS (基线: TxCount=0)
+2. 先查�?STATUS (基线: TxCount=0)
 3. UART_SEND 100 字节数据
-4. 再查询 STATUS
+4. 再查�?STATUS
 
-**预期** (第 2 次 STATUS):
-| 偏移 | 字段 | 预期值 |
+**预期** (�?2 �?STATUS):
+| 偏移 | 字段 | 预期�?|
 |:---|:---|:---|
-| 10-13 | TxCount | `>= 100` (与 SEND 的 ActualLen 一致) |
+| 10-13 | TxCount | `>= 100` (�?SEND �?ActualLen 一�? |
 
 ---
 
-### UART-45: UART_STATUS — 接收数据后查询
-
-| 项目 | 值 |
+### UART-45: UART_STATUS �?接收数据后查�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA6` |
 
 **测试步骤**:
 1. UART_OPEN(被动上报) + UART_CONFIG(115200, 8N1)
-2. 先查询 STATUS (基线: RxCount=0)
-3. 通过 COM24 注入 50 字节数据
-4. 等待收到 RECV 事件后查询 STATUS
+2. 先查�?STATUS (基线: RxCount=0)
+3. 通过 COM3 注入 50 字节数据
+4. 等待收到 RECV 事件后查�?STATUS
 
-**预期** (第 2 次 STATUS):
-| 偏移 | 字段 | 预期值 |
+**预期** (�?2 �?STATUS):
+| 偏移 | 字段 | 预期�?|
 |:---|:---|:---|
-| 14-17 | RxCount | `>= 50` (与注入字节数一致) |
+| 14-17 | RxCount | `>= 50` (与注入字节数一�? |
 
 ---
 
-### UART-46: UART_STATUS — 错误累积计数
+### UART-46: UART_STATUS �?错误累积计数
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA6` |
 
 **测试步骤**:
 1. UART_OPEN(被动上报) + UART_CONFIG(115200, 7E1)
-2. 通过 COM24 以 115200/8N1 注入多组数据（每组 4 字节），触发 ParityError
+2. 通过 COM3 �?115200/8N1 注入多组数据（每�?4 字节），触发 ParityError
 3. 查询 STATUS
 
 **预期**:
-| 偏移 | 字段 | 预期值 |
+| 偏移 | 字段 | 预期�?|
 |:---|:---|:---|
-| 18 | ErrorCount | `> 0` (累积校验错误 + 帧错误) |
+| 18 | ErrorCount | `> 0` (累积校验错误 + 帧错�? |
 
 ---
 
-## 边界与参数覆盖
+## 边界与参数覆�?
+### UART-47: UART_SEND �?大数据量
 
-### UART-47: UART_SEND — 大数据量
-
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA3` |
 
@@ -818,13 +769,13 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 **预期响应**: Status=`0x00`, ActualLen=`0x0200`
 
-**验证 (COM24)**: 监听到 512 字节完整数据输出
+**验证 (COM3)**: 监听�?512 字节完整数据输出
 
 ---
 
-### UART-48: UART_CONFIG — 极限波特率 1200
+### UART-48: UART_CONFIG �?极限波特�?1200
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 | **PayloadLen** | `0x000B` |
@@ -832,7 +783,7 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 **前置**: UART 通道已打开
 
 **请求载荷**:
-| 偏移 | 字段 | 值 |
+| 偏移 | 字段 | �?|
 |:---|:---|:---|
 | 0-3 | BaudRate | `0x000004B0` (1200) |
 | 4 | DataBits | `0x08` |
@@ -846,42 +797,37 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 ---
 
-### UART-49: UART_CONFIG — 定长模式修改阈值触发任务重启
-
-| 项目 | 值 |
+### UART-49: UART_CONFIG �?定长模式修改阈值触发任务重�?
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 
 **测试步骤**:
 1. UART_OPEN(定长模式, RxMode=`0x02`) + UART_CONFIG(115200, 8N1, RxThreshold=`0x0004`)
-2. 通过 COM24 发送 3 字节（未达到阈值 4，数据暂存不报）
-3. SEND_CONFIG(RxThreshold=`0x0008`) 增大阈值
-4. 再通过 COM24 发送 5 字节（累积 3+5=8，达到新阈值）
-5. 验证收到 8 字节定长块
-
-**预期**: 阈值修改后 RX 任务重启，新阈值生效，收到完整 8 字节数据块
-
+2. 通过 COM3 发�?3 字节（未达到阈�?4，数据暂存不报）
+3. SEND_CONFIG(RxThreshold=`0x0008`) 增大阈�?4. 再通过 COM3 发�?5 字节（累�?3+5=8，达到新阈值）
+5. 验证收到 8 字节定长�?
+**预期**: 阈值修改后 RX 任务重启，新阈值生效，收到完整 8 字节数据�?
 ---
 
-### UART-50: UART_CONFIG — 超时模式修改超时触发任务重启
+### UART-50: UART_CONFIG �?超时模式修改超时触发任务重启
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 
 **测试步骤**:
 1. UART_OPEN(超时模式, RxMode=`0x03`) + UART_CONFIG(115200, 8N1, RxTimeout=`0x32`=50ms)
-2. 通过 COM24 发送 2 字节，等待 30ms（短于 50ms 超时，未触发上报）
-3. SEND_CONFIG(RxTimeout=`0x0A`=10ms) 缩短超时
+2. 通过 COM3 发�?2 字节，等�?30ms（短�?50ms 超时，未触发上报�?3. SEND_CONFIG(RxTimeout=`0x0A`=10ms) 缩短超时
 4. 等待 > 10ms
 
-**预期**: 超时修改后 RX 任务重启，新超时生效，10ms 后收到之前累积的 2 字节上报
+**预期**: 超时修改�?RX 任务重启，新超时生效�?0ms 后收到之前累积的 2 字节上报
 
 ---
 
-### UART-51: UART_CONFIG — 5 位数据位
+### UART-51: UART_CONFIG �?5 位数据位
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 | **PayloadLen** | `0x000B` |
@@ -894,9 +840,9 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 ---
 
-### UART-52: UART_CONFIG — 2 位停止位
+### UART-52: UART_CONFIG �?2 位停止位
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA2` |
 | **PayloadLen** | `0x000B` |
@@ -909,9 +855,9 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 ---
 
-### UART-53: UART_SET_BREAK — 长时间 Break
+### UART-53: UART_SET_BREAK �?长时�?Break
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
 | **CmdCode** | `0xA5` |
 | **PayloadLen** | `0x0002` |
@@ -922,34 +868,33 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 
 **预期响应**: Status=`0x00`
 
-**验证 (COM24)**: TXD 线被拉低约 1000ms
+**验证 (COM3)**: TXD 线被拉低�?1000ms
 
 ---
 
 ## 整合场景
 
-### UART-54: CLOSE → 重新 OPEN (不同 RxMode)
+### UART-54: CLOSE �?重新 OPEN (不同 RxMode)
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
-| **涉及的 CmdCode** | `0xA0`, `0xA1` |
+| **涉及�?CmdCode** | `0xA0`, `0xA1` |
 
 **测试步骤**:
-1. UART_OPEN(行模式, RxMode=`0x01`) + UART_CONFIG(115200, 8N1)
+1. UART_OPEN(行模�? RxMode=`0x01`) + UART_CONFIG(115200, 8N1)
 2. UART_CLOSE
 3. UART_OPEN(定长模式, RxMode=`0x02`) + UART_CONFIG(115200, 8N1, RxThreshold=`0x0004`)
-4. 通过 COM24 发送 8 字节
-5. 验证按定长模式分块上报（收到 2 条 4 字节事件）
-
+4. 通过 COM3 发�?8 字节
+5. 验证按定长模式分块上报（收到 2 �?4 字节事件�?
 **预期**: 关闭后通道状态完全重置，新打开的通道按新 RxMode 工作
 
 ---
 
-### UART-55: CONFIG 后立即 SEND (参数 mangle)
+### UART-55: CONFIG 后立�?SEND (参数 mangle)
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
-| **涉及的 CmdCode** | `0xA2`, `0xA3` |
+| **涉及�?CmdCode** | `0xA2`, `0xA3` |
 
 **测试步骤**:
 1. UART_OPEN(被动上报) + UART_CONFIG(115200, 8N1)
@@ -957,62 +902,60 @@ PC(COM35) ── MCP ──→ HEX-Bridge ── UART2 ──→ 外部设备 �
 3. UART_CONFIG(921600, 8N1)
 4. UART_SEND("World")
 
-**预期**: 两次 SEND 均返回 Status=`0x00`，配置变更即时生效
-
-**验证 (COM24)**: 第一次在 115200 bps 收到 "Hello"，第二次在 921600 bps 收到 "World"
+**预期**: 两次 SEND 均返�?Status=`0x00`，配置变更即时生�?
+**验证 (COM3)**: 第一次在 115200 bps 收到 "Hello"，第二次�?921600 bps 收到 "World"
 
 ---
 
-### UART-56: 并发 SEND + RECV (全双工)
+### UART-56: 并发 SEND + RECV (全双�?
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
-| **涉及的 CmdCode** | `0xA3`, `0xA4` |
+| **涉及�?CmdCode** | `0xA3`, `0xA4` |
 
 **测试步骤**:
 1. UART_OPEN(被动上报) + UART_CONFIG(115200, 8N1)
-2. 同时执行两个操作（在测试脚本中 close-interleave）:
+2. 同时执行两个操作（在测试脚本�?close-interleave�?
    - UART_SEND 100 字节数据
-   - 通过 COM24 注入 50 字节数据
+   - 通过 COM3 注入 50 字节数据
 3. 等待所有响应和事件
 
 **预期**:
 - SEND 返回 Status=`0x00`, ActualLen=100
-- 收到 RECV 事件包含 50 字节 COM24 注入数据
+- 收到 RECV 事件包含 50 字节 COM3 注入数据
 - 两个方向数据独立、无串扰
 
 ---
 
 ### UART-57: 完整生命周期 (集成)
 
-| 项目 | 值 |
+| 项目 | �?|
 |:---|:---|
-| **涉及的 CmdCode** | `0xA0` → `0xA2` → `0xA3` → `0xA6` → `0xA7` → `0xA1` |
+| **涉及�?CmdCode** | `0xA0` �?`0xA2` �?`0xA3` �?`0xA6` �?`0xA7` �?`0xA1` |
 
 **测试步骤**:
-1. **OPEN**: UART_OPEN(行模式, RxMode=`0x01`) → Status=`0x00`
-2. **CONFIG**: UART_CONFIG(115200, 8N1, RxThreshold=0, RxTimeout=20ms) → Status=`0x00`
-3. **STATUS**: UART_STATUS → Status=`0x00`, BaudRate=115200, TxIdle=1
-4. **SEND**: UART_SEND("PING\r\n") → Status=`0x00`, ActualLen=6
-5. **STATUS**: UART_STATUS → Status=`0x00`, TxCount >= 6
-6. **FLUSH**: UART_FLUSH(ALL) → Status=`0x00`
-7. **CLOSE**: UART_CLOSE → Status=`0x00`
-8. **STATUS**: UART_STATUS → Status=`0x05` (ERR_NOT_OPEN)
+1. **OPEN**: UART_OPEN(行模�? RxMode=`0x01`) �?Status=`0x00`
+2. **CONFIG**: UART_CONFIG(115200, 8N1, RxThreshold=0, RxTimeout=20ms) �?Status=`0x00`
+3. **STATUS**: UART_STATUS �?Status=`0x00`, BaudRate=115200, TxIdle=1
+4. **SEND**: UART_SEND("PING\r\n") �?Status=`0x00`, ActualLen=6
+5. **STATUS**: UART_STATUS �?Status=`0x00`, TxCount >= 6
+6. **FLUSH**: UART_FLUSH(ALL) �?Status=`0x00`
+7. **CLOSE**: UART_CLOSE �?Status=`0x00`
+8. **STATUS**: UART_STATUS �?Status=`0x05` (ERR_NOT_OPEN)
 
-**预期**: 全部 8 步依次成功，无异常
-
+**预期**: 全部 8 步依次成功，无异�?
 ---
 
 ## 补充用例索引
 
 | 分组 | 用例编号 | 数量 | 说明 |
 |:---|:---|:---|:---|
-| 请求层错误路径 | UART-31 ~ UART-36 | 6 | 未打开时的 SEND/BREAK/FLUSH, 载荷过短 |
-| FLUSH 子类型 | UART-37 ~ UART-39 | 3 | TX, ALL, DRAIN |
+| 请求层错误路�?| UART-31 ~ UART-36 | 6 | 未打开时的 SEND/BREAK/FLUSH, 载荷过短 |
+| FLUSH 子类�?| UART-37 ~ UART-39 | 3 | TX, ALL, DRAIN |
 | RxFlags 错误标志 | UART-40 ~ UART-43 | 4 | BreakDetect, ParityError, FrameError, BufferOverflow |
 | STATUS 深度查询 | UART-44 ~ UART-46 | 3 | TxCount, RxCount, ErrorCount |
-| 边界与参数 | UART-47 ~ UART-53 | 7 | 大数据, 1200bps, 任务重启, 5N1, 2-stop, 长时间Break |
-| 整合场景 | UART-54 ~ UART-57 | 4 | 重开, mangle, 全双工, 完整生命周期 |
+| 边界与参�?| UART-47 ~ UART-53 | 7 | 大数�? 1200bps, 任务重启, 5N1, 2-stop, 长时间Break |
+| 整合场景 | UART-54 ~ UART-57 | 4 | 重开, mangle, 全双�? 完整生命周期 |
 | **合计** | | **27** | |
 
-> 补充用例总数: **27**。加上现有 30 个用例，UART 模块测试用例总数: **57**。
+> 补充用例总数: **27**。加上现�?30 个用例，UART 模块测试用例总数: **57**�?

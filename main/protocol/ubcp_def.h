@@ -112,6 +112,7 @@
 #define UBCP_CFGKEY_UART_CHANNEL_COUNT      0x10    /**< UartChannelCount, u8, 只读, 默认 1 */
 #define UBCP_CFGKEY_CAN_CHANNEL_COUNT       0x11    /**< CanChannelCount, u8, 只读, 默认 2 */
 #define UBCP_CFGKEY_MCP_BAUD_RATE          0x12    /**< McpBaudRate, u32, 可读写, 默认 921600 */
+#define UBCP_CFGKEY_CAN_ERROR_THROTTLE_MS  0x04    /**< CanErrorThrottleMs, u16, 可读写, 默认 500ms */
 
 #define UBCP_CFGKEY_READONLY_MASK           0x10    /**< ConfigKey >= 0x10 为只读 */
 
@@ -126,6 +127,11 @@
 #define UBCP_CMD_CAN_RECV           0x14
 #define UBCP_CMD_CAN_FILTER         0x15
 #define UBCP_CMD_CAN_STATUS         0x16
+#define UBCP_CMD_CAN_BUS_EVENT      0x17
+#define UBCP_CMD_CAN_ERROR_EVENT    0x18
+#define UBCP_CMD_CAN_SLEEP          0x19
+#define UBCP_CMD_CAN_WAKEUP         0x1A
+#define UBCP_CMD_CAN_FILTER_BATCH   0x1B
 
 /* ========================================================================
  * 命令码定义 — SPI (0x20-0x2F)
@@ -303,7 +309,7 @@
 #define UBCP_ERR_SEQ_MISMATCH       0x0E
 #define UBCP_ERR_VERSION            0x0F
 #define UBCP_ERR_TYPE_MISMATCH      0x16
-#define UBCP_ERR_HAL_FAIL           0x17
+#define UBCP_ERR_HAL_FAIL           0x17    /**< 注意：与 UBCP_CMD_CAN_BUS_EVENT(0x17) 同值不同字段，非冲突 */
 
 /* ========================================================================
  * UART 错误码 (0xA0-0xAF)
@@ -314,6 +320,18 @@
 #define UBCP_ERR_UART_OVERFLOW      0xA2
 #define UBCP_ERR_UART_BAUD          0xA3
 #define UBCP_ERR_UART_BREAK         0xA4
+
+/* ========================================================================
+ * CAN 错误码 (0x10-0x1F)
+ * ======================================================================== */
+
+#define UBCP_ERR_CAN_BUS_OFF        0x10
+#define UBCP_ERR_CAN_BUS_PASSIVE    0x11
+#define UBCP_ERR_CAN_TX_QUEUE_FULL  0x12
+#define UBCP_ERR_CAN_RX_OVERFLOW    0x13
+#define UBCP_ERR_CAN_TX_TIMEOUT     0x14
+#define UBCP_ERR_CAN_FILTER_FULL    0x15
+#define UBCP_ERR_CAN_BAUD_UNSUPPORT 0x16
 
 /* ========================================================================
  * 网络错误码 (0x40-0x4F)

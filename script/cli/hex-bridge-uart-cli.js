@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 /**
- * hex-bridge-uart-cli.js — HEX-Bridge UART 扩展口 CLI 工具
+ * hex-bridge-uart-cli.js �?HEX-Bridge UART 扩展�?CLI 工具
  *
- * 通过 MCP 通信口 (UART1, 默认 COM35 @ 921600 bps) 发送 UBCP v2.0 协议命令，
- * 控制 ESP32 上的 UART2 扩展口 (GPIO32/GPIO35)，实现远程串口收发。
- *
+ * 通过 MCP 通信�?(UART1, 默认 COM4 @ 921600 bps) 发�?UBCP v2.0 协议命令�? * 控制 ESP32 上的 UART2 扩展�?(GPIO32/GPIO35)，实现远程串口收发�? *
  * ============================================================================
  * 使用示例 (Usage Examples)
  * ============================================================================
@@ -13,64 +11,52 @@
  *    npm install serialport
  *
  * # 2. 打开 UART 通道 (被动上报模式)
- *    node hex-bridge-uart-cli.js --port COM35 open --rxmode passive
+ *    node hex-bridge-uart-cli.js --port COM4 open --rxmode passive
  *
- * # 3. 配置扩展口波特率为 115200 8N1
- *    node hex-bridge-uart-cli.js --port COM35 config --baud 115200
+ * # 3. 配置扩展口波特率�?115200 8N1
+ *    node hex-bridge-uart-cli.js --port COM4 config --baud 115200
  *
- * # 4. 发送 hex 数据
- *    node hex-bridge-uart-cli.js --port COM35 send --hex "48 65 6C 6C 6F"
+ * # 4. 发�?hex 数据
+ *    node hex-bridge-uart-cli.js --port COM4 send --hex "48 65 6C 6C 6F"
  *
  * # 5. 发送字符串
- *    node hex-bridge-uart-cli.js --port COM35 send --text "Hello World\r\n"
+ *    node hex-bridge-uart-cli.js --port COM4 send --text "Hello World\r\n"
  *
- * # 6. 持续接收数据 (默认 10 秒)
- *    node hex-bridge-uart-cli.js --port COM35 recv --timeout 10
+ * # 6. 持续接收数据 (默认 10 �?
+ *    node hex-bridge-uart-cli.js --port COM4 recv --timeout 10
  *
- * # 7. 查看 UART 状态
- *    node hex-bridge-uart-cli.js --port COM35 status
+ * # 7. 查看 UART 状�? *    node hex-bridge-uart-cli.js --port COM4 status
  *
- * # 8. 发送 Break 信号 100ms
- *    node hex-bridge-uart-cli.js --port COM35 break --duration 100
+ * # 8. 发�?Break 信号 100ms
+ *    node hex-bridge-uart-cli.js --port COM4 break --duration 100
  *
- * # 9. 清空 RX 缓冲区
- *    node hex-bridge-uart-cli.js --port COM35 flush --type rx
+ * # 9. 清空 RX 缓冲�? *    node hex-bridge-uart-cli.js --port COM4 flush --type rx
  *
  * # 10. 发送数据后等待回显
- *     node hex-bridge-uart-cli.js --port COM35 sendrecv --text "AT\r\n" --timeout 3
+ *     node hex-bridge-uart-cli.js --port COM4 sendrecv --text "AT\r\n" --timeout 3
  *
- * # 11. 一键完整流程 (打开→配置→收发→关闭)
- *     node hex-bridge-uart-cli.js --port COM35 quick --text "ping\r\n" --timeout 3
+ * # 11. 一键完整流�?(打开→配置→收发→关�?
+ *     node hex-bridge-uart-cli.js --port COM4 quick --text "ping\r\n" --timeout 3
  *
- * # 12. 使用自定义 channel 和序列号起始值
- *     node hex-bridge-uart-cli.js --port COM35 --channel 1 --seq 100 open --rxmode line
+ * # 12. 使用自定�?channel 和序列号起始�? *     node hex-bridge-uart-cli.js --port COM4 --channel 1 --seq 100 open --rxmode line
  *
  * # 13. 交互模式
- *     node hex-bridge-uart-cli.js --port COM35 interactive
+ *     node hex-bridge-uart-cli.js --port COM4 interactive
  *
  * ============================================================================
  * 硬件连接说明
  * ============================================================================
  *
- *   上位机                    ESP32 HEX-Bridge
- *   ┌──────┐                  ┌──────────────┐
- *   │ COM35├──────────────────┤UART1(MCP通信) │  GPIO4(TX), GPIO34(RX)
- *   │      │   921600 8N1     │              │
- *   │      │                  │  UART2(扩展口) │  GPIO32(TX), GPIO35(RX)
- *   │      │                  └──────┬───────┘
- *   └──────┘                         │
- *                              ┌─────┴─────┐
- *                              │  目标设备   │
- *                              └───────────┘
- *
+ *   上位�?                   ESP32 HEX-Bridge
+ *   ┌──────�?                 ┌──────────────�? *   �?COM4├──────────────────┤UART1(MCP通信) �? GPIO4(TX), GPIO34(RX)
+ *   �?     �?  921600 8N1     �?             �? *   �?     �?                 �? UART2(扩展�? �? GPIO32(TX), GPIO35(RX)
+ *   �?     �?                 └──────┬───────�? *   └──────�?                        �? *                              ┌─────┴─────�? *                              �? 目标设备   �? *                              └───────────�? *
  * ============================================================================
  * RxMode 说明
  * ============================================================================
  *
- *   passive (0x00) — 被动模式：收到数据立即上报
- *   line    (0x01) — 行模式：  缓冲到 \n 或 \r\n 后上报
- *   fixed   (0x02) — 定长模式：累积到指定字节数后上报 (需配合 --threshold)
- *   timeout (0x03) — 超时模式：首字节后空闲超时即上报 (需配合 --rx-timeout)
+ *   passive (0x00) �?被动模式：收到数据立即上�? *   line    (0x01) �?行模式：  缓冲�?\n �?\r\n 后上�? *   fixed   (0x02) �?定长模式：累积到指定字节数后上报 (需配合 --threshold)
+ *   timeout (0x03) �?超时模式：首字节后空闲超时即上报 (需配合 --rx-timeout)
  */
 
 'use strict';
@@ -372,7 +358,7 @@ class HexBridgeTransport {
   close() {
     if (this.serial && this.serial.isOpen) {
       this.serial.close();
-      console.error(`[INFO] 已关闭 ${this.port}`);
+      console.error(`[INFO] 已关�?${this.port}`);
     }
     if (this._pending) {
       clearTimeout(this._pending._timer);
@@ -431,7 +417,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 async function cmdPing(transport, seq, channel) {
   transport.sendReq(seq, CMD_PING, channel, Buffer.alloc(0));
   const resp = await transport.recvFrame(2000);
-  if (!resp) throw new Error('PING 超时无响应');
+  if (!resp) throw new Error('PING 超时无响�?);
   if (!resp.isResponse) throw new Error('PING 响应方向错误');
   return resp;
 }
@@ -439,7 +425,7 @@ async function cmdPing(transport, seq, channel) {
 async function cmdGetInfo(transport, seq, channel) {
   transport.sendReq(seq, CMD_GET_INFO, channel, Buffer.alloc(0));
   const resp = await transport.recvFrame(2000);
-  if (!resp) throw new Error('GET_INFO 超时无响应');
+  if (!resp) throw new Error('GET_INFO 超时无响�?);
   if (!resp.isResponse) throw new Error('GET_INFO 响应方向错误');
   return resp;
 }
@@ -447,7 +433,7 @@ async function cmdGetInfo(transport, seq, channel) {
 async function cmdUartOpen(transport, seq, channel, rxMode) {
   transport.sendReq(seq, CMD_UART_OPEN, channel, Buffer.from([rxMode]));
   const resp = await transport.recvFrame(2000);
-  if (!resp) throw new Error('UART_OPEN 超时无响应');
+  if (!resp) throw new Error('UART_OPEN 超时无响�?);
   if (!resp.isResponse) throw new Error('UART_OPEN 响应方向错误');
   return resp;
 }
@@ -455,7 +441,7 @@ async function cmdUartOpen(transport, seq, channel, rxMode) {
 async function cmdUartClose(transport, seq, channel) {
   transport.sendReq(seq, CMD_UART_CLOSE, channel, Buffer.alloc(0));
   const resp = await transport.recvFrame(2000);
-  if (!resp) throw new Error('UART_CLOSE 超时无响应');
+  if (!resp) throw new Error('UART_CLOSE 超时无响�?);
   if (!resp.isResponse) throw new Error('UART_CLOSE 响应方向错误');
   return resp;
 }
@@ -471,7 +457,7 @@ async function cmdUartConfig(transport, seq, channel, opts) {
   payload[10] = opts.rxTimeout;
   transport.sendReq(seq, CMD_UART_CONFIG, channel, payload);
   const resp = await transport.recvFrame(2000);
-  if (!resp) throw new Error('UART_CONFIG 超时无响应');
+  if (!resp) throw new Error('UART_CONFIG 超时无响�?);
   if (!resp.isResponse) throw new Error('UART_CONFIG 响应方向错误');
   return resp;
 }
@@ -482,21 +468,21 @@ async function cmdUartSend(transport, seq, channel, data) {
   data.copy(payload, 2);
   transport.sendReq(seq, CMD_UART_SEND, channel, payload);
   const resp = await transport.recvFrame(2000);
-  if (!resp) throw new Error('UART_SEND 超时无响应');
+  if (!resp) throw new Error('UART_SEND 超时无响�?);
   if (!resp.isResponse) throw new Error('UART_SEND 响应方向错误');
   return resp;
 }
 
 async function cmdUartRecv(transport, seq, channel, timeoutMs) {
   const frame = await transport.recvEvent(CMD_UART_RECV, timeoutMs);
-  if (!frame) throw new Error('UART_RECV 超时未收到数据');
+  if (!frame) throw new Error('UART_RECV 超时未收到数�?);
   return frame;
 }
 
 async function cmdUartStatus(transport, seq, channel) {
   transport.sendReq(seq, CMD_UART_STATUS, channel, Buffer.alloc(0));
   const resp = await transport.recvFrame(2000);
-  if (!resp) throw new Error('UART_STATUS 超时无响应');
+  if (!resp) throw new Error('UART_STATUS 超时无响�?);
   if (!resp.isResponse) throw new Error('UART_STATUS 响应方向错误');
   return resp;
 }
@@ -506,7 +492,7 @@ async function cmdUartBreak(transport, seq, channel, durationMs) {
   payload.writeUInt16BE(durationMs, 0);
   transport.sendReq(seq, CMD_UART_BREAK, channel, payload);
   const resp = await transport.recvFrame(2000);
-  if (!resp) throw new Error('UART_BREAK 超时无响应');
+  if (!resp) throw new Error('UART_BREAK 超时无响�?);
   if (!resp.isResponse) throw new Error('UART_BREAK 响应方向错误');
   return resp;
 }
@@ -514,7 +500,7 @@ async function cmdUartBreak(transport, seq, channel, durationMs) {
 async function cmdUartFlush(transport, seq, channel, flushType) {
   transport.sendReq(seq, CMD_UART_FLUSH, channel, Buffer.from([flushType]));
   const resp = await transport.recvFrame(2000);
-  if (!resp) throw new Error('UART_FLUSH 超时无响应');
+  if (!resp) throw new Error('UART_FLUSH 超时无响�?);
   if (!resp.isResponse) throw new Error('UART_FLUSH 响应方向错误');
   return resp;
 }
@@ -613,13 +599,13 @@ function parseUartRecv(frame) {
 }
 
 /* ========================================================================
- * CLI 参数解析 (简单 argv 解析，无外部依赖)
+ * CLI 参数解析 (简�?argv 解析，无外部依赖)
  * ======================================================================== */
 
 function parseArgs(argv) {
   const args = argv.slice(2);
   const result = {
-    port: 'COM35',
+    port: 'COM4',
     mcpBaud: 921600,
     channel: 0,
     seqStart: 1,
@@ -725,7 +711,7 @@ function parseFlushType(s) {
 
 function parseHex(hexStr) {
   const cleaned = hexStr.replace(/[\s,;:]/g, '');
-  if (cleaned.length % 2 !== 0) throw new Error(`hex 字符串长度需为偶数: "${hexStr}"`);
+  if (cleaned.length % 2 !== 0) throw new Error(`hex 字符串长度需为偶�? "${hexStr}"`);
   return Buffer.from(cleaned, 'hex');
 }
 
@@ -747,53 +733,44 @@ function bufferToPrintable(buf) {
 
 function printHelp() {
   console.log(`
-hex-bridge-uart-cli.js — HEX-Bridge UART 扩展口 CLI 工具
+hex-bridge-uart-cli.js �?HEX-Bridge UART 扩展�?CLI 工具
 
 用法:
   node hex-bridge-uart-cli.js [全局选项] <命令> [命令选项]
 
 全局选项:
-  --port <COM>          MCP 通信串口 (默认: COM35)
-  --mcp-baud <baud>     MCP 波特率 (默认: 921600)
-  --channel <n>         通道号 (默认: 0)
-  --seq <n>             起始序列号 (默认: 1)
+  --port <COM>          MCP 通信串口 (默认: COM4)
+  --mcp-baud <baud>     MCP 波特�?(默认: 921600)
+  --channel <n>         通道�?(默认: 0)
+  --seq <n>             起始序列�?(默认: 1)
   --ext-baud <baud>     扩展口默认波特率 (默认: 115200)
-  --data-bits <5|6|7|8> 数据位 (默认: 8)
-  --stop-bits <1|1.5|2> 停止位 (默认: 1)
-  --parity <none|odd|even> 校验位 (默认: none)
+  --data-bits <5|6|7|8> 数据�?(默认: 8)
+  --stop-bits <1|1.5|2> 停止�?(默认: 1)
+  --parity <none|odd|even> 校验�?(默认: none)
   --rxmode <mode>       接收模式 (默认: passive)
-                        可选: passive line fixed timeout
-  --threshold <n>       定长模式阈值 (默认: 0)
+                        可�? passive line fixed timeout
+  --threshold <n>       定长模式阈�?(默认: 0)
   --rx-timeout <n>      超时模式超时 ms (默认: 50)
   -h, --help            显示帮助
 
 命令:
-  ping                  测试设备连通性
-  info                  获取设备信息
+  ping                  测试设备连通�?  info                  获取设备信息
   open                  打开 UART 通道
     --rxmode <mode>     接收模式, 覆盖全局设置
-    --threshold <n>     定长阈值
-    --rx-timeout <ms>   超时时间
+    --threshold <n>     定长阈�?    --rx-timeout <ms>   超时时间
   close                 关闭 UART 通道
   config                配置 UART 参数
-    --baud <baud>       波特率
-    --data-bits <n>     数据位
-    --stop-bits <n>     停止位
-    --parity <mode>     校验位
-  send                  发送数据
-    --hex <hex>         hex 数据 (如 "48 65 6C 6C 6F")
+    --baud <baud>       波特�?    --data-bits <n>     数据�?    --stop-bits <n>     停止�?    --parity <mode>     校验�?  send                  发送数�?    --hex <hex>         hex 数据 (�?"48 65 6C 6C 6F")
     --text <str>        文本数据
   recv                  接收数据
     --timeout <s>       超时秒数 (默认: 10)
-  status                查看 UART 状态
-  break                 发送 Break 信号
+  status                查看 UART 状�?  break                 发�?Break 信号
     --duration <ms>     持续时间 ms (默认: 10)
-  flush                 清空缓冲区
-    --type <rx|tx|all|drain> 清空类型
+  flush                 清空缓冲�?    --type <rx|tx|all|drain> 清空类型
   sendrecv              发送数据后等待回显
     --hex <hex> / --text <str>
     --timeout <s>       等待回显超时 (默认: 5)
-  quick                 一键完整流程 (打开→配置→收发→关闭)
+  quick                 一键完整流�?(打开→配置→收发→关�?
     --hex <hex> / --text <str>
     --timeout <s>       等待回显超时 (默认: 3)
   interactive           交互模式
@@ -801,8 +778,7 @@ hex-bridge-uart-cli.js — HEX-Bridge UART 扩展口 CLI 工具
 }
 
 /* ========================================================================
- * 主流程
- * ======================================================================== */
+ * 主流�? * ======================================================================== */
 
 async function main() {
   const opts = parseArgs(process.argv);
@@ -845,7 +821,7 @@ async function main() {
         console.log(`  型号:       ${model}`);
         console.log(`  固件版本:   ${fwVer}`);
         console.log(`  协议版本:   0x${protoVer.toString(16).padStart(2, '0')}`);
-        console.log(`  最大载荷:   ${maxPayload} bytes`);
+        console.log(`  最大载�?   ${maxPayload} bytes`);
         console.log(`  能力:       ${capsStr.join(', ')} (0x${caps.toString(16).padStart(8, '0').toUpperCase()})`);
         console.log(`  MCP 串口:   ${opts.port} @ ${opts.mcpBaud}`);
         break;
@@ -870,7 +846,7 @@ async function main() {
       case 'close': {
         const resp = await cmdUartClose(transport, nextSeq(), opts.channel);
         const status = checkStatus(resp);
-        console.log('UART_CLOSE 通道已关闭');
+        console.log('UART_CLOSE 通道已关�?);
         process.exit(status === ERR_SUCCESS ? 0 : 1);
       }
 
@@ -906,7 +882,7 @@ async function main() {
         } else if (opts.cmdArgs.textData) {
           data = Buffer.from(opts.cmdArgs.textData, 'utf8');
         } else {
-          console.error('错误: send 需要 --hex 或 --text 参数');
+          console.error('错误: send 需�?--hex �?--text 参数');
           process.exit(1);
         }
 
@@ -914,9 +890,9 @@ async function main() {
         const info = parseUartSend(resp);
         const name = ERROR_NAMES[info.status] || `0x${info.status.toString(16)}`;
         const actualLen = (info.status === ERR_SUCCESS) ? info.actualLen : data.length;
-        console.log(`UART_SEND 发送=${info.actualLen !== undefined ? `${info.actualLen}/${data.length}B` : `${data.length}B`} hex=${data.toString('hex').toUpperCase()}`);
+        console.log(`UART_SEND 发�?${info.actualLen !== undefined ? `${info.actualLen}/${data.length}B` : `${data.length}B`} hex=${data.toString('hex').toUpperCase()}`);
         if (data.length <= 256) {
-          console.log(`  可打印: ${bufferToPrintable(data)}`);
+          console.log(`  可打�? ${bufferToPrintable(data)}`);
         }
         console.log(`  status=${info.status} (${name})`);
         process.exit(info.status === ERR_SUCCESS ? 0 : 1);
@@ -939,7 +915,7 @@ async function main() {
 
         console.log(`UART_RECV 长度=${info.dataLen}${flagsStr}`);
         console.log(`  HEX: ${info.data.toString('hex').toUpperCase()}`);
-        console.log(`  可打印: ${bufferToPrintable(info.data)}`);
+        console.log(`  可打�? ${bufferToPrintable(info.data)}`);
         break;
       }
 
@@ -948,15 +924,15 @@ async function main() {
         const resp = await cmdUartStatus(transport, nextSeq(), opts.channel);
         const s = parseUartStatus(resp);
         const name = ERROR_NAMES[s.status] || `0x${s.status.toString(16)}`;
-        console.log('=== UART 状态 ===');
+        console.log('=== UART 状�?===');
         console.log(`  status:      ${s.status} (${name})`);
-        console.log(`  波特率:      ${s.baudRate}`);
-        console.log(`  TX 空闲:     ${s.lineState.txIdle ? '是' : '否'}`);
-        console.log(`  RX 活跃:     ${s.lineState.rxActive ? '是' : '否'}`);
+        console.log(`  波特�?      ${s.baudRate}`);
+        console.log(`  TX 空闲:     ${s.lineState.txIdle ? '�? : '�?}`);
+        console.log(`  RX 活跃:     ${s.lineState.rxActive ? '�? : '�?}`);
         console.log(`  TX buf:      ${s.txBufUsed} / —`);
         console.log(`  RX buf:      ${s.rxBufUsed} / —`);
-        console.log(`  TX 总字节:   ${s.txTotal}`);
-        console.log(`  RX 总字节:   ${s.rxTotal}`);
+        console.log(`  TX 总字�?   ${s.txTotal}`);
+        console.log(`  RX 总字�?   ${s.rxTotal}`);
         console.log(`  错误计数:    ${s.errorCount}`);
         break;
       }
@@ -988,7 +964,7 @@ async function main() {
         } else if (opts.cmdArgs.textData) {
           data = Buffer.from(opts.cmdArgs.textData, 'utf8');
         } else {
-          console.error('错误: sendrecv 需要 --hex 或 --text 参数');
+          console.error('错误: sendrecv 需�?--hex �?--text 参数');
           process.exit(1);
         }
 
@@ -1007,7 +983,7 @@ async function main() {
         const frame = await cmdUartRecv(transport, nextSeq(), opts.channel, timeout);
         const recvInfo = parseUartRecv(frame);
         console.log(`RECV ${recvInfo.dataLen}B hex=${recvInfo.data.toString('hex').toUpperCase()}`);
-        console.log(`     可打印: ${bufferToPrintable(recvInfo.data)}`);
+        console.log(`     可打�? ${bufferToPrintable(recvInfo.data)}`);
         break;
       }
 
@@ -1019,7 +995,7 @@ async function main() {
         } else if (opts.cmdArgs.textData) {
           data = Buffer.from(opts.cmdArgs.textData, 'utf8');
         } else {
-          console.error('错误: quick 需要 --hex 或 --text 参数');
+          console.error('错误: quick 需�?--hex �?--text 参数');
           process.exit(1);
         }
 
@@ -1058,16 +1034,16 @@ async function main() {
         const sendResp = await cmdUartSend(transport, nextSeq(), opts.channel, data);
         const sendInfo = parseUartSend(sendResp);
         if (sendInfo.status !== ERR_SUCCESS) {
-          console.error(`  发送失败: ${ERROR_NAMES[sendInfo.status] || sendInfo.status}`);
+          console.error(`  发送失�? ${ERROR_NAMES[sendInfo.status] || sendInfo.status}`);
           process.exit(1);
         }
-        console.log(`  3. SEND ${sendInfo.actualLen}B → ${data.toString('hex').toUpperCase()}`);
+        console.log(`  3. SEND ${sendInfo.actualLen}B �?${data.toString('hex').toUpperCase()}`);
 
         // 4. RECV
         console.log(`  4. 等待回显 (${timeout / 1000}s)...`);
         const recvFrame = await cmdUartRecv(transport, nextSeq(), opts.channel, timeout);
         const recvInfo = parseUartRecv(recvFrame);
-        console.log(`     RECV ${recvInfo.dataLen}B ← ${recvInfo.data.toString('hex').toUpperCase()}`);
+        console.log(`     RECV ${recvInfo.dataLen}B �?${recvInfo.data.toString('hex').toUpperCase()}`);
 
         // 5. STATUS
         const statusResp = await cmdUartStatus(transport, nextSeq(), opts.channel);
@@ -1113,7 +1089,7 @@ async function main() {
                 const modeNames = ['passive', 'line', 'fixed', 'timeout'];
                 const resp = await cmdUartOpen(transport, nextSeq(), opts.channel, mode);
                 const info = parseUartOpen(resp);
-                console.log(`OPEN ${modeNames[mode]} → status=${info.status} rxBuf=${info.rxBufSize} txBuf=${info.txBufSize}`);
+                console.log(`OPEN ${modeNames[mode]} �?status=${info.status} rxBuf=${info.rxBufSize} txBuf=${info.txBufSize}`);
                 break;
               }
               case 'close': {
@@ -1133,7 +1109,7 @@ async function main() {
                   rxTimeout: opts.rxTimeout,
                 });
                 const info = parseUartConfig(resp);
-                console.log(`CONFIG ${baud} → 实际=${info.actualBaud} status=${info.status}`);
+                console.log(`CONFIG ${baud} �?实际=${info.actualBaud} status=${info.status}`);
                 break;
               }
               case 'send': {
@@ -1147,7 +1123,7 @@ async function main() {
                 }
                 const resp = await cmdUartSend(transport, nextSeq(), opts.channel, data);
                 const info = parseUartSend(resp);
-                console.log(`SEND ${info.actualLen}B → ${data.toString('hex').toUpperCase()} status=${info.status}`);
+                console.log(`SEND ${info.actualLen}B �?${data.toString('hex').toUpperCase()} status=${info.status}`);
                 break;
               }
               case 'recv': {
@@ -1155,8 +1131,8 @@ async function main() {
                 console.log(`等待数据 (${timeout / 1000}s)...`);
                 const frame = await cmdUartRecv(transport, nextSeq(), opts.channel, timeout);
                 const info = parseUartRecv(frame);
-                console.log(`RECV ${info.dataLen}B ← ${info.data.toString('hex').toUpperCase()}`);
-                console.log(`     可打印: ${bufferToPrintable(info.data)}`);
+                console.log(`RECV ${info.dataLen}B �?${info.data.toString('hex').toUpperCase()}`);
+                console.log(`     可打�? ${bufferToPrintable(info.data)}`);
                 break;
               }
               case 'status': {
@@ -1168,14 +1144,14 @@ async function main() {
               case 'break': {
                 const dur = parseInt(parts[1], 10) || 0;
                 const resp = await cmdUartBreak(transport, nextSeq(), opts.channel, dur);
-                console.log(`BREAK ${dur || 10}ms → status=${resp.payload[0]}`);
+                console.log(`BREAK ${dur || 10}ms �?status=${resp.payload[0]}`);
                 break;
               }
               case 'flush': {
                 const type = parseFlushType(parts[1]);
                 const names = ['RX', 'TX', 'ALL', 'DRAIN'];
                 const resp = await cmdUartFlush(transport, nextSeq(), opts.channel, type);
-                console.log(`FLUSH ${names[type]} → status=${resp.payload[0]}`);
+                console.log(`FLUSH ${names[type]} �?status=${resp.payload[0]}`);
                 break;
               }
               case 'info': {
@@ -1203,7 +1179,7 @@ async function main() {
         });
 
         rl.on('close', () => {
-          console.log('再见。');
+          console.log('再见�?);
           transport.close();
           process.exit(0);
         });
@@ -1218,9 +1194,9 @@ async function main() {
   } catch (err) {
     console.error(`错误: ${err.message}`);
     if (err.code === 'ECONNREFUSED' || err.message.includes('serialport')) {
-      console.error('\n请确保:');
-      console.error('  1. 已安装 serialport: npm install serialport');
-      console.error('  2. 设备已连接且串口号正确');
+      console.error('\n请确�?');
+      console.error('  1. 已安�?serialport: npm install serialport');
+      console.error('  2. 设备已连接且串口号正�?);
       console.error('  3. 串口未被其他程序占用');
     }
     process.exit(1);

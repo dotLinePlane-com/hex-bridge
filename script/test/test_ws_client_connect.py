@@ -38,9 +38,9 @@ def decode_status(payload):
     return f"0x{status:02X} ({name})"
 
 def main():
-    transport = MCPTransport(port='COM35', baudrate=115200)
+    transport = MCPTransport(port='COM4', baudrate=115200)
     transport.open()
-    print("=== COM35 opened at 115200 bps ===\n")
+    print("=== COM4 opened at 115200 bps ===\n")
 
     # ── Test 1: Malformed short payload (3 bytes, < required 7) ──
     print("── Test 1: Malformed WS_CLIENT_CONNECT (3-byte payload) ──")

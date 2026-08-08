@@ -1,13 +1,13 @@
 {
   "centerViewOpen": "true",
-  "split1Mode": "发送",
+  "split1Mode": "发�?,
   "singleActiveTab": "send",
-  "activePort1": "COM34",
+  "activePort1": "COM5",
   "terminalCount": "0",
   "terminalVisualOrder": "[]",
   "terminalLayoutSnapshot": "{\"orientation\":0,\"groups\":[{\"size\":1912}]}",
   "layout": "single",
   "terminalActive": "false",
-  "activePort2": "COM34",
-  "split2Mode": "发送"
+  "activePort2": "COM5",
+  "split2Mode": "发�?
 }

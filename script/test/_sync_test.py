@@ -33,7 +33,7 @@ t.start()
 time.sleep(0.5)
 
 # Now HEX connect
-transport = MCPTransport('COM35', 115200)
+transport = MCPTransport('COM4', 115200)
 transport.open()
 transport.flush_input()
 time.sleep(0.2)

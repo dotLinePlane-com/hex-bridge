@@ -11,17 +11,17 @@ Covers:
   TCP-02   Client connect to PC server + SEND/RECV
   TCP-06   Manual Accept (decision=0)
   TCP-07   Manual Reject (decision=1)
-  TCP-15   TCP_SEND invalid handle â†’ ERR_NET_HANDLE_INVALID
-  TCP-14   TCP_CONN_STATUS invalid handle â†’ 0x43
-  TCP-18   TCP_SERVER_CLOSE invalid handle â†’ 0x43
-  UDP-06   UDP_SERVER_SEND invalid handle â†’ 0x43
-  WS-10    WS_SEND invalid handle â†’ 0x43
+  TCP-15   TCP_SEND invalid handle â†?ERR_NET_HANDLE_INVALID
+  TCP-14   TCP_CONN_STATUS invalid handle â†?0x43
+  TCP-18   TCP_SERVER_CLOSE invalid handle â†?0x43
+  UDP-06   UDP_SERVER_SEND invalid handle â†?0x43
+  WS-10    WS_SEND invalid handle â†?0x43
 
 Use case:
   This script provides the same test coverage as CLI + MCP
   Network Monitor coordinated testing, but is fully self-contained
   (no MCP NM tools needed). It creates PC-side TCP servers/clients
-  within the same process, keeping COM35 open for event capture.
+  within the same process, keeping COM4 open for event capture.
 
   Best for: CI/CD pipelines, automated regression tests, and
   environments where MCP NM tools are not available.
@@ -33,7 +33,7 @@ Use case:
         tcp-server-open --port 9190
 
   For protocol-only tests (no network peer), use:
-    python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --auto
+    python script/test/test_network.py --mcp COM4 --mcp-baud 115200 --auto
 
 Usage:
   python script/test/test_cli_network_e2e.py
@@ -83,7 +83,7 @@ seq = 1
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument('--mcp', default='COM35')
+    p.add_argument('--mcp', default='COM4')
     p.add_argument('--mcp-baud', type=int, default=115200)
     p.add_argument('--esp-ip', default='192.168.1.105', help='ESP32 IP address')
     p.add_argument('--pc-ip', default=None, help='PC IP address (auto-detect if not set)')
@@ -155,7 +155,7 @@ def get_pc_ip(target_ip):
     return ip
 
 # ============================================================================
-# Test: TCP-01 â€” Server: accept client, receive data, reply back
+# Test: TCP-01 â€?Server: accept client, receive data, reply back
 # ============================================================================
 def test_tcp_01(esp_ip):
     print('\n' + '=' * 60)
@@ -259,7 +259,7 @@ def test_tcp_01(esp_ip):
 
 
 # ============================================================================
-# Test: TCP-02 â€” ESP32 as client connects to PC server
+# Test: TCP-02 â€?ESP32 as client connects to PC server
 # ============================================================================
 def test_tcp_02(esp_ip, pc_ip):
     print('\n' + '=' * 60)
@@ -330,7 +330,7 @@ def test_tcp_02(esp_ip, pc_ip):
 
 
 # ============================================================================
-# Test: TCP-06/07 â€” Manual Accept / Reject
+# Test: TCP-06/07 â€?Manual Accept / Reject
 # ============================================================================
 def test_tcp_06_07(esp_ip):
     print('\n' + '=' * 60)
@@ -403,7 +403,7 @@ def test_tcp_06_07(esp_ip):
         f_r = send_cmd(CMD_TCP_ACCEPT, struct.pack('>HB', ch2, 0x01))
         if f_r and f_r.payload[0] == ERR_SUCCESS:
             P('TCP-07 ACCEPT(decision=1): rejected')
-            # Try to recv on PC side â€” should get 0 bytes (connection closed)
+            # Try to recv on PC side â€?should get 0 bytes (connection closed)
             try:
                 pc_sock2.settimeout(2.0)
                 data = pc_sock2.recv(1024)
@@ -423,7 +423,7 @@ def test_tcp_06_07(esp_ip):
 
 
 # ============================================================================
-# Test: TCP-15 â€” TCP_SEND with invalid handle
+# Test: TCP-15 â€?TCP_SEND with invalid handle
 # ============================================================================
 def test_tcp_15():
     print('\n' + '=' * 60)
@@ -436,7 +436,7 @@ def test_tcp_15():
 
 
 # ============================================================================
-# Test: TCP-14 â€” TCP_CONN_STATUS with 0xFFFF
+# Test: TCP-14 â€?TCP_CONN_STATUS with 0xFFFF
 # ============================================================================
 def test_tcp_14():
     print('\n' + '=' * 60)
@@ -449,7 +449,7 @@ def test_tcp_14():
 
 
 # ============================================================================
-# Test: TCP-18 â€” TCP_SERVER_CLOSE with 0x0000
+# Test: TCP-18 â€?TCP_SERVER_CLOSE with 0x0000
 # ============================================================================
 def test_tcp_18():
     print('\n' + '=' * 60)
@@ -462,7 +462,7 @@ def test_tcp_18():
 
 
 # ============================================================================
-# Test: UDP-06 â€” UDP_SERVER_SEND with invalid handle
+# Test: UDP-06 â€?UDP_SERVER_SEND with invalid handle
 # ============================================================================
 def test_udp_06():
     print('\n' + '=' * 60)
@@ -475,7 +475,7 @@ def test_udp_06():
 
 
 # ============================================================================
-# Test: WS-10 â€” WS_SEND with invalid handle
+# Test: WS-10 â€?WS_SEND with invalid handle
 # ============================================================================
 def test_ws_10():
     print('\n' + '=' * 60)

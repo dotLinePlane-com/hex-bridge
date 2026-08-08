@@ -15,8 +15,8 @@ Usage:
 Environment:
     HEX-Bridge IP: 192.168.1.105
     PC IP:         192.168.1.4
-    MCP port:      COM35, 115200 bps
-    CLI:           python script/cli/hex-bridge-network-cli.py --port COM35 --baud 115200
+    MCP port:      COM4, 115200 bps
+    CLI:           python script/cli/hex-bridge-network-cli.py --port COM4 --baud 115200
 
 NM Tool Known Issues (do NOT work around):
     - NM UDP client RX: read_network_buffer returns empty after HEX sends data
@@ -45,7 +45,7 @@ except ImportError:
 HEX_IP = "192.168.1.105"
 PC_IP = "192.168.1.4"
 CLI_BASE = [sys.executable, os.path.join("script", "cli", "hex-bridge-network-cli.py"),
-            "--port", "COM35", "--baud", "115200"]
+            "--port", "COM4", "--baud", "115200"]
 
 _passed = 0
 _failed = 0
@@ -1517,7 +1517,7 @@ def main():
     if args.auto_nm:
         print("  Mode: AUTO-NM (sockets + websocket-client)")
     if not check_device(cli):
-        print("  Device not reachable. Check COM35 connection.")
+        print("  Device not reachable. Check COM4 connection.")
         sys.exit(1)
     info("Device ping OK")
 

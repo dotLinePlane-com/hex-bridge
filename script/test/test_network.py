@@ -5,11 +5,11 @@ TCP-01 ~ TCP-35, UDP-01 ~ UDP-14, WS-01 ~ WS-21, STR-01 ~ STR-10)
 Total: 81 test cases (86 in full test document including NM-* MCP NM tests).
 
 Usage:
-    python test_network.py [--mcp COM35] [--mcp-baud 921600] [--helper-ip 192.168.1.x]
+    python test_network.py [--mcp COM4] [--mcp-baud 921600] [--helper-ip 192.168.1.x]
                           [--tcp-port 9090] [--skip-drv] [--skip-ws] [--test NET-01]
 
 Environment:
-    - COM35: MCP communication port (UBCP v2.0, 115200 bps)
+    - COM4: MCP communication port (UBCP v2.0, 115200 bps)
     - Helper PC: another PC on the same LAN running network services
 
 Helper PC setup:
@@ -208,7 +208,7 @@ def check_device_ready():
     """PING to ensure device is online."""
     f = send_cmd(0x00)
     if f is None or f.payload[0] != ERR_SUCCESS:
-        print('  Device not ready. Ensure firmware is running and COM35 is connected.')
+        print('  Device not ready. Ensure firmware is running and COM4 is connected.')
         return False
     return True
 
@@ -245,7 +245,7 @@ def get_link_status():
 # ============================================================================
 
 def test_drv_01():
-    """DRV-01: 验证 LAN8720 PHY 初始化成功, 网线插入后链路 UP"""
+    """DRV-01: 验证 LAN8720 PHY 初始化成�? 网线插入后链�?UP"""
     print('\n--- DRV-01: Physical Link UP detection ---')
     # Device should already be sending NET_LINK_EVENT on boot
     # We just check current status
@@ -266,7 +266,7 @@ def test_drv_01():
 
 
 def test_drv_02():
-    """DRV-02: 网线拔出检测"""
+    """DRV-02: 网线拔出检�?""
     print('\n--- DRV-02: Cable unplug detection ---')
     f0 = send_cmd(CMD_NET_STATUS, b'\x00', 0)
     if f0 is None or f0.payload[2 + 1] != 0x01:
@@ -311,7 +311,7 @@ def test_drv_03():
 
 
 def test_net_01():
-    """NET-01: NET_STATUS — 查询网络状态 (正常流程)"""
+    """NET-01: NET_STATUS �?查询网络状�?(正常流程)"""
     print('\n--- NET-01: Network Status Query ---')
     f = expect_status(CMD_NET_STATUS, b'\x00', 0, ERR_SUCCESS, 'NET-01')
     if f is None:
@@ -340,7 +340,7 @@ def test_net_01():
 
 
 def test_net_02():
-    """NET-02: NET_STATUS — 查询所有接口 (InterfaceIndex=0xFF)"""
+    """NET-02: NET_STATUS �?查询所有接�?(InterfaceIndex=0xFF)"""
     print('\n--- NET-02: Query all interfaces ---')
     f = expect_status(CMD_NET_STATUS, b'\xFF', 0, ERR_SUCCESS, 'NET-02')
     if f is None:
@@ -352,7 +352,7 @@ def test_net_02():
 
 
 def test_net_03():
-    """NET-03: NET_DNS — 域名解析成功"""
+    """NET-03: NET_DNS �?域名解析成功"""
     print('\n--- NET-03: DNS resolution success ---')
     hostname = b'example.com'
     payload = bytes([len(hostname)]) + hostname
@@ -368,7 +368,7 @@ def test_net_03():
 
 
 def test_net_04():
-    """NET-04: NET_DNS — 域名解析失败 (不存在的域名)"""
+    """NET-04: NET_DNS �?域名解析失败 (不存在的域名)"""
     print('\n--- NET-04: DNS resolution failure ---')
     hostname = b'nonexistent-domain-12345.invalid'
     payload = bytes([len(hostname)]) + hostname
@@ -376,7 +376,7 @@ def test_net_04():
 
 
 def test_net_05():
-    """NET-05: NET_DNS — 域名超长"""
+    """NET-05: NET_DNS �?域名超长"""
     print('\n--- NET-05: DNS hostname too long ---')
     hostname = b'A' * 254
     payload = bytes([len(hostname)]) + hostname
@@ -384,7 +384,7 @@ def test_net_05():
 
 
 def test_net_06():
-    """NET-06: NET_CONFIG — 设置静态 IP"""
+    """NET-06: NET_CONFIG �?设置静�?IP"""
     print('\n--- NET-06: Configure static IP ---')
     # We need a safe test IP - use 192.168.1.200 as example
     # Actual IP should be provided by user or defaulted
@@ -413,7 +413,7 @@ def test_net_06():
 
 
 def test_net_07():
-    """NET-07: NET_CONFIG — 恢复 DHCP 模式"""
+    """NET-07: NET_CONFIG �?恢复 DHCP 模式"""
     print('\n--- NET-07: Switch to DHCP ---')
     expect_status(CMD_NET_CONFIG, b'\x00\x00', 0, ERR_SUCCESS, 'NET-07 DHCP', timeout=5.0)
     # Wait for DHCP
@@ -426,19 +426,19 @@ def test_net_07():
 
 
 def test_net_08():
-    """NET-08: NET_CONFIG — 无效 InterfaceIndex"""
+    """NET-08: NET_CONFIG �?无效 InterfaceIndex"""
     print('\n--- NET-08: Invalid InterfaceIndex ---')
     expect_status(CMD_NET_CONFIG, b'\x02\x00', 0, ERR_CHANNEL_INVALID, 'NET-08')
 
 
 def test_net_09():
-    """NET-09: NET_CONFIG — 无效 ConfigType"""
+    """NET-09: NET_CONFIG �?无效 ConfigType"""
     print('\n--- NET-09: Invalid ConfigType ---')
     expect_status(CMD_NET_CONFIG, b'\x00\x02', 0, ERR_PARAM, 'NET-09')
 
 
 def test_net_10():
-    """NET-10: NET_STATUS — 网线拔出时查询"""
+    """NET-10: NET_STATUS �?网线拔出时查�?""
     print('\n--- NET-10: NET_STATUS when cable unplugged ---')
     f = send_cmd(CMD_NET_STATUS, b'\x00', 0)
     if f is None:
@@ -463,7 +463,7 @@ def test_net_10():
 # ============================================================================
 
 def test_tcp_01():
-    """TCP-01: TCP_SERVER_OPEN — 创建 TCP Server"""
+    """TCP-01: TCP_SERVER_OPEN �?创建 TCP Server"""
     print('\n--- TCP-01: TCP Server Open ---')
     payload = struct.pack('>HBBB', 8080, 3, 0x01, 0x3C)
     f = expect_status(CMD_TCP_SERVER_OPEN, payload, 0, ERR_SUCCESS, 'TCP-01')
@@ -479,7 +479,7 @@ def test_tcp_01():
 
 
 def test_tcp_02():
-    """TCP-02: TCP_SERVER_OPEN — 系统自动分配端口"""
+    """TCP-02: TCP_SERVER_OPEN �?系统自动分配端口"""
     print('\n--- TCP-02: Auto port allocation ---')
     payload = struct.pack('>HBBB', 0, 2, 0x01, 0)
     f = expect_status(CMD_TCP_SERVER_OPEN, payload, 0, ERR_SUCCESS, 'TCP-02')
@@ -492,7 +492,7 @@ def test_tcp_02():
 
 
 def test_tcp_03():
-    """TCP-03: TCP_SERVER_OPEN — 端口已被占用"""
+    """TCP-03: TCP_SERVER_OPEN �?端口已被占用"""
     print('\n--- TCP-03: Port already in use ---')
     # Create first server to occupy port 8080
     payload = struct.pack('>HBBB', 8080, 1, 0x01, 0)
@@ -514,7 +514,7 @@ def test_tcp_03():
 
 
 def test_tcp_04():
-    """TCP-04: TCP_SERVER_OPEN — 超过最大 Server 数"""
+    """TCP-04: TCP_SERVER_OPEN �?超过最�?Server �?""
     print('\n--- TCP-04: Max servers exceeded ---')
     handles = []
     for i in range(5):
@@ -534,7 +534,7 @@ def test_tcp_04():
 
 
 def test_tcp_send():
-    """TCP-06: TCP_SEND — Server 端发送数据到客户端"""
+    """TCP-06: TCP_SEND �?Server 端发送数据到客户�?""
     print('\n--- TCP-06: Send data to connected client ---')
     # Create server
     payload = struct.pack('>HBBB', 8086, 3, 0x01, 0)
@@ -571,7 +571,7 @@ def test_tcp_send():
 
 
 def test_tcp_08():
-    """TCP-08: TCP_CLIENT_CONNECT — 作为客户端连接远端 TCP Server"""
+    """TCP-08: TCP_CLIENT_CONNECT �?作为客户端连接远�?TCP Server"""
     print('\n--- TCP-08: Client connect ---')
     args = parse_args()
     helper_ip = args.helper_ip or '192.168.1.100'
@@ -596,7 +596,7 @@ def test_tcp_08():
 
 
 def test_tcp_09():
-    """TCP-09: TCP_CLIENT_CONNECT — 连接超时"""
+    """TCP-09: TCP_CLIENT_CONNECT �?连接超时"""
     print('\n--- TCP-09: Connect timeout ---')
     # Non-routable IP to force timeout
     payload = struct.pack('>IHBB', 0x0A00000A, 9999, 2, 0)  # 10.0.0.10:9999
@@ -605,21 +605,21 @@ def test_tcp_09():
 
 
 def test_tcp_15():
-    """TCP-15: TCP_SEND — 无效句柄"""
+    """TCP-15: TCP_SEND �?无效句柄"""
     print('\n--- TCP-15: Invalid handle ---')
     payload = struct.pack('>HH', 0x1234, 3) + b'ABC'
     expect_status(CMD_TCP_SEND, payload, 0, ERR_NET_HANDLE_INVALID, 'TCP-15')
 
 
 def test_tcp_18():
-    """TCP-18: TCP_SERVER_CLOSE — 无效句柄"""
+    """TCP-18: TCP_SERVER_CLOSE �?无效句柄"""
     print('\n--- TCP-18: Close invalid server handle ---')
     payload = struct.pack('>HB', 0x0000, 0x01)
     expect_status(CMD_TCP_SERVER_CLOSE, payload, 0, ERR_NET_HANDLE_INVALID, 'TCP-18')
 
 
 def test_tcp_19():
-    """TCP-19: TCP_CLOSE — 通用关闭 (连接)"""
+    """TCP-19: TCP_CLOSE �?通用关闭 (连接)"""
     print('\n--- TCP-19: Generic close (connection) ---')
     # Create server + accept one client
     payload = struct.pack('>HBBB', 8090, 1, 0x01, 0)
@@ -639,7 +639,7 @@ def test_tcp_19():
 # ============================================================================
 
 def test_udp_01():
-    """UDP-01: UDP_SERVER_OPEN — 创建 UDP Server"""
+    """UDP-01: UDP_SERVER_OPEN �?创建 UDP Server"""
     print('\n--- UDP-01: UDP Server Open ---')
     payload = struct.pack('>HB4s', 8081, 0, b'\x00\x00\x00\x00')
     f = expect_status(CMD_UDP_SERVER_OPEN, payload, 0, ERR_SUCCESS, 'UDP-01')
@@ -661,7 +661,7 @@ def _close_udp_server(sh):
 
 
 def test_udp_04():
-    """UDP-04: UDP_CLIENT_CREATE — 创建 UDP Client"""
+    """UDP-04: UDP_CLIENT_CREATE �?创建 UDP Client"""
     print('\n--- UDP-04: UDP Client Create ---')
     dest_ip = ip_to_u32('192.168.1.100')
     payload = dest_ip + struct.pack('>HH', 8083, 0)
@@ -675,7 +675,7 @@ def test_udp_04():
 
 
 def test_udp_09():
-    """UDP-09: UDP_CLIENT_DELETE — 删除 UDP Client"""
+    """UDP-09: UDP_CLIENT_DELETE �?删除 UDP Client"""
     print('\n--- UDP-09: UDP Client Delete ---')
     ch = test_udp_04()
     if ch is None:
@@ -690,7 +690,7 @@ def test_udp_09():
 
 
 def test_udp_10():
-    """UDP-10: UDP_SERVER_CLOSE — 关闭 UDP Server"""
+    """UDP-10: UDP_SERVER_CLOSE �?关闭 UDP Server"""
     print('\n--- UDP-10: UDP Server Close ---')
     # Use a different port to avoid conflict with UDP-01's open server
     payload = struct.pack('>HB4s', 8181, 0, b'\x00\x00\x00\x00')
@@ -715,7 +715,7 @@ def test_udp_10():
 # ============================================================================
 
 def test_ws_01():
-    """WS-01: WS_SERVER_OPEN — 创建 WebSocket Server"""
+    """WS-01: WS_SERVER_OPEN �?创建 WebSocket Server"""
     print('\n--- WS-01: WebSocket Server Open ---')
     path = b'/ws'
     payload = struct.pack('>HBB', 8084, 3, len(path)) + path + b'\x00'
@@ -730,7 +730,7 @@ def test_ws_01():
 
 
 def test_ws_07():
-    """WS-07: WS_CLIENT_DISCONNECT — 关闭 WebSocket 连接"""
+    """WS-07: WS_CLIENT_DISCONNECT �?关闭 WebSocket 连接"""
     print('\n--- WS-07: WebSocket Disconnect ---')
     # Create server and accept a client (requires manual helper)
     payload = struct.pack('>HBBB', 8087, 2, 0x01, 0)
@@ -755,7 +755,7 @@ def test_ws_07():
 
 
 def test_ws_11():
-    """WS-11: WS_SERVER_CLOSE — 关闭 WebSocket Server"""
+    """WS-11: WS_SERVER_CLOSE �?关闭 WebSocket Server"""
     print('\n--- WS-11: WebSocket Server Close ---')
     payload = struct.pack('>HBBB', 8088, 1, 0x01, 0)
     f = send_cmd(CMD_WS_SERVER_OPEN, payload, 0)
@@ -819,7 +819,7 @@ def test_tcp_25():
 # ============================================================================
 
 def test_stress_03():
-    """STR-03: 快速 OPEN -> CLOSE 循环"""
+    """STR-03: 快�?OPEN -> CLOSE 循环"""
     print('\n--- STR-03: Rapid open/close loop ---')
     transport.flush_input()
     for i in range(5):
@@ -877,7 +877,7 @@ def test_drv_04():
 
 
 def test_drv_05():
-    """DRV-05: 网线快速插拔"""
+    """DRV-05: 网线快速插�?""
     print('\n--- DRV-05: Rapid cable plug/unplug ---')
     # Observation test: requires manual cable cycling
     # Just verify current state is stable
@@ -889,7 +889,7 @@ def test_drv_05():
 
 
 def test_net_11():
-    """NET-11: NET_DNS — DNS 服务器不可达 (超时)"""
+    """NET-11: NET_DNS �?DNS 服务器不可达 (超时)"""
     print('\n--- NET-11: DNS timeout ---')
     hostname = b'example.com'
     payload = bytes([len(hostname)]) + hostname
@@ -906,7 +906,7 @@ def test_net_11():
 
 
 def test_net_12():
-    """NET-12: NET_STATUS — DHCP 获取中 (ConnState=0x02)"""
+    """NET-12: NET_STATUS �?DHCP 获取�?(ConnState=0x02)"""
     print('\n--- NET-12: NET_STATUS during DHCP ---')
     f = send_cmd(CMD_NET_STATUS, b'\x00', 0)
     if f is None:
@@ -924,7 +924,7 @@ def test_net_12():
 
 
 def test_net_13():
-    """NET-13: NET_DNS — 无 IP 时调用"""
+    """NET-13: NET_DNS �?�?IP 时调�?""
     print('\n--- NET-13: NET_DNS when no IP ---')
     _, has_ip, _ = get_link_status()
     if has_ip:
@@ -936,7 +936,7 @@ def test_net_13():
 
 
 def test_net_14():
-    """NET-14: NET_CONFIG — NVS 持久化验证"""
+    """NET-14: NET_CONFIG �?NVS 持久化验�?""
     print('\n--- NET-14: NVS persistence check ---')
     # Read current config
     f = send_cmd(CMD_NET_STATUS, b'\x00', 0)
@@ -953,7 +953,7 @@ def test_net_14():
 
 
 def test_net_15():
-    """NET-15: NET_LINK_EVENT — IP_CHANGED 事件"""
+    """NET-15: NET_LINK_EVENT �?IP_CHANGED 事件"""
     print('\n--- NET-15: IP_CHANGED event detection ---')
     # Observation test: wait for IP_CHANGED event
     evt = wait_event(CMD_NET_LINK_EVENT, timeout=2.0)
@@ -969,7 +969,7 @@ def test_net_15():
 
 
 def test_tcp_26():
-    """TCP-26: TCP_SEND — 发送缓冲区满 (ERR_NET_BUFFER_FULL)"""
+    """TCP-26: TCP_SEND �?发送缓冲区�?(ERR_NET_BUFFER_FULL)"""
     print('\n--- TCP-26: TCP send buffer full ---')
     # Create server + accept one client, don't read on client side
     payload = struct.pack('>HBBB', 8080, 2, 0x01, 0)
@@ -985,7 +985,7 @@ def test_tcp_26():
 
 
 def test_tcp_27():
-    """TCP-27: TCP_CLIENT_CONNECT — 超过最大连接数"""
+    """TCP-27: TCP_CLIENT_CONNECT �?超过最大连接数"""
     print('\n--- TCP-27: Max client connections exceeded ---')
     ch_list = []
     for i in range(17):
@@ -1014,7 +1014,7 @@ def test_tcp_27():
 
 
 def test_tcp_28():
-    """TCP-28: TCP_SERVER_CLOSE — 优雅关闭 (ForceClose=0)"""
+    """TCP-28: TCP_SERVER_CLOSE �?优雅关闭 (ForceClose=0)"""
     print('\n--- TCP-28: Graceful server close ---')
     payload = struct.pack('>HBBB', 8096, 2, 0x01, 0)
     f = send_cmd(CMD_TCP_SERVER_OPEN, payload, 0)
@@ -1029,7 +1029,7 @@ def test_tcp_28():
 
 
 def test_tcp_29():
-    """TCP-29: TCP OPEN/CONNECT — 无 IP 时的标准行为"""
+    """TCP-29: TCP OPEN/CONNECT �?�?IP 时的标准行为"""
     print('\n--- TCP-29: Operation when no IP ---')
     _, has_ip, _ = get_link_status()
     if has_ip:
@@ -1044,7 +1044,7 @@ def test_tcp_29():
 
 
 def test_udp_11():
-    """UDP-11: UDP_SERVER_OPEN — 超过最大 Server 数"""
+    """UDP-11: UDP_SERVER_OPEN �?超过最�?Server �?""
     print('\n--- UDP-11: Max UDP servers exceeded ---')
     handles = []
     for i in range(5):
@@ -1065,7 +1065,7 @@ def test_udp_11():
 
 
 def test_udp_12():
-    """UDP-12: UDP_CLIENT_CREATE — 超过最大 Client 数"""
+    """UDP-12: UDP_CLIENT_CREATE �?超过最�?Client �?""
     print('\n--- UDP-12: Max UDP clients exceeded ---')
     handles = []
     test_ip = ip_to_u32('192.168.1.200')
@@ -1086,14 +1086,14 @@ def test_udp_12():
 
 
 def test_udp_13():
-    """UDP-13: UDP_SERVER_CLOSE — 无效句柄"""
+    """UDP-13: UDP_SERVER_CLOSE �?无效句柄"""
     print('\n--- UDP-13: Close invalid UDP server handle ---')
     expect_status(CMD_UDP_SERVER_CLOSE, struct.pack('>H', 0x0000), 0,
                   ERR_NET_HANDLE_INVALID, 'UDP-13')
 
 
 def test_udp_14():
-    """UDP-14: UDP OPEN/CREATE — 无 IP 时的标准行为"""
+    """UDP-14: UDP OPEN/CREATE �?�?IP 时的标准行为"""
     print('\n--- UDP-14: UDP operation when no IP ---')
     _, has_ip, _ = get_link_status()
     if has_ip:
@@ -1115,7 +1115,7 @@ def test_ws_14():
 
 
 def test_ws_15():
-    """WS-15: WS_SEND Close 帧"""
+    """WS-15: WS_SEND Close �?""
     print('\n--- WS-15: Send Close frame ---')
     skip_('WS-15', 'Requires MCP NM WS client connection')
     # Create WS server, accept client, then WS_SEND(MsgType=0x08)
@@ -1131,14 +1131,14 @@ def test_ws_16():
 
 
 def test_ws_17():
-    """WS-17: WS_SERVER_OPEN — 达到最大连接数"""
+    """WS-17: WS_SERVER_OPEN �?达到最大连接数"""
     print('\n--- WS-17: WS max connections ---')
     skip_('WS-17', 'Requires multiple MCP NM WS client connections')
     # WS server with MaxConn=1, two clients attempt connection
 
 
 def test_ws_18():
-    """WS-18: WS OPEN/CONNECT — 无 IP 时的标准行为"""
+    """WS-18: WS OPEN/CONNECT �?�?IP 时的标准行为"""
     print('\n--- WS-18: WS operation when no IP ---')
     _, has_ip, _ = get_link_status()
     if has_ip:
@@ -1149,7 +1149,7 @@ def test_ws_18():
 
 
 def test_stress_07():
-    """STR-07: 内存泄漏 — 100 次 Server 生命周期循环"""
+    """STR-07: 内存泄漏 �?100 �?Server 生命周期循环"""
     print('\n--- STR-07: Memory leak test (5 cycles, representative) ---')
     for i in range(5):
         port = 9600 + i
@@ -1175,7 +1175,7 @@ def test_stress_07():
 
 
 def test_stress_08():
-    """STR-08: 并发命令流水线"""
+    """STR-08: 并发命令流水�?""
     print('\n--- STR-08: Command pipeline test ---')
     # Send 5 NET_STATUS commands without waiting
     transports = []
@@ -1215,7 +1215,7 @@ def test_stress_09():
 
 
 def test_stress_10():
-    """STR-10: TCP_SEND DataLen 声明不匹配"""
+    """STR-10: TCP_SEND DataLen 声明不匹�?""
     print('\n--- STR-10: TCP SEND DataLen mismatch ---')
     # Declare DataLen=10 but provide only 3 bytes of Data
     payload = struct.pack('>HH', 0x8000, 10) + b'ABC'  # DataLen=10, Data=3 bytes
@@ -1227,7 +1227,7 @@ def test_stress_10():
 # ============================================================================
 
 def test_net_16():
-    """NET-16: NET_LIST_CONNS — global connection overview"""
+    """NET-16: NET_LIST_CONNS �?global connection overview"""
     print('\n--- NET-16: Global connection list ---')
     f = expect_status(CMD_NET_LIST_CONNS, b'', 0, ERR_SUCCESS, 'NET-16')
     if f is None:
@@ -1248,7 +1248,7 @@ def test_net_16():
 
 
 def test_net_17():
-    """NET-17: NET_DNS — DNS 非阻塞验证 (Bug#5 fix)"""
+    """NET-17: NET_DNS �?DNS 非阻塞验�?(Bug#5 fix)"""
     print('\n--- NET-17: DNS non-blocking test ---')
     hostname = b'nonexistent-host-12345678.test'
     payload = bytes([len(hostname)]) + hostname
@@ -1280,7 +1280,7 @@ def test_net_17():
 
 
 def test_net_18():
-    """NET-18: NET_CLOSE_ALL — 一键关闭所有网络连接"""
+    """NET-18: NET_CLOSE_ALL �?一键关闭所有网络连�?""
     print('\n--- NET-18: Close all connections ---')
     # Create 3 servers
     f1 = expect_status(CMD_TCP_SERVER_OPEN, struct.pack('>HBBB', 9400, 3, 0x01, 0), 0, ERR_SUCCESS, 'NET-18 TCP')
@@ -1308,7 +1308,7 @@ def test_net_18():
 
 
 def test_tcp_30():
-    """TCP-30: TCP_LIST_CLIENTS — query connected clients"""
+    """TCP-30: TCP_LIST_CLIENTS �?query connected clients"""
     print('\n--- TCP-30: List TCP clients ---')
     # Create TCP server
     f = expect_status(CMD_TCP_SERVER_OPEN,
@@ -1330,35 +1330,35 @@ def test_tcp_30():
 
 
 def test_tcp_31():
-    """TCP-31: TCP_LIST_CLIENTS — invalid server handle"""
+    """TCP-31: TCP_LIST_CLIENTS �?invalid server handle"""
     print('\n--- TCP-31: List TCP clients invalid handle ---')
     expect_status(CMD_TCP_LIST_CLIENTS, struct.pack('>H', 0xFFFF),
                   0, ERR_NET_HANDLE_INVALID, 'TCP-31')
 
 
 def test_tcp_32():
-    """TCP-32: TCP_KICK_CLIENT — invalid handle"""
+    """TCP-32: TCP_KICK_CLIENT �?invalid handle"""
     print('\n--- TCP-32: TCP KICK invalid handle ---')
     expect_status(CMD_TCP_KICK_CLIENT, struct.pack('>HB', 0xFFFF, 1),
                   0, ERR_NET_HANDLE_INVALID, 'TCP-32')
 
 
 def test_tcp_33():
-    """TCP-33: TCP_CONN_STATUS — invalid handle"""
+    """TCP-33: TCP_CONN_STATUS �?invalid handle"""
     print('\n--- TCP-33: TCP CONN STATUS invalid handle ---')
     expect_status(CMD_TCP_CONN_STATUS, struct.pack('>H', 0xFFFF),
                   0, ERR_NET_HANDLE_INVALID, 'TCP-33')
 
 
 def test_ws_19():
-    """WS-19: WS_LIST_CLIENTS — invalid server handle"""
+    """WS-19: WS_LIST_CLIENTS �?invalid server handle"""
     print('\n--- WS-19: List WS clients invalid handle ---')
     expect_status(CMD_WS_LIST_CLIENTS, struct.pack('>H', 0xFFFF),
                   0, ERR_NET_HANDLE_INVALID, 'WS-19')
 
 
 def test_ws_20():
-    """WS-20: WS_KICK_CLIENT — invalid handle"""
+    """WS-20: WS_KICK_CLIENT �?invalid handle"""
     print('\n--- WS-20: WS KICK invalid handle ---')
     expect_status(CMD_WS_KICK_CLIENT, struct.pack('>HB', 0xFFFF, 1),
                   0, ERR_NET_HANDLE_INVALID, 'WS-20')
@@ -1472,7 +1472,7 @@ def parse_args():
 def main():
     global _args_cache
     parser = argparse.ArgumentParser(description='HEX-Bridge Network Module Tests')
-    parser.add_argument('--mcp', default='COM35', help='MCP serial port (default: COM35)')
+    parser.add_argument('--mcp', default='COM4', help='MCP serial port (default: COM4)')
     parser.add_argument('--mcp-baud', type=int, default=115200,
                         help='MCP baud rate (default: 115200)')
     parser.add_argument('--helper-ip', default='192.168.1.100',
@@ -1573,7 +1573,7 @@ def parse_args():
     if _parsed_args is None:
         import argparse as _ap
         p = _ap.ArgumentParser()
-        p.add_argument('--mcp', default='COM35')
+        p.add_argument('--mcp', default='COM4')
         p.add_argument('--mcp-baud', type=int, default=115200)
         p.add_argument('--helper-ip', default='192.168.1.100')
         p.add_argument('--tcp-port', type=int, default=9090)

@@ -1,7 +1,7 @@
 """
 HEX-Bridge MCP Baud Rate Tests (SYS-16 ~ SYS-20)
 
-Run: python test_mcp_baud.py [--port COM35] [--baud 115200]
+Run: python test_mcp_baud.py [--port COM4] [--baud 115200]
 """
 
 import sys, time, struct
@@ -84,11 +84,11 @@ def set_config(transport, group, key, value):
 
 
 def test_sys16_get_default_baud(transport):
-    """SYS-16: GET_CONFIG — 读取 McpBaudRate 默认值"""
-    print('\n--- SYS-16: GET_CONFIG McpBaudRate (默认值) ---')
+    """SYS-16: GET_CONFIG �?读取 McpBaudRate 默认�?""
+    print('\n--- SYS-16: GET_CONFIG McpBaudRate (默认�? ---')
     resp = get_config(transport, CONFIG_GROUP_SYSTEM, CFGKEY_MCP_BAUD)
     if resp is None:
-        fail_('SYS-16', '超时无响应')
+        fail_('SYS-16', '超时无响�?)
         return None
 
     assert_eq('SYS-16 Status', resp.payload[0], ERR_SUCCESS)
@@ -99,19 +99,18 @@ def test_sys16_get_default_baud(transport):
 
     baud = (resp.payload[5] << 24) | (resp.payload[6] << 16) | \
            (resp.payload[7] << 8)  | resp.payload[8]
-    print(f'  [INFO] 当前 MCP 波特率: {baud} bps')
+    print(f'  [INFO] 当前 MCP 波特�? {baud} bps')
     pass_(f'SYS-16 McpBaudRate = {baud}')
     return baud
 
 
 def test_sys17_set_and_readback(transport):
-    """SYS-17: SET_CONFIG — 修改 McpBaudRate 并回读验证"""
+    """SYS-17: SET_CONFIG �?修改 McpBaudRate 并回读验�?""
     print('\n--- SYS-17: SET_CONFIG + GET_CONFIG 回读 McpBaudRate ---')
 
-    # 先读取当前值
-    resp = get_config(transport, CONFIG_GROUP_SYSTEM, CFGKEY_MCP_BAUD)
+    # 先读取当前�?    resp = get_config(transport, CONFIG_GROUP_SYSTEM, CFGKEY_MCP_BAUD)
     if resp is None or resp.payload[0] != ERR_SUCCESS:
-        fail_('SYS-17', '读取当前值失败')
+        fail_('SYS-17', '读取当前值失�?)
         return
     original = (resp.payload[5] << 24) | (resp.payload[6] << 16) | \
                (resp.payload[7] << 8)  | resp.payload[8]
@@ -140,8 +139,7 @@ def test_sys17_set_and_readback(transport):
              (resp.payload[7] << 8)  | resp.payload[8]
     assert_eq(f'SYS-17 BaudRate', actual, test_baud)
 
-    # 恢复原值
-    orig_value = bytes([
+    # 恢复原�?    orig_value = bytes([
         (original >> 24) & 0xFF,
         (original >> 16) & 0xFF,
         (original >> 8) & 0xFF,
@@ -149,12 +147,12 @@ def test_sys17_set_and_readback(transport):
     ])
     resp = set_config(transport, CONFIG_GROUP_SYSTEM, CFGKEY_MCP_BAUD, orig_value)
     if resp is None or resp.payload[0] != ERR_SUCCESS:
-        print(f'  [WARN] 恢复原始波特率 {original} 失败')
+        print(f'  [WARN] 恢复原始波特�?{original} 失败')
 
 
 def test_sys18_reject_too_low(transport):
-    """SYS-18: SET_CONFIG — 拒绝无效 McpBaudRate (200 < 9600)"""
-    print('\n--- SYS-18: SET_CONFIG 拒绝过低波特率 (200 bps) ---')
+    """SYS-18: SET_CONFIG �?拒绝无效 McpBaudRate (200 < 9600)"""
+    print('\n--- SYS-18: SET_CONFIG 拒绝过低波特�?(200 bps) ---')
     value = bytes([0x00, 0x00, 0x00, 0xC8])  # 200
     resp = set_config(transport, CONFIG_GROUP_SYSTEM, CFGKEY_MCP_BAUD, value)
     if resp is None:
@@ -164,8 +162,8 @@ def test_sys18_reject_too_low(transport):
 
 
 def test_sys19_reject_too_high(transport):
-    """SYS-19: SET_CONFIG — 拒绝过高 McpBaudRate (100M > 5M)"""
-    print('\n--- SYS-19: SET_CONFIG 拒绝过高波特率 (100,000,000) ---')
+    """SYS-19: SET_CONFIG �?拒绝过高 McpBaudRate (100M > 5M)"""
+    print('\n--- SYS-19: SET_CONFIG 拒绝过高波特�?(100,000,000) ---')
     value = bytes([0x05, 0xF5, 0xE1, 0x00])  # 100,000,000
     resp = set_config(transport, CONFIG_GROUP_SYSTEM, CFGKEY_MCP_BAUD, value)
     if resp is None:
@@ -175,15 +173,14 @@ def test_sys19_reject_too_high(transport):
 
 
 def test_sys20_e2e_baud_switch(transport, original_baud, port):
-    """SYS-20: SET_CONFIG → 软复位 → 新波特率验证 (端到端)"""
+    """SYS-20: SET_CONFIG �?软复�?�?新波特率验证 (端到�?"""
     global SEQ
-    print('\n--- SYS-20: SET_CONFIG → 软复位 → 新波特率重连 ---')
+    print('\n--- SYS-20: SET_CONFIG �?软复�?�?新波特率重连 ---')
 
     target_baud = 115200 if original_baud != 115200 else 230400
-    print(f'  [INFO] 原始波特率: {original_baud}, 目标波特率: {target_baud}')
+    print(f'  [INFO] 原始波特�? {original_baud}, 目标波特�? {target_baud}')
 
-    # Step 1: 写入目标波特率
-    value = bytes([
+    # Step 1: 写入目标波特�?    value = bytes([
         (target_baud >> 24) & 0xFF,
         (target_baud >> 16) & 0xFF,
         (target_baud >> 8) & 0xFF,
@@ -210,8 +207,7 @@ def test_sys20_e2e_baud_switch(transport, original_baud, port):
     print('  [INFO] 等待设备重启 (2s)...')
     time.sleep(2.0)
 
-    # Step 4: 以新波特率重连
-    print(f'  [INFO] 以 {target_baud} bps 重新连接 {port}...')
+    # Step 4: 以新波特率重�?    print(f'  [INFO] �?{target_baud} bps 重新连接 {port}...')
     transport2 = MCPTransport(port=port, baudrate=target_baud)
     transport2.open()
     transport2.flush_input()
@@ -219,7 +215,7 @@ def test_sys20_e2e_baud_switch(transport, original_baud, port):
     # Step 5: 接收 SYS_BOOT_EVENT
     evt = transport2.recv_event(cmd_code=0x06, timeout=5.0)
     if evt is None:
-        print('  [WARN] 未收到 SYS_BOOT_EVENT (可能已被消费)')
+        print('  [WARN] 未收�?SYS_BOOT_EVENT (可能已被消费)')
 
     # Step 6: PING 验证链路
     resp = send_cmd(transport2, SEQ, CMD_PING, b'', 0)
@@ -229,7 +225,7 @@ def test_sys20_e2e_baud_switch(transport, original_baud, port):
         transport2.close()
 
         # 尝试以原始波特率恢复
-        print(f'  [INFO] 尝试以 {original_baud} bps 恢复连接...')
+        print(f'  [INFO] 尝试�?{original_baud} bps 恢复连接...')
         time.sleep(1.0)
         transport = MCPTransport(port=port, baudrate=original_baud)
         transport.open()
@@ -257,15 +253,14 @@ def test_sys20_e2e_baud_switch(transport, original_baud, port):
     else:
         fail_('SYS-20', f'GET_INFO Status={resp.payload[0]:#04x}')
 
-    # Step 8: 恢复原始波特率
-    print(f'  [INFO] 恢复原始波特率 {original_baud}...')
+    # Step 8: 恢复原始波特�?    print(f'  [INFO] 恢复原始波特�?{original_baud}...')
     orig_value = bytes([
         (original_baud >> 24) & 0xFF, (original_baud >> 16) & 0xFF,
         (original_baud >> 8) & 0xFF,  original_baud & 0xFF,
     ])
     resp = set_config(transport2, CONFIG_GROUP_SYSTEM, CFGKEY_MCP_BAUD, orig_value)
     if resp and resp.payload[0] == ERR_SUCCESS:
-        pass_('SYS-20 SET_CONFIG 恢复原始波特率 OK')
+        pass_('SYS-20 SET_CONFIG 恢复原始波特�?OK')
     resp = send_cmd(transport2, SEQ, CMD_RESET, bytes([0x00]))
     SEQ += 1
     time.sleep(2.0)
@@ -280,9 +275,9 @@ def test_sys20_e2e_baud_switch(transport, original_baud, port):
     resp = send_cmd(transport, SEQ, CMD_PING, b'', 0)
     SEQ += 1
     if resp and resp.payload[0] == ERR_SUCCESS:
-        pass_(f'SYS-20 恢复原始波特率 {original_baud} 成功')
+        pass_(f'SYS-20 恢复原始波特�?{original_baud} 成功')
     else:
-        fail_('SYS-20', '恢复原始波特率失败！请手动重置设备')
+        fail_('SYS-20', '恢复原始波特率失败！请手动重置设�?)
 
     transport.close()
 
@@ -291,7 +286,7 @@ def main():
     global SEQ
     import argparse
     p = argparse.ArgumentParser(description='HEX-Bridge MCP Baud Rate Tests')
-    p.add_argument('--port', default='COM35', help='MCP serial port')
+    p.add_argument('--port', default='COM4', help='MCP serial port')
     p.add_argument('--baud', type=int, default=115200, help='MCP baud rate')
     p.add_argument('--e2e', action='store_true', help='Run end-to-end baud switch test')
     args = p.parse_args()
@@ -340,7 +335,7 @@ def main():
         transport.recv_event(timeout=1.0)
 
         if original_baud != args.baud:
-            print(f'  [INFO] 修复 NVS 波特率: {original_baud} → {args.baud}')
+            print(f'  [INFO] 修复 NVS 波特�? {original_baud} �?{args.baud}')
             value = bytes([
                 (args.baud >> 24) & 0xFF, (args.baud >> 16) & 0xFF,
                 (args.baud >> 8) & 0xFF,  args.baud & 0xFF,
@@ -351,7 +346,7 @@ def main():
         SEQ = 0x2000
         test_sys20_e2e_baud_switch(transport, original_baud, args.port)
     elif not args.e2e:
-        skip_('SYS-20', '跳过端到端测试（使用 --e2e 启用）')
+        skip_('SYS-20', '跳过端到端测试（使用 --e2e 启用�?)
         transport.close()
 
     # Summary

@@ -14,6 +14,7 @@
 | [04-UART-Module.md](04-UART-Module.md) | UART 扩展模块（UART2）设计 |
 | [05-Bridge-Design.md](05-Bridge-Design.md) | 网桥数据多路复用、流控、模块适配设计 |
 | [06-Ethernet-Module.md](06-Ethernet-Module.md) | 以太网（LAN8720）驱动、TCP/UDP/WebSocket 模块设计 |
+| [07-CAN-Module.md](07-CAN-Module.md) | CAN FD 模块（MCP2518FD）设计 |
 
 ---
 

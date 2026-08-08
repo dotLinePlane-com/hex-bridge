@@ -1,140 +1,232 @@
-# HEX-Bridge 项目文件索引
+# HEX-Bridge ??????
 
-> 本文档为 AI Agent 和开发者提供项目结构的快速索引。
-
----
-
-## 项目概述
-
-HEX-Bridge 是一款基于 ESP32 的多功能硬件接口扩展设备，通过 UBCP (Unified Binary Communication Protocol) v2.0 协议与上位机 (MCP Server) 通信，支持 CAN FD、SPI、I2C、UART、以太网 (TCP/UDP/WebSocket)、GPIO 等接口的统一管理。
+> ???? AI Agent ????????????????
 
 ---
 
-## 目录结构
+## ????
+
+HEX-Bridge ????? ESP32 ??????????????? UBCP (Unified Binary Communication Protocol) v2.0 ?????? (MCP Server) ????? CAN FD?SPI?I2C?UART???? (TCP/UDP/WebSocket)?GPIO ?????????
+
+---
+
+## ????
 
 ```
 hex-bridge/
-├── AGENTS.md                       # ← 本文件（项目索引）
-├── files/                          # 项目文档
-│   ├── design/
-│   │   ├── protocol/               # UBCP v2.0 协议规范
-│   │   ├── firmware/               # 固件架构设计
-│   │   ├── test/                   # 测试用例
-│   │   └── test-report/            # 测试报告
-│   │       └── UART-Test-Report.md # UART 模块测试报告 (57 用例)
-│   │
-│   └── sch/                        # 原理图相关
-│       └── esp32-pinout-design.md  # ESP32 引脚分配方案
-│
-├── main/                           # 固件源代码
-│   ├── CMakeLists.txt              # 构建配置
-│   ├── main.c                      # 入口 app_main()
-│   ├── hex_config.h                # 全局硬件配置宏
-│   │
-│   ├── protocol/                   # 协议层
-│   │   ├── ubcp_def.h              # 协议常量、命令码、错误码
-│   │   ├── ubcp_crc16.h            # CRC-16/CCITT-FALSE 计算
-│   │   ├── ubcp_frame.h            # 帧结构体与 API 声明
-│   │   └── ubcp_frame.c            # 帧解析/构建/转义实现
-│   │
-│   ├── core/                       # 核心框架
-│   │   ├── module_base.h           # 模块接口定义
-│   │   ├── seq_num.h               # 事件序列号管理
-│   │   ├── msg_bus.h               # 消息总线接口
-│   │   └── msg_bus.c               # 消息总线实现
-│   │
-│   ├── transport/                  # MCP 传输层
-│   │   ├── mcp_transport.h         # 传输层接口
-│   │   └── mcp_transport.c         # UART1 收发与帧解析
-│   │
-│   ├── modules/                    # 功能模块
-│   │   ├── mod_system.h/.c         # 系统管理 (0x00-0x0F)
-│   │   └── mod_uart.h/.c          # UART 扩展 (0xA0-0xAF) (57 测试用例全部通过)
-│   │
-│   └── utils/                      # 工具
-│       └── hex_log.h               # 日志宏封装
-│
-├── CMakeLists.txt                  # 项目根 CMake
-├── sdkconfig                       # ESP-IDF 配置
-└── script/                         # 辅助脚本
-    ├── cli/                        # CLI 工具
-    │   ├── hex-bridge-network-cli.py  # 网络模块 CLI (NET/TCP/UDP/WS/Ping/Listen)
-    │   ├── ubcp_utils.py              # CLI 与 test_network.py 共享的工具函数
-    │   ├── hex-bridge-uart-cli.py  # UART 扩展口 CLI (Python, 推荐)
-    │   ├── hex-bridge-uart-cli.js  # UART 扩展口 CLI (Node.js)
-    │   ├── package.json            # Node.js 依赖 (serialport)
-    │   └── node_modules/
-    ├── test/                       # 测试脚本
-    │   ├── ubcp_client.py          # UBCP v2.0 Python 客户端库
-    │   ├── mcp_transport.py        # COM35 串口传输封装
-    │   ├── test_network.py         # 网络模块协议测试 (73 PASS / 0 FAIL)
-    │   ├── test_cli_network_e2e.py # 网络模块端到端收发测试 (PC socket 对端)
-    │   ├── test_uart.py            # UART 模块 57 项测试
-    │   └── ...
-    ├── init-idf-menuconfig.bat
-    └── push-to-github.ps1
+??? AGENTS.md                       # ?????????
+??? files/                          # ????
+?   ??? design/
+?   ?   ??? protocol/               # UBCP v2.0 ????
+?   ?   ?   ??? 04-CAN.md          # CAN ???? (0x10-0x1F, 12 ??)
+?   ?   ??? firmware/               # ??????
+?   ?   ?   ??? 01-Architecture.md
+?   ?   ?   ??? 02-MsgBus.md
+?   ?   ?   ??? 03-MCP-Transport.md
+?   ?   ?   ??? 04-UART-Module.md
+?   ?   ?   ??? 05-Bridge-Design.md
+?   ?   ?   ??? 06-Ethernet-Module.md
+?   ?   ?   ??? 07-CAN-Module.md   # CAN FD ???? (MCP2518FD)
+?   ?   ?   ??? README.md
+?   ?   ??? test/                   # ????
+?   ?   ?   ??? 01-System-Tests.md
+?   ?   ?   ??? 02-UART-Tests.md
+?   ?   ?   ??? 03-Protocol-Tests.md
+?   ?   ?   ??? 04-UART-MCP-Tests.md
+?   ?   ?   ??? 05-CAN-Tests.md    # CAN ???? (94 ??)
+?   ?   ?   ??? 09-Network-Tests.md
+?   ?   ?   ??? README.md
+?   ?   ??? test-report/            # ????
+?   ?   ?   ??? UART-Test-Report.md # UART ?????? (57 ??)
+?   ?   ??? sch/                    # ?????
+?   ?       ??? esp32-pinout-design.md  # ESP32 ??????
+?   ??? can-files/                  # CAN ????
+?   ?   ??? MCP2518FD.txt          # MCP2518FD ??
+?   ?   ??? MCP2518FD????.md    # ?????? DS20006027A_CN (1655 ?)
+?   ?   ??? win64/
+?   ?       ??? PCANBasic.dll      # PCAN-USB Windows ?? DLL
+?   ??? ...
+??? main/                           # ?????
+?   ??? CMakeLists.txt              # ????
+?   ??? main.c                      # ?? app_main()
+?   ??? hex_config.h                # ????????
+?   ??? protocol/                   # ???
+?   ?   ??? ubcp_def.h              # ????????????
+?   ?   ??? ubcp_crc16.h            # CRC-16/CCITT-FALSE ??
+?   ?   ??? ubcp_frame.h            # ????? API ??
+?   ?   ??? ubcp_frame.c            # ???/??/????
+?   ??? core/                       # ????
+?   ?   ??? module_base.h           # ?????? (hex_module_t)
+?   ?   ??? seq_num.h               # ???????
+?   ?   ??? topology.h/.c           # ???????
+?   ?   ??? msg_bus.h               # ??????
+?   ?   ??? msg_bus.c               # ??????
+?   ??? transport/                  # MCP ???
+?   ?   ??? mcp_transport.h         # ?????
+?   ?   ??? mcp_transport.c         # UART1 ??????
+?   ??? modules/                    # ????
+?   ?   ??? mod_system.h/.c         # ???? (0x00-0x0F)
+?   ?   ??? mod_uart.h/.c           # UART ?? (0xA0-0xAF) (57 ????????)
+?   ?   ??? mod_network.h/.c        # ???? (0x40-0x4F)
+?   ?   ??? mod_tcp.h/.c            # TCP (0x50-0x5F)
+?   ?   ??? mod_udp.h/.c            # UDP (0x60-0x6F)
+?   ?   ??? mod_ws.h/.c             # WebSocket (0x70-0x7F)
+?   ?   ??? mod_can.h/.c            # CAN FD (0x10-0x1F) ? ???
+?   ?   ??? mcp2518fd.h             # MCP2518FD ?????????? ? ???
+?   ?   ??? mcp2518fd.c             # MCP2518FD SPI ???? ? ???
+?   ??? utils/                      # ??
+?       ??? hex_log.h               # ?????
+??? CMakeLists.txt                  # ??? CMake
+??? sdkconfig                       # ESP-IDF ??
+??? script/                         # ????
+    ??? cli/                        # CLI ??
+    ?   ??? hex-bridge-network-cli.py  # ???? CLI (NET/TCP/UDP/WS/Ping/Listen)
+    ?   ??? ubcp_utils.py              # CLI ? test_network.py ??????
+    ?   ??? hex-bridge-uart-cli.py     # UART ??? CLI (Python, ??)
+    ?   ??? hex-bridge-uart-cli.js     # UART ??? CLI (Node.js)
+    ?   ??? package.json               # Node.js ?? (serialport)
+    ?   ??? node_modules/
+    ??? test/                       # ????
+    ?   ??? ubcp_client.py          # UBCP v2.0 Python ????
+    ?   ??? mcp_transport.py        # COM4 ??????
+    ?   ??? pcan_basic.py           # PCANBasic.dll ctypes ?? (CAN 2.0 + FD)
+    ?   ??? test_network.py         # ???????? (73 PASS / 0 FAIL)
+    ?   ??? test_cli_network_e2e.py # ??????????? (PC socket ??)
+    ?   ??? test_uart.py            # UART ?? 57 ???
+    ?   ??? test_can.py             # CAN ???? (Phase 1: 12 + Phase 2: 82 = 94)
+    ?   ??? ...
+    ??? init-idf-menuconfig.bat
+    ??? push-to-github.ps1
 ```
 
 ---
 
-## 串口分配
+## ????
 
-| 串口 | 用途 | 参数 |
+| ?? | ?? | ?? |
 |:---|:---|:---|
-| COM35 | MCP 通信 (UART1) | 115200 bps, 8N1 |
-| COM24 | 扩展口 (UART2) | 默认 115200 bps, 8N1 |
-| COM34 | 调试输出 (UART0) | 115200 bps, 8N1 |
+| COM4 | MCP ?? (UART1) | 921600 bps, 8N1 |
+| COM3 | ??? (UART2) | ?? 115200 bps, 8N1 |
+| COM5 | ???? (UART0) | 115200 bps, 8N1 |
 
 ---
 
-## 硬件引脚速查
+## ??????
 
-| 外设 | TX / SCK | RX / MISO | 其他 |
+| ?? | TX / SCK | RX / MISO | ?? |
 |:---|:---|:---|:---|
-| UART0 (调试) | GPIO 1 | GPIO 3 | — |  
-| UART1 (MCP 通信) | GPIO 4 | GPIO 34 (GPI) | 外接 10kΩ 上拉 | 
-| UART2 (扩展口) | GPIO 32 | GPIO 35 (GPI) | 外接 10kΩ 上拉 (RX) | 
-| CAN FD (MCP2518FD) | GPIO 14 (SCK) | GPIO 36 (MISO) | CS=GPIO15, INT=GPIO39 |
-| I2C (EEPROM) | GPIO 12 (SCL) | GPIO 33 (SDA) | SCL=GPIO12(MTDI), 4.7kΩ上拉保复位高电平 |
-| 以太网 (LAN8720) | 固定 RMII 引脚 | — | PHY_RST=GPIO5 |
+| UART0 (??) | GPIO 1 | GPIO 3 | ? |
+| UART1 (MCP ??) | GPIO 4 | GPIO 34 (GPI) | ?? 10k? ?? |
+| UART2 (???) | GPIO 32 | GPIO 35 (GPI) | ?? 10k? ?? (RX) |
+| CAN FD (MCP2518FD) | GPIO 14 (SCK) | GPIO 36 (GPI) | MOSI=GPIO13, CS=GPIO15, INT=GPIO39 |
+| I2C (EEPROM) | GPIO 12 (SCL) | GPIO 33 (SDA) | SCL=GPIO12(MTDI), 4.7k????????? |
+| ??? (LAN8720) | ?? RMII ?? | ? | PHY_RST=GPIO5 |
 
 ---
 
-## 开发快速入门
+## CAN ??????
 
-以下操作建议通过 Kilo Skills 执行，更可靠且自动处理环境依赖：
-
-| 操作 | 命令 | 推荐 Skill |
-|:---|:---|:---|
-| 编译 | `idf.py build` | `build-idf` |
-| 烧录 | `idf.py -p COMx flash` | `flash-idf` |
-| 串口监视 | `idf.py -p COMx monitor` | `serial-monitor` |
-| 编译+烧录+监视 (流水线) | — | `workflow` |
-| 内存分析 (.map/ELF) | — | `memory-analysis` |
-| 静态代码检查 | — | `static-analysis` |
-
-## 测试脚本速查
-
-| 测试范围 | 命令 |
+| ?? | ? |
 |:---|:---|
-| 网络协议层 (无对端) | `python script/test/test_network.py --mcp COM35 --mcp-baud 115200 --auto` |
-| 网络端到端 (PC socket 对端) | `python script/test/test_cli_network_e2e.py` |
-| CLI + MCP NM 交互测试 | `python script/cli/hex-bridge-network-cli.py --wait-events 0x56,0x55 --event-timeout 15 tcp-server-open --port 9190` |
+| ??? | MCP2518FD (SPI ??, VSPI_HOST) |
+| SPI ?? | SCK=14, MOSI=13, MISO=36, CS=15 |
+| INT ?? | GPIO 39 (GPI, ?????) |
+| ?? | 20 MHz ????, PLL ??? 40 MHz |
+| SPI ?? | 10 MHz, Mode 0 (CPOL=0, CPHA=0) |
+| ????? | 500 kbps |
+| Channel ID | 0x03 (UBCP_CH_CAN_EXT1) |
+| ???? | 1 (UBCP_CFGKEY_CAN_CHANNEL_COUNT=2 ??) |
+| ???? | `files/can-files/MCP2518FD????.md` (DS20006027A_CN, 1655 ?) |
 
+---
 
-## 模块实现进度
+## ??????
 
-| 模块 | 命令码范围 | 状态 |
+???????? Kilo Skills ????????????????
+
+| ?? | ?? | ?? Skill |
 |:---|:---|:---|
-| 系统管理 | 0x00-0x0F | ✅ 基础实现 (PING, GET_INFO) |
-| UART 扩展 | 0xA0-0xAF | ✅ 完整实现 |
-| CAN FD | 0x10-0x1F | ⬜ 待实现 |
-| SPI | 0x20-0x2F | ⬜ 待实现 |
-| I2C | 0x30-0x3F | ⬜ 待实现 |
-| 网络配置 | 0x40-0x4F | ✅ 已实现 (17.5 KB) |
-| TCP | 0x50-0x5F | ✅ 已实现 (32.9 KB) |
-| UDP | 0x60-0x6F | ✅ 已实现 (22.2 KB) |
-| WebSocket | 0x70-0x7F | ✅ 已实现 (38.4 KB) |
-| GPIO | 0x80-0x8F | ⬜ 待实现 |
-| 批量传输 | 0x90-0x9F | ⬜ 待实现 |
-| OTA | 0xB0-0xBF | ⬜ 待实现 |
+| ?? | `idf.py build` | `build-idf` |
+| ?? | `idf.py -p COMx flash` | `flash-idf` |
+| ???? | `idf.py -p COMx monitor` | `serial-monitor` |
+| ??+??+?? (???) | ? | `workflow` |
+| ???? (.map/ELF) | ? | `memory-analysis` |
+| ?????? | ? | `static-analysis` |
+
+## ??????
+
+| ???? | ?? |
+|:---|:---|
+| UART ?? | `python script/test/test_uart.py --COM3 COM3 --ext-baud 115200` |
+| ????? (???) | `python script/test/test_network.py --mcp COM4 --mcp-baud 921600 --auto` |
+| ????? (PC socket ??) | `python script/test/test_cli_network_e2e.py` |
+| CAN ?? (Phase 1: PCAN only) | `python script/test/test_can.py --phase 1 --baud 500k` |
+| CAN ?? (Phase 2: MCP UBCP) | `python script/test/test_can.py --phase 2 --baud 500k` |
+| CAN ?? (?? + FD) | `python script/test/test_can.py --fd --baud 500k` |
+
+---
+
+## ??????
+
+| ?? | ????? | ?? |
+|:---|:---|:---|
+| ???? | 0x00-0x0F | ? ???? (PING, GET_INFO) |
+| UART ?? | 0xA0-0xAF | ? ???? (57/57 PASS) |
+| CAN FD | 0x10-0x1F | ? ??/??/??????????? |
+| SPI | 0x20-0x2F | ? ??? |
+| I2C | 0x30-0x3F | ? ??? |
+| ???? | 0x40-0x4F | ? ??? |
+| TCP | 0x50-0x5F | ? ??? |
+| UDP | 0x60-0x6F | ? ??? |
+| WebSocket | 0x70-0x7F | ? ??? |
+| GPIO | 0x80-0x8F | ? ??? |
+| ???? | 0x90-0x9F | ? ??? |
+| OTA | 0xB0-0xBF | ? ??? |
+
+---
+
+## CAN ????????
+
+| ?? | ?? | ?? |
+|:---|:---|:---|
+| ???? | `files/design/protocol/04-CAN.md` | 12 ????????? (0x10-0x1B) |
+| ???? | `files/design/firmware/07-CAN-Module.md` | ??/??/SPI/?????/????/???? |
+| ???? | `files/design/test/05-CAN-Tests.md` | 94 ?? (Phase 1: 12 + Phase 2: 82) |
+| ???? | `script/test/test_can.py` | ????? (1669 ?) |
+| PCAN DLL ?? | `script/test/pcan_basic.py` | PCANBasic.dll ctypes ?? |
+| ???? | `files/can-files/MCP2518FD????.md` | ????????? (DS20006027A_CN) |
+| ???? | `main/modules/mod_uart.c` | ??? UART ?? (1043 ?) |
+
+### ?????
+
+| ?? | ?? | ???? |
+|:---|:---|:---|
+| `main/modules/mcp2518fd.h` | ?????? + SPI ?? API ?? | ~200 |
+| `main/modules/mcp2518fd.c` | SPI ???? + ???? + ??? | ~500 |
+| `main/modules/mod_can.h` | CAN ?????? | ~30 |
+| `main/modules/mod_can.c` | 12 ???? + ?? ISR + Bus Off ??? | ~1200 |
+
+### ?? ubcp_def.h ?????
+
+```c
+// CAN ???
+UBCP_CMD_CAN_OPEN        (0x10)    UBCP_CMD_CAN_CLOSE       (0x11)
+UBCP_CMD_CAN_CONFIG      (0x12)    UBCP_CMD_CAN_SEND        (0x13)
+UBCP_CMD_CAN_RECV        (0x14)    UBCP_CMD_CAN_FILTER      (0x15)
+UBCP_CMD_CAN_STATUS      (0x16)    UBCP_CMD_CAN_BUS_EVENT   (0x17)
+UBCP_CMD_CAN_ERROR_EVENT (0x18)    UBCP_CMD_CAN_SLEEP       (0x19)
+UBCP_CMD_CAN_WAKEUP      (0x1A)    UBCP_CMD_CAN_FILTER_BATCH (0x1B)
+
+// CAN ???
+UBCP_ERR_CAN_BUS_OFF     (0x10)    UBCP_ERR_CAN_BUS_PASSIVE (0x11)
+UBCP_ERR_CAN_TX_QUEUE_FULL (0x12)  UBCP_ERR_CAN_RX_OVERFLOW (0x13)
+UBCP_ERR_CAN_TX_TIMEOUT  (0x14)    UBCP_ERR_CAN_FILTER_FULL (0x15)
+UBCP_ERR_CAN_BAUD_UNSUPPORT (0x16)
+
+// ???
+UBCP_CAP_CAN   (1 << 0)            UBCP_CAP_CAN_FD (1 << 1)
+
+// ?????
+UBCP_CH_CAN_EXT1           (3)     UBCP_CFGKEY_CAN_CHANNEL_COUNT  (0x11)
+UBCP_CFGKEY_CAN_ERROR_THROTTLE_MS (0x04)
+```

@@ -2,11 +2,11 @@ import sys, struct, time
 sys.path.insert(0, 'script/test')
 from mcp_transport import MCPTransport
 
-t = MCPTransport(port='COM35', baudrate=115200)
+t = MCPTransport(port='COM4', baudrate=115200)
 t.open()
 t.flush_input()
 # Don't close - just wait for any event
-print('Waiting for ANY event on COM35 (5s)...')
+print('Waiting for ANY event on COM4 (5s)...')
 evt = t.recv_event(timeout=5.0)
 if evt:
     print(f'EVENT: cmd=0x{evt.cmd_code:02X} seq={evt.seq_num}')
