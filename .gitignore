@@ -22,6 +22,7 @@ __pycache__/
 
 # Scripts (local only)
 script/push-to-github.ps1
+script/release-github.ps1
 
 # OS
 Thumbs.db
