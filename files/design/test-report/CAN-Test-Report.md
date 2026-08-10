@@ -10,9 +10,9 @@
 |:---|:---|
 | 被测模块 | CAN FD (mod_can, 命令范围 0x10-0x1F) + MCP2518FD SPI 驱动 |
 | 硬件 | MCP2518FD CAN FD 控制器（外接 20MHz 晶振）+ ATA6563 收发器 |
-| 测试用例数 | PCAN: 94（Phase 1: 12 + Phase 2: 82）/ CANable: 20 组 |
-| 测试结果 | **PCAN: 104 PASS / 0 FAIL / 23 SKIP**<br>**CANable: 98 PASS / 0 FAIL / 1 SKIP** |
-| 测试脚本 | `script/test/test_can.py`（PCAN）/ `script/test/test_canable.py`（CANable） |
+| 测试用例数 | PCAN: 94（Phase 1: 12 + Phase 2: 82）/ CANable: 20 组 / 手动 Phase 3: 9 |
+| 测试结果 | **PCAN: 104 PASS / 0 FAIL / 23 SKIP**<br>**CANable: 98 PASS / 0 FAIL / 1 SKIP**<br>**手动 Phase 3 (总线断开): 43 PASS / 0 FAIL / 0 SKIP** |
+| 测试脚本 | `script/test/test_can.py`（Phase 1/2: PCAN, Phase 3: 手动）/ `script/test/test_canable.py`（CANable） |
 | 芯片型号 | ESP32-D0WD-V3 (revision v3.1) |
 | IDF 版本 | ESP-IDF v6.0.2 |
 | 固件版本 | HEX-Bridge v0.1.0 |
@@ -179,6 +179,33 @@ COM6: CANable 2.0 (slcan, 115200 bps)
 | | FD DLC 映射 9~15 | ✅ PASS (12/16/20/24/32/48/64B) |
 | | FD Loopback 自收 | ✅ PASS |
 
+### 3.3 手动测试 Phase 3（test_can.py --phase 3，总线断开无对端）
+
+**总结果: 43 PASS / 0 FAIL / 0 SKIP**
+
+| 编号 | 用例 | 对应 test_can.py | 结果 |
+|:---|:---|:---|:---|
+| MT-01 | ERROR_EVENT 错误详情上报 | CAN-37/38 | ✅ PASS (type=0x60 Stuff+RxWarning, REC=135) |
+| MT-02 | BUS_EVENT 总线状态上报 | CAN-35 | ✅ PASS (Error Passive bs=1) |
+| MT-03 | STATUS 错误计数累积 | CAN-59 | ✅ PASS (REC=135, Stuff=1) |
+| MT-04 | SEND TX 队列满 | CAN-20 | ✅ PASS (ERR_CAN_TX_QUEUE_FULL) |
+| MT-05 | OneShot 标志 | CAN-80 | ✅ PASS (TEC 有界 <128) |
+| MT-06 | 总线恢复（重开清计数） | CAN-36 | ✅ PASS (REC 135→0, bs 1→0) |
+| MT-07 | ERROR_EVENT 限速 (500ms) | CAN-82 | ✅ PASS |
+| MT-08 | SLEEP/WAKEUP | CAN-74~77 | ✅ PASS |
+| MT-09 | ListenOnly 禁止发送 | CAN-72 | ✅ PASS (ERR_NOT_SUPPORT) |
+
+运行方式：
+```bash
+python script/test/test_can.py --phase 3 --mcp COM4 --mcp-baud 115200
+```
+
+> 说明：在 CAN 总线断开、MCP2518FD 单独在浮动总线的条件下运行。浮动总线在
+> MCP 发送时因回波产生接收侧 Stuff 错误（REC 升至 135 → Error Passive），以此
+> 触发并验证 ERROR_EVENT / BUS_EVENT 上报机制。ACK 错误（CAN-37 需无对端且
+> 总线正常端接）与 Bus-Off（TEC≥256）需要正确端接且无对端的总线环境，本环境下
+> 以 Stuff 错误 + Error Passive 验证了错误检测链路。
+
 ---
 
 ## 4. SKIP 说明
@@ -227,7 +254,7 @@ COM6: CANable 2.0 (slcan, 115200 bps)
 
 | 文件 | 说明 |
 |:---|:---|
-| `script/test/test_can.py` | PCAN 对端测试 (94 用例, Phase 1 + Phase 2) |
+| `script/test/test_can.py` | CAN 测试总入口 (Phase 1: PCAN, Phase 2: MCP UBCP, Phase 3: 手动) |
 | `script/test/test_canable.py` | CANable 2.0 对端测试 (经典 + FD) |
 | `script/test/canable_slcan.py` | CANable 2.0 slcan 协议封装 (含 FD 扩展) |
 | `script/test/pcan_basic.py` | PCANBasic.dll ctypes 封装 (含 reinitialize 修复) |
@@ -253,7 +280,8 @@ CAN 模块固件实现完整，覆盖协议规范 `04-CAN.md` 中全部 12 个�
 **测试结论**：
 1. **PCAN 对端**：94 个用例全部通过（104 PASS / 0 FAIL），覆盖 OPEN/CLOSE/CONFIG/SEND/RECV/FILTER/STATUS/BUS_EVENT/ERROR_EVENT/SLEEP/WAKEUP/FILTER_BATCH 全部命令路径。23 个 SKIP 均为 CAN FD 相关（PCAN 经典型号不支持）或需手动干预的破坏性用例。
 2. **CANable 2.0 对端**：经典 CAN 2.0 与 CAN FD 全链路验证通过（98 PASS / 0 FAIL）。MCP2518FD 的 CAN FD 64 字节、BRS、DLC 映射（12~64 字节）功能正确，与 CANable 2.0 的 2 Mbps FD 数据段互通正常。
-3. **CAN FD 能力**：MCP2518FD 固件 CAN FD 收发、BRS 切换、FD DLC 全映射验证通过（经 CANable 2.0）。
-4. **波特率切换**：500k↔250k 实时切换验证通过（修复 PCAN 客户端跟踪问题后）。
+3. **手动测试 Phase 3**：9 个手动场景全部通过（43 PASS / 0 FAIL），在浮动总线上验证了 ERROR_EVENT 错误上报、BUS_EVENT 总线状态上报、错误计数累积、TX 队列满、OneShot、总线恢复、错误限速、SLEEP/WAKEUP、ListenOnly 发送拒绝。
+4. **CAN FD 能力**：MCP2518FD 固件 CAN FD 收发、BRS 切换、FD DLC 全映射验证通过（经 CANable 2.0）。
+5. **波特率切换**：500k↔250k 实时切换验证通过（修复 PCAN 客户端跟踪问题后）。
 
-CAN 模块功能完整，经典 CAN 2.0 与 CAN FD 均工作正常，满足协议规范要求。
+CAN 模块功能完整，经典 CAN 2.0 与 CAN FD 均工作正常，错误检测与上报机制正确，满足协议规范要求。

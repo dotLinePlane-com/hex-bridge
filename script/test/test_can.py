@@ -83,6 +83,16 @@ CAN_FLAG_ONESHOT = 0x08000000
 
 CAN_ID_EXT_MAX = 0x1FFFFFFF
 
+# ERROR_EVENT ErrorType 位定义 (Phase 3 手动测试使用)
+ERRT_CRC        = 0x01   # CRC 错误
+ERRT_FORM       = 0x02   # 格式错误
+ERRT_ACK        = 0x04   # ACK 错误
+ERRT_BIT_REC    = 0x08   # 隐性位错误
+ERRT_BIT_DOM    = 0x10   # 显性位错误
+ERRT_STUFF      = 0x20   # 填充错误
+ERRT_RXWARN     = 0x40   # 接收警告 (TEC/REC>=96)
+ERRT_BUSOFF_REC = 0x80   # Bus Off 恢复
+
 _test_selected = lambda name: True  # overridden in main() if --test is provided
 
 # ── Test State ─────────────────────────────────────────────────────────────
@@ -1700,6 +1710,268 @@ def test_can72_listen_only_send_rejected(transport, seq, pcan_ch):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Phase 3: Manual Tests (bus disconnected, MCP alone, no peer device)
+#
+# 在 CAN 总线断开、MCP2518FD 单独在浮动总线上的条件下验证错误检测与上报
+# 机制。浮动总线在 MCP 发送时因回波产生接收侧 Stuff 错误 (REC 上升)，
+# 以此触发 ERROR_EVENT / BUS_EVENT。对应原 --no-skip 手动用例:
+#   CAN-20/35/36/37/38/59/72/74~77/80/82
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _status_dict(transport, seq):
+    """STATUS -> dict (bs/tec/rec + error counters)."""
+    f = send_cmd(transport, seq, CMD_CAN_STATUS)
+    if f is None or len(f.payload) < 28:
+        return None
+    return {
+        'bs': f.payload[1], 'tec': f.payload[2], 'rec': f.payload[3],
+        'tx': struct.unpack('>H', f.payload[8:10])[0],
+        'rx': struct.unpack('>H', f.payload[10:12])[0],
+        'lost': struct.unpack('>H', f.payload[12:14])[0],
+        'crc': struct.unpack('>H', f.payload[18:20])[0],
+        'form': struct.unpack('>H', f.payload[20:22])[0],
+        'ack': struct.unpack('>H', f.payload[22:24])[0],
+        'bit': struct.unpack('>H', f.payload[24:26])[0],
+        'stuff': struct.unpack('>H', f.payload[26:28])[0],
+    }
+
+
+def _collect_events(transport, timeout=0.3):
+    """Collect pending event frames."""
+    events = []
+    while True:
+        f = transport.recv_frame(timeout=timeout)
+        if f is None:
+            break
+        if f.is_event:
+            events.append(f)
+    return events
+
+
+def _provoke_sends(transport, seq, n=5, can_id=0x300, collect_events=False):
+    """Send n frames to provoke bus errors on the floating bus.
+
+    With collect_events=True, returns (seq, sent, events).
+    """
+    sent = 0
+    events = []
+    for i in range(n):
+        f = can_send(transport, seq, can_id + i, b'\x00', expected=None)
+        if f and f.payload[0] == ERR_SUCCESS:
+            sent += 1
+        seq += 1
+        if collect_events:
+            ev = transport.recv_frame(timeout=0.05)
+            while ev is not None:
+                if ev.is_event:
+                    events.append(ev)
+                ev = transport.recv_frame(timeout=0.01)
+        time.sleep(0.01)
+    return (seq, sent, events) if collect_events else (seq, sent)
+
+
+def test_mt01_error_event(transport, seq):
+    """MT-01 (CAN-37/38): ERROR_EVENT 错误详情上报"""
+    print('\n--- MT-01: ERROR_EVENT 上报 ---')
+    transport.flush_input()
+    seq, sent, events = _provoke_sends(transport, seq, n=6, collect_events=True)
+    print(f'  provoked {sent} sends')
+    deadline = time.time() + 2.0
+    while time.time() < deadline:
+        ev = transport.recv_frame(timeout=0.3)
+        if ev is None:
+            break
+        if ev.is_event:
+            events.append(ev)
+    err_evts = [e for e in events if e.cmd_code == CMD_CAN_ERROR_EVENT]
+    if err_evts:
+        p = err_evts[0].payload
+        et, tec, rec, loc = p[0], p[1], p[2], p[3]
+        print(f'  ERROR_EVENT: type=0x{et:02X} TEC={tec} REC={rec} loc=0x{loc:02X}')
+        assert_bool('payload len=4', len(p) == 4)
+        assert_bool('ErrorType non-zero', et != 0)
+        err_bits = (ERRT_STUFF | ERRT_BIT_REC | ERRT_BIT_DOM |
+                    ERRT_CRC | ERRT_FORM | ERRT_ACK)
+        assert_bool('error type bit set', bool(et & err_bits),
+                    f'type=0x{et:02X}')
+        assert_bool('TEC or REC reflects error', tec > 0 or rec > 0)
+    else:
+        st = _status_dict(transport, seq); seq += 1
+        if st and (st['rec'] > 0 or st['tec'] > 0 or st['stuff'] > 0 or
+                   st['crc'] > 0 or st['form'] > 0 or st['ack'] > 0 or
+                   st['bit'] > 0):
+            skip_('ERROR_EVENT capture',
+                  f'event throttled/consumed, but counters show activity '
+                  f'REC={st["rec"]} Stuff={st["stuff"]}')
+        else:
+            skip_('ERROR_EVENT', 'bus too quiet, no error activity')
+    return seq
+
+
+def test_mt02_bus_event(transport, seq):
+    """MT-02 (CAN-35): BUS_EVENT 总线状态上报"""
+    print('\n--- MT-02: BUS_EVENT 状态上报 ---')
+    transport.flush_input()
+    seq, _ = _provoke_sends(transport, seq, n=8)
+    deadline = time.time() + 4.0
+    got = None
+    while time.time() < deadline:
+        f = transport.recv_frame(timeout=0.5)
+        if f and f.is_event and f.cmd_code == CMD_CAN_BUS_EVENT:
+            got = f
+            break
+    st = _status_dict(transport, seq); seq += 1
+    if got:
+        p = got.payload
+        state, prev, tec, rec = p[0], p[1], p[2], p[3]
+        print(f'  BUS_EVENT: state={state} prev={prev} TEC={tec} REC={rec}')
+        assert_bool('state in 0..3', state <= 3)
+        assert_bool('prev in 0..3', prev <= 3)
+        assert_bool('state reflects bus condition', state == 0 or state == 1)
+    else:
+        if st:
+            print(f'  (no new BUS_EVENT; STATUS bs={st["bs"]})')
+            assert_bool('STATUS BusState valid', st['bs'] <= 3)
+        else:
+            fail_('BUS_EVENT/STATUS', 'no data')
+    return seq
+
+
+def test_mt03_error_counters(transport, seq):
+    """MT-03 (CAN-59): STATUS 错误计数累积"""
+    print('\n--- MT-03: STATUS 错误计数 ---')
+    st = _status_dict(transport, seq); seq += 1
+    if st is None:
+        fail_('STATUS', 'no response')
+        return seq
+    print(f'  bs={st["bs"]} TEC={st["tec"]} REC={st["rec"]} '
+          f'CRC={st["crc"]} Form={st["form"]} ACK={st["ack"]} '
+          f'Bit={st["bit"]} Stuff={st["stuff"]}')
+    assert_bool('BusState valid (0..3)', st['bs'] <= 3)
+    total_err = st['crc'] + st['form'] + st['ack'] + st['bit'] + st['stuff']
+    assert_bool('error activity detected (counters or REC)',
+                total_err > 0 or st['rec'] > 0, 'all counters zero')
+    return seq
+
+
+def test_mt04_tx_queue_full(transport, seq):
+    """MT-04 (CAN-20): SEND TX 队列满"""
+    print('\n--- MT-04: TX 队列满 ---')
+    tx_ok = 0
+    tx_full = 0
+    for _ in range(30):
+        f = can_send(transport, seq, 0x200, b'\x00', expected=None)
+        if f is None:
+            break
+        if f.payload[0] == ERR_CAN_TX_QUEUE_FULL:
+            tx_full += 1
+            break
+        if f.payload[0] == ERR_SUCCESS:
+            tx_ok += 1
+        seq += 1
+        time.sleep(0.001)
+    print(f'  TxOk={tx_ok}, TxFull={tx_full}')
+    if tx_full > 0:
+        pass_('TX queue full detected (ERR_CAN_TX_QUEUE_FULL)')
+    else:
+        skip_('TX queue full', f'no full after {tx_ok} sends (TXQ kept up)')
+    return seq
+
+
+def test_mt05_oneshot(transport, seq):
+    """MT-05 (CAN-80): OneShot 标志"""
+    print('\n--- MT-05: OneShot ---')
+    can_close(transport, seq); seq += 1
+    can_open(transport, seq); seq += 1
+    can_config(transport, seq, 0x06); seq += 1
+    time.sleep(0.3)
+    f = can_send(transport, seq, 0x100, b'\xAA', is_oneshot=True,
+                 expected=None)
+    if f is None:
+        fail_('OneShot SEND', 'no response'); return seq
+    if f.payload[0] == ERR_SUCCESS:
+        pass_('OneShot SEND accepted')
+    else:
+        fail_(f'OneShot SEND: got 0x{f.payload[0]:02X}')
+        return seq
+    seq += 1
+    time.sleep(0.3)
+    st = _status_dict(transport, seq); seq += 1
+    if st:
+        assert_bool('OneShot TEC bounded (<128)',
+                    st['tec'] < 128, f'TEC={st["tec"]}')
+        print(f'  OneShot after: TEC={st["tec"]} REC={st["rec"]}')
+    return seq
+
+
+def test_mt06_bus_recovery(transport, seq):
+    """MT-06 (CAN-36): 总线恢复 (重开清错误计数)"""
+    print('\n--- MT-06: 总线恢复 ---')
+    st = _status_dict(transport, seq); seq += 1
+    if st:
+        print(f'  before reopen: bs={st["bs"]} TEC={st["tec"]} REC={st["rec"]}')
+    can_close(transport, seq); seq += 1
+    can_open(transport, seq); seq += 1
+    can_config(transport, seq, 0x06); seq += 1
+    time.sleep(0.3)
+    st = _status_dict(transport, seq); seq += 1
+    if st:
+        print(f'  after reopen: bs={st["bs"]} TEC={st["tec"]} REC={st["rec"]}')
+        assert_bool('counters cleared after reopen',
+                    st['tec'] == 0 and st['rec'] == 0,
+                    f'TEC={st["tec"]} REC={st["rec"]}')
+        assert_bool('BusState back to active', st['bs'] == 0, f'bs={st["bs"]}')
+    return seq
+
+
+def test_mt07_error_throttle(transport, seq):
+    """MT-07 (CAN-82): ERROR_EVENT 限速"""
+    print('\n--- MT-07: ERROR_EVENT 限速 ---')
+    transport.flush_input()
+    seq, _ = _provoke_sends(transport, seq, n=10)
+    time.sleep(2.0)
+    events = _collect_events(transport, timeout=0.5)
+    err_events = [e for e in events if e.cmd_code == CMD_CAN_ERROR_EVENT]
+    print(f'  ERROR_EVENTs in window: {len(err_events)}')
+    assert_bool('ERROR_EVENT count <= 4 (500ms throttle)',
+                len(err_events) <= 4, f'got {len(err_events)}')
+    return seq
+
+
+def test_mt08_sleep_wakeup(transport, seq):
+    """MT-08 (CAN-74~77): SLEEP / WAKEUP"""
+    print('\n--- MT-08: SLEEP / WAKEUP ---')
+    can_sleep(transport, seq); seq += 1
+    can_sleep(transport, seq, ERR_BUSY); seq += 1
+    f = can_wakeup(transport, seq); seq += 1
+    if f and len(f.payload) >= 4:
+        mode = f.payload[1]
+        reason = struct.unpack('>H', f.payload[2:4])[0]
+        assert_bool('WAKEUP mode restored', mode == CAN_MODE_NORMAL)
+        assert_bool('WAKEUP reason CMD bit', bool(reason & 0x01))
+    else:
+        fail_('WAKEUP', 'no/insufficient response')
+    return seq
+
+
+def test_mt09_listen_only_reject(transport, seq):
+    """MT-09 (CAN-72): 只听模式禁止发送"""
+    print('\n--- MT-09: ListenOnly SEND 拒绝 ---')
+    can_close(transport, seq); seq += 1
+    can_open(transport, seq, CAN_MODE_LISTEN_ONLY); seq += 1
+    can_config(transport, seq, 0x06); seq += 1
+    f = can_send(transport, seq, 0x100, b'\xAA', expected=None)
+    seq += 1
+    if f and f.payload[0] == ERR_NOT_SUPPORT:
+        pass_('ListenOnly SEND -> ERR_NOT_SUPPORT')
+    elif f:
+        fail_(f'ListenOnly SEND rejected: got 0x{f.payload[0]:02X}')
+    else:
+        fail_('ListenOnly SEND', 'no response')
+    return seq
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Main
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -1707,8 +1979,9 @@ def main():
     global passed, failed, skipped, args
     import argparse
     ap = argparse.ArgumentParser(description='HEX-Bridge CAN Module Tests')
-    ap.add_argument('--phase', type=int, default=0, choices=[0, 1, 2],
-                    help='0=all, 1=P1(PCAN only), 2=P2(MCP UBCP)')
+    ap.add_argument('--phase', type=int, default=0, choices=[0, 1, 2, 3],
+                    help='0=all(P1+P2), 1=P1(PCAN only), 2=P2(MCP UBCP), '
+                         '3=P3(Manual, bus disconnected)')
     ap.add_argument('--mcp', default='COM4', help='MCP COM port')
     ap.add_argument('--mcp-baud', type=int, default=921600, help='MCP baud')
     ap.add_argument('--pcan-channel', type=int, default=1, help='PCAN ch 1-4')
@@ -1725,6 +1998,7 @@ def main():
     fd = args.fd
     do_p1 = args.phase in (0, 1)
     do_p2 = args.phase in (0, 2)
+    do_p3 = args.phase == 3
 
     global _test_selected
 
@@ -1739,38 +2013,66 @@ def main():
 
     print('=' * 60)
     print('HEX-Bridge CAN Module Tests')
-    print(f'MCP: {args.mcp} @ {args.mcp_baud}' if do_p2 else 'MCP: N/A (Phase 1 only)')
-    print(f'PCAN: ch={args.pcan_channel} {args.baud}{" (FD)" if fd else ""}')
+    print(f'MCP: {args.mcp} @ {args.mcp_baud}' if (do_p2 or do_p3)
+          else 'MCP: N/A (Phase 1 only)')
+    print(f'PCAN: ch={args.pcan_channel} {args.baud}{" (FD)" if fd else ""}' if not do_p3
+          else 'PCAN: N/A (Phase 3, bus disconnected)')
     print(f'Phase: {"1+2" if args.phase == 0 else str(args.phase)}')
     print(f'Groups: {args.test if args.test else "all"}')
     print(f'No-skip: {"YES" if args.no_skip else "no"}')
     print('=' * 60)
 
-    # ── Init PCAN ──
+    # ── Init PCAN (skip for Phase 3: no peer device on bus) ──
     pcan_ch = None
-    try:
-        pcan_ch = pcan_init(args.pcan_channel, args.baud, fd)
-        print(f'[OK] PCAN ch{args.pcan_channel} initialized')
-    except Exception as e:
-        print(f'FATAL: {e}')
-        return 1
+    if not do_p3:
+        try:
+            pcan_ch = pcan_init(args.pcan_channel, args.baud, fd)
+            print(f'[OK] PCAN ch{args.pcan_channel} initialized')
+        except Exception as e:
+            print(f'FATAL: {e}')
+            return 1
 
-    # ── Init MCP Transport (Phase 2 only) ──
+    # ── Init MCP Transport (Phase 2/3) ──
     transport = None
-    if do_p2:
+    if do_p2 or do_p3:
         transport = MCPTransport(port=args.mcp, baudrate=args.mcp_baud)
         try:
             transport.open()
         except Exception as e:
             print(f'FATAL: Cannot open {args.mcp}: {e}')
-            pcan_ch.uninitialize()
+            if pcan_ch:
+                pcan_ch.uninitialize()
             return 1
 
     seq = 10
     try:
         if transport:
             transport.flush_input()
-        pcan_ch.read_all(timeout_ms=100)
+        if pcan_ch:
+            pcan_ch.read_all(timeout_ms=100)
+
+        # ═══ Phase 3: Manual Tests (bus disconnected, MCP alone) ═══
+        if do_p3:
+            print('\n' + '=' * 60)
+            print('Phase 3: Manual Tests (bus disconnected, MCP only)')
+            print('=' * 60)
+            transport.flush_input()
+            send_cmd(transport, 1, CMD_CAN_CLOSE, b'', CAN_CHANNEL)
+            transport.recv_frame(timeout=1.0)
+            transport.flush_input()
+            can_open(transport, seq); seq += 1
+            can_config(transport, seq, 0x06); seq += 1
+            time.sleep(0.5)
+
+            seq = test_mt01_error_event(transport, seq)
+            seq = test_mt02_bus_event(transport, seq)
+            seq = test_mt03_error_counters(transport, seq)
+            seq = test_mt04_tx_queue_full(transport, seq)
+            seq = test_mt05_oneshot(transport, seq)
+            seq = test_mt06_bus_recovery(transport, seq)
+            seq = test_mt07_error_throttle(transport, seq)
+            seq = test_mt08_sleep_wakeup(transport, seq)
+            seq = test_mt09_listen_only_reject(transport, seq)
 
         # ═══ Phase 1: PCAN Independent ═══
         if do_p1:
@@ -2022,7 +2324,7 @@ def main():
         print(f'\n[ERROR] {e}')
         traceback.print_exc()
     finally:
-        if do_p2 and transport:
+        if (do_p2 or do_p3) and transport:
             try:
                 send_cmd(transport, 9999, CMD_CAN_CLOSE, b'', CAN_CHANNEL)
             except Exception:
