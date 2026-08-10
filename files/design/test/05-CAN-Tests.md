@@ -956,3 +956,19 @@ python script/test/test_can.py --phase 2 --fd --baud 500k --test fd-dlc
 | **Phase 2 合计** | | **82** | |
 | **Phase 1 合计** | CAN-P1-01 ~ CAN-P1-12 | **12** | |
 | **总计** | | **94** | |
+
+---
+
+## 已知测试覆盖缺口 (待后续版本补齐)
+
+| # | 优先级 | 建议用例 | 场景描述 |
+|:---|:---|:---|:---|
+| 1 | 高 | CAN-83 (FILTER_FULL) | 32 个过滤器填满后尝试添加第 33 个 → `ERR_CAN_FILTER_FULL (0x15)` |
+| 2 | 高 | CAN-56 扩展 (FD→经典回退) | FD 模式通过 CONFIG (FdBaudRateIndex=0x00) 切换回经典 CAN，验证正常收发 |
+| 3 | 中 | CAN-84 (ErrorType 全覆盖) | 补充 Bit0(CRC)/Bit1(Form)/Bit3(Recessive)/Bit4(Dominant)/Bit6(RxWarning)/Bit7(BusOffRecovery) |
+| 4 | 中 | CAN-85 (Sleep-Wake) | SLEEP → WAKEUP → SEND/RECV 确认睡-醒过渡期间不丢帧 |
+| 5 | 中 | CAN-86 (Mode 内 CONFIG) | 在 Loopback / ListenOnly 模式下执行 CONFIG，验证行为 |
+| 6 | 低 | CAN-87 (FILTER_BATCH 部分成功) | 批量写入时模拟硬件部分失败，验证 WrittenCount 正确 |
+| 7 | 低 | CAN-88 (SPI 争用) | CONFIG / FILTER_BATCH 进行期间并发 SEND，验证 SPI mutex 不阻塞 |
+| 8 | 低 | CAN-89 (吞吐压力) | 1000 帧连续收发，验证无丢帧、无死锁、内存无泄漏 |
+| 9 | 低 | CAN-90 (总线活动唤醒验证) | MCP2518FD 休眠后，CAN 总线注入活动帧触发 WUF 唤醒，验证 WakeupReason Bit1=1 |

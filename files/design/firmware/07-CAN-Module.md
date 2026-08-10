@@ -17,6 +17,10 @@ CAN 模块管理 MCP2518FD CAN FD 控制器，实现 UBCP 协议中的 CAN 命�
 | INT 引脚 | GPIO 39 (GPI，外接 10kΩ 上拉) |
 | 时钟频率 | 20 MHz (外部晶振) |
 | SPI 速率 | 10 MHz |
+
+> **注意**：MCP2518FD ERR-4 勘误指出 SPI CRC 指令 (READ_CRC/WRITE_CRC) 在 ≥ 8 MHz 时偶发校验失败。
+> 固件主数据通路使用普通 READ/WRITE 指令（不受 ERR-4 影响），CRC 指令仅用于关键配置写入后验证。
+> 若 CRC 验证频繁失败，可降速至 8 MHz。
 | 默认波特率 | 500 kbps |
 | RX 缓冲区 | 32 帧（可配置） |
 | TX 缓冲区 | 16 帧（硬件 FIFO） |
@@ -131,7 +135,8 @@ CAN_OPEN(Mode) 到达:
 ```
 CAN_CLOSE() 到达:
   1. 校验通道已打开 (ERR_NOT_OPEN)
-  2. 等待 TX FIFO 排空（轮询 TXREQ 标志）
+  2. 等待 TX FIFO 排空（轮询 TXREQ 标志，最大等待 1s 超时）
+     → 超时后强制进入 Configuration Mode，返回 ERR_CAN_TX_TIMEOUT (0x14)
   3. 设置 MCP2518FD 为 Configuration Mode
   4. 删除 can_int_task + can_rx_proc
   5. 删除 can_event_queue + can_rx_queue
@@ -162,18 +167,23 @@ CAN_CONFIG(参数) 到达:
 CAN_SEND(CanID, DLC, Data) 到达:
   1. 校验通道已打开 (ERR_NOT_OPEN)
   2. 校验 DLC 范围
-  3. 若 CanID.OneShot=1: 等待 TX FIFO 排空 (MCP2518FD 的 AutoRetransmit 为全局控制)
+  3. 若 CanID.OneShot=1:
+     a. 获取 can_send_mutex（防止并发 OneShot 修改全局 AutoRetransmit）
+     b. 等待 TX FIFO 排空（MCP2518FD 的 AutoRetransmit 为全局控制）
+     c. 临时禁用全局 AutoRetransmit (CiCON.RETRAN=0)
   4. 检查 TX FIFO (CiFIFOSTAx.TFNRFNIF) 是否满
      → 满则返回 ERR_CAN_TX_QUEUE_FULL
   5. 构建 TEF (Transmit Event FIFO) 时间戳捕获使能
-  6. 若 OneShot=1: 临时禁用 AutoRetransmit → 写入帧 → 设置 TXREQ → 等待发送完成 → 恢复 AutoRetransmit
+  6. 若 OneShot=1: 写入帧 → 设置 TXREQ → 等待发送完成 → 恢复 AutoRetransmit → 释放 can_send_mutex
   7. 若 OneShot=0: 写入 CiFIFOCONx / CiTXD → 设置 TXREQ
   8. 读取发送时间戳（因 ERR-1，使用 esp_timer_get_time() 记录，而非 TEF 硬件时间戳）
   9. 返回 Status + TxTimestamp (μs, 与 RxTimestamp 同源可直接比较)
-```
 
 > **OneShot 限制**：MCP2518FD 的 AutoRetransmit 是全局位 (CiCON.RETRAN)，非逐帧控制。
 > 因此 OneShot 帧必须先排空 TX FIFO 后单独发送，确保不会误影响队列中其他正常帧。
+> `can_send_mutex` 为 FreeRTOS 互斥锁，防止 OneShot 和 Normal 发送之间的 TOCTOU 竞态：
+> 若在 OneShot 排空 FIFO → 禁用 AutoRetransmit → 发送帧的窗口期间，有 Normal 帧从另一上下文
+> 并发到达，会抢走已被临时禁用的 AutoRetransmit 设置，导致 Normal 帧变成 OneShot 行为。
 
 ### 7.4.5 CAN_RECV (0x14) — 接收上报
 
@@ -452,7 +462,9 @@ SPI 单次事务耗时约 10-50 μs（10 MHz, ≤64 字节），不会长时间�
   通过 FreeRTOS 消息队列传递帧指针（零拷贝），避免 memcpy。
 - **TX 帧**：在 `handle_cmd` 上下文中栈上构造 SPI 发送缓冲区，不占用持久内存。
 - **状态变量** (TxCount/RxCount/LostCount/TEC/REC 等)：全局 `static` 变量，DRAM (.bss)。
-- 若 PSRAM 不可用（`ESP_SPIRAM_SIZE == 0`），降级使用 DRAM。
+- **PSRAM 降级策略**：初始化时通过 `heap_caps_get_free_size(MALLOC_CAP_SPIRAM)` 检测 PSRAM 可用性。
+  若 `ESP_SPIRAM_SIZE == 0` 或 PSRAM 不足，降级使用 DRAM（`heap_caps_malloc(N*80, MALLOC_CAP_8BIT)`），
+  对应的 FreeRTOS 队列创建也用 DRAM 内存。
 
 ## 7.10 Bus Off 恢复状态机
 
@@ -463,7 +475,8 @@ Bus Off 触发:
   1. 上报 CAN_BUS_EVENT(BusState=0x02, PrevState=当前状态, TEC, REC)
   2. 若 ConfigFlags.AutoBusOff=1:
      a. MCP2518FD 自动启动恢复序列（CiCON.ABAT=1）
-     b. 固件轮询 CiTREC，检测 TEC 降至 127 以下 (每 50ms 检查一次)
+     b. 固件通过 FreeRTOS timer (50ms 周期) 轮询 CiTREC，检测 TEC 降至 127 以下
+        → 注意：使用软件定时器回调，不阻塞 can_int_task
      c. 上报 CAN_BUS_EVENT(BusState=0x03 "恢复中")
      d. TEC 归零后，MCP2518FD 自动切回 Normal 模式
      e. 上报 CAN_BUS_EVENT(BusState=0x00, PrevState=0x03)

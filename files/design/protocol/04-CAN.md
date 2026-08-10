@@ -83,6 +83,8 @@
 |:---|:---|:---|:---|
 | 0 | Status | u8 | 状态码 |
 
+> **注意**：CLOSE 前等待 TX 队列排空有超时限制（建议 1s），超时后强制关闭并返回 `ERR_CAN_TX_TIMEOUT (0x14)`。
+
 ---
 
 ## 4.3 CAN_CONFIG (0x12) — 配置 CAN 参数
@@ -226,7 +228,9 @@ Bit:  31     30     29     28                                      0
 
 > **注意**：
 > - BRS 仅在 FD=1 时有效。经典 CAN 帧忽略此位。
-> - 扩展帧 (EXT=1) 无法逐帧控制 BRS 和 OneShot，需通过 ConfigFlags 全局配置。
+> - 扩展帧 (EXT=1) 无法逐帧控制 BRS 和 OneShot，需通过 CAN_CONFIG 的 ConfigFlags 全局配置。
+>   这是 MCP2518FD 硬件的位域布局限制：29-bit ID 占用了 bit[28:0]，BRS(bit28) 和 OneShot(bit27) 在扩展帧模式下被 ID 字段覆盖。
+>   若需要逐帧控制 BRS/OneShot，建议使用标准帧 (11-bit ID) 发送。
 > - OneShot 模式下，若总线拥塞导致仲裁失败，帧立即丢弃不重试。适用于诊断/错误注入场景。
 > - **实现约束**：MCP2518FD 的 AutoRetransmit 是全局设置而非逐帧控制。固件实现 OneShot 时需先排空 TX FIFO，
 >   临时禁用全局 AutoRetransmit，发送完成后恢复。若 TX FIFO 非空，快速连续发送 OneShot 帧之间需等待前一帧完成。
@@ -299,7 +303,12 @@ Flags: DIR=1, EVT=1, TS=1（启用时间戳）
 | 10 | FilterType | u8 | 0x00 = 标准帧, 0x01 = 扩展帧, 0x02 = 两者 |
 | 11 | FIFONum | u8 | 0x01 = 路由到 FIFO1, 0x02 = 路由到 FIFO2 (默认 0x01) |
 
-> **注意**：FilterType 为 0x02 (两者) 时，MCP2518FD 利用 EXIDE 位区分标准帧和扩展帧，两种帧都会被匹配。Mask/Code 的位布局因帧类型而异：标准帧使用 bit[10:0]，扩展帧使用 bit[28:0]。
+> **注意**：FilterType 为 0x02 (两者) 时，MCP2518FD 利用 EXIDE 位区分标准帧和扩展帧，两种帧都会被匹配。
+> 实现方式：将 Mask/Code 的高位 bit[30] 作为 EXIDE 控制位 —— 该位在标准帧中固定为 0，扩展帧中固定为 1，
+> MCP2518FD 硬件自动比对区分。因此 FilterType=Both 时：
+> - Mask bit[30] 设 1 表示同时匹配标准和扩展帧（EXIDE 位参与过滤）
+> - Mask bit[30] 设 0 时 EXIDE 不参与比较，仅匹配 Code bit[30] 指定的帧类型
+> - 标准帧的 11-bit ID 位于 Mask/Code bit[28:18]，扩展帧的 29-bit ID 位于 bit[28:0]
 
 ### 响应
 
@@ -330,6 +339,11 @@ Flags: DIR=1, EVT=1, TS=1（启用时间戳）
 | 8-9 | TxCount | u16 | 总发送帧数 |
 | 10-11 | RxCount | u16 | 总接收帧数 |
 | 12-13 | LostCount | u16 | 丢帧计数 |
+
+> **LostCount 与 RxFlags.FrameLost 的关系**：
+> - `LostCount`（CAN_STATUS 响应字段）：自 CAN_OPEN 以来累计丢失的 CAN 帧总数，由固件软件计数器维护
+> - `RxFlags.FrameLost`（CAN_RECV 事件字段，Bit0）：表示自上一帧 RECV 事件以来是否发生过丢帧（即该帧与前一个被成功接收的帧之间存在被丢弃的帧）
+> - 建议主机组合使用两者：定期查询 STATUS 获取累计丢帧数用于链路健康监控，通过 RECV 的 FrameLost 位精确定位丢帧时间窗口
 | 14-15 | TxQueueSize | u16 | 发送队列总容量（帧数） |
 | 16-17 | RxQueueSize | u16 | 接收队列总容量（帧数） |
 | 18-19 | CrcErrCount | u16 | CRC 错误累计次数 |

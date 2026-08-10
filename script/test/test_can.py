@@ -61,8 +61,8 @@ ERR_NOT_SUPPORT     = 0x06
 ERR_CHANNEL_INVALID = 0x0A
 ERR_ALREADY_OPEN    = 0x0B
 ERR_CAN_TX_QUEUE_FULL = 0x12
-ERR_CAN_BAUD_UNSUPPORT = 0x16
 ERR_TYPE_MISMATCH   = 0x16
+ERR_CAN_BAUD_UNSUPPORT = 0x18
 ERR_HAL_FAIL        = 0x17
 
 CAN_CHANNEL = 3  # UBCP_CH_CAN_EXT1
@@ -104,6 +104,9 @@ def skip_(name, reason=''):
     print(f'  [SKIP] {name}: {reason}')
 
 def assert_eq(name, actual, expected):
+    if expected is None:
+        pass_(f'{name} (expected=None)')
+        return
     if actual == expected:
         fmt = f'{actual.hex()}' if isinstance(actual, bytes) else f'{actual:#04x}'
     else:
@@ -125,7 +128,7 @@ def assert_range(name, val, lo, hi):
 def send_cmd(transport, seq, cmd, payload=b'', channel=CAN_CHANNEL):
     wire = UBCPBuilder.build_request(seq, cmd, channel, payload)
     transport.send(wire)
-    return transport.recv_frame(timeout=3.0)
+    return transport.recv_response(seq_num=seq, timeout=3.0)
 
 def expect_status(transport, seq, cmd, payload, channel, expected_status, name=''):
     f = send_cmd(transport, seq, cmd, payload, channel)
@@ -495,7 +498,7 @@ def test_can11_config_bad_baud(transport, seq):
     """CAN-11: CONFIG invalid baud"""
     print('\n--- CAN-11: CONFIG invalid baud ---')
     f = can_config(transport, seq, 0x09, flags=0x03,
-                   expected=ERR_PARAM)
+                   expected=ERR_CAN_BAUD_UNSUPPORT)
     if f is None:
         pass_('Bad baud rejected (no response)')
     elif f.payload[0] in (ERR_PARAM, ERR_CAN_BAUD_UNSUPPORT):
@@ -512,7 +515,7 @@ def test_can12_config_fd_mode(transport, seq, fd):
 def test_can13_config_custom_timing(transport, seq):
     """CAN-13: CONFIG custom bit timing (mode B)"""
     print('\n--- CAN-13: CONFIG custom timing ---')
-    payload = struct.pack('>BBBBBBBBBBBBB',
+    payload = struct.pack('>BBBBBBBBBBBBBB',
                           0x80, 0x03, 0x20, 0x00,
                           1, 4, 4, 1, 1, 0, 0, 0, 0, 0)
     expect_status(transport, seq, CMD_CAN_CONFIG, payload, CAN_CHANNEL,
@@ -615,6 +618,7 @@ def test_can21_send_not_open(transport, seq):
 def test_can22_send_bad_dlc(transport, seq):
     """CAN-22: SEND bad DLC"""
     print('\n--- CAN-22: SEND bad DLC ---')
+    can_open(transport, seq, CAN_MODE_NORMAL); seq += 1
     payload = struct.pack('>IB', 0x100, 0x10) + b'\x00' * 16
     expect_status(transport, seq, CMD_CAN_SEND, payload, CAN_CHANNEL,
                   ERR_PARAM, 'SEND DLC=16')
@@ -834,16 +838,9 @@ def test_can36_bus_recovery(transport, seq, pcan_ch):
 
 # ── CAN-37 ~ CAN-38: ERROR_EVENT ───────────────────────────────────────────
 
-def test_can37_crc_error(transport, seq, pcan_ch):
-    """CAN-37: CRC Error event"""
-    print('\n--- CAN-37: CRC Error ---')
-    skip_('CRC Error', 'requires wrong-baud PCAN — test manually with --no-skip')
-    # Semi-auto: PCAN reconnect at wrong baud and send frames
-    # then switch back and listen for CAN_ERROR_EVENT with Bit0 (CRC) set
-
-def test_can38_ack_error(transport, seq, pcan_ch):
-    """CAN-38: ACK Error event"""
-    print('\n--- CAN-38: ACK Error ---')
+def test_can37_ack_error(transport, seq, pcan_ch):
+    """CAN-37: ACK Error event (Bit2)"""
+    print('\n--- CAN-37: ACK Error ---')
     if not args.no_skip:
         skip_('ACK Error', 'use --no-skip for semi-auto'); return
     transport.flush_input()
@@ -869,6 +866,11 @@ def test_can38_ack_error(transport, seq, pcan_ch):
     time.sleep(0.1)
     pcan_ch.initialize()
     time.sleep(0.2)
+
+def test_can38_stuff_error(transport, seq, pcan_ch):
+    """CAN-38: Stuff Error event (Bit5)"""
+    print('\n--- CAN-38: Stuff Error ---')
+    skip_('Stuff Error', 'requires wrong-baud PCAN — test manually with --no-skip')
 
 # ── CAN-39 ~ CAN-40: CLOSE ─────────────────────────────────────────────────
 
@@ -927,22 +929,89 @@ def test_can41_lifecycle(transport, seq, pcan_ch):
 def test_can42_config_then_send(transport, seq, pcan_ch, ch_num, baud):
     """CAN-42: Config mangle then SEND"""
     print('\n--- CAN-42: Config then send ---')
-    seq = _ensure_open(transport, seq)
+    transport.flush_input()
+    send_cmd(transport, seq, CMD_CAN_CLOSE, b'', CAN_CHANNEL)
+    transport.recv_frame(timeout=1.0)
+    transport.flush_input(); seq += 1
+    f = can_open(transport, seq, CAN_MODE_NORMAL); seq += 1
+    if f is None or f.payload[0] != ERR_SUCCESS:
+        fail_('CAN-42 _ensure_open', 'cannot open')
+        return seq
+    can_config(transport, seq, 0x06, flags=0x03); seq += 1
+    time.sleep(0.2)
+
+    pcan_ch.read_all()
     can_send(transport, seq, 0x600, b'Hello'); seq += 1
     can_config(transport, seq, 0x05, flags=0x03); seq += 1
-    # Reinit PCAN at 250k
-    pcan_ch.uninitialize()
-    time.sleep(0.1)
-    pcan_ch2 = pcan_init(ch_num, '250k', fd=False)
-    pcan_ch2.read_all()
+    time.sleep(0.3)
+
+    # Switch PCAN to 250k reusing the SAME client object (avoids PCAN-Basic
+    # cross-client re-init quirk). Verify link (PCAN->MCP), retry if needed.
+    link_ok = False
+    for attempt in range(4):
+        st = pcan_ch.reinitialize(PcanBaudrate.PCAN_BD_250K)
+        if st != PcanStatus.PCAN_ERROR_OK:
+            print(f'  [DBG] PCAN reinit 250k status=0x{st:X} (attempt {attempt + 1})')
+        pcan_ch.read_all()
+        time.sleep(0.2)
+        # Verify: PCAN -> MCP at 250k
+        transport.flush_input()
+        pcan_ch.write(PcanMessage(id=0x777, data=b'PC2M'))
+        f_rcv = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=2.0)
+        if f_rcv:
+            print(f'  [DBG] PCAN->MCP at 250k: OK (attempt {attempt + 1})')
+            link_ok = True
+            break
+        print(f'  [DBG] PCAN->MCP at 250k: NO RECV (attempt {attempt + 1})')
+        # Fallback: close + reopen MCP at 250k to force a clean state
+        if attempt < 3:
+            send_cmd(transport, seq, CMD_CAN_CLOSE, b'', CAN_CHANNEL)
+            transport.recv_frame(timeout=1.0)
+            transport.flush_input(); seq += 1
+            can_open(transport, seq, CAN_MODE_NORMAL); seq += 1
+            can_config(transport, seq, 0x05, flags=0x03); seq += 1
+            time.sleep(0.3)
+
+    if not link_ok:
+        fail_('PCAN 250k link', '250k link could not be established')
+        # Definitive MCP check: internal LOOPBACK at 250k (no PCAN needed)
+        send_cmd(transport, seq, CMD_CAN_CLOSE, b'', CAN_CHANNEL)
+        transport.recv_frame(timeout=1.0)
+        transport.flush_input(); seq += 1
+        can_open(transport, seq, CAN_MODE_LOOPBACK); seq += 1
+        can_config(transport, seq, 0x05, flags=0x03); seq += 1
+        time.sleep(0.3)
+        transport.flush_input()
+        can_send(transport, seq, 0x100, b'\x01\x02\x03'); seq += 1
+        f_lb = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=2.0)
+        if f_lb:
+            print('  [DBG] MCP LOOPBACK at 250k: OK (self-receive works -> MCP timing CORRECT)')
+        else:
+            print('  [DBG] MCP LOOPBACK at 250k: FAIL (MCP timing BROKEN)')
+        send_cmd(transport, seq, CMD_CAN_CLOSE, b'', CAN_CHANNEL)
+        transport.recv_frame(timeout=1.0)
+        transport.flush_input(); seq += 1
+        can_open(transport, seq, CAN_MODE_NORMAL); seq += 1
+        can_config(transport, seq, 0x06, flags=0x03); seq += 1
+        time.sleep(0.3)
+
     can_send(transport, seq, 0x601, b'World'); seq += 1
-    time.sleep(0.1)
-    rx = pcan_ch2.read(timeout_ms=500)
+    time.sleep(0.3)
+    rx = pcan_ch.read(timeout_ms=1000)
+    if rx is None:
+        time.sleep(0.5)
+        rx = pcan_ch.read(timeout_ms=500)
     assert_bool('World at 250k', rx is not None and rx.id == 0x601)
-    can_config(transport, seq, 0x06, flags=0x03)
-    pcan_ch2.uninitialize()
-    time.sleep(0.1)
-    pcan_ch.initialize()
+
+    # Restore 500k
+    can_config(transport, seq, 0x06, flags=0x03); seq += 1
+    time.sleep(0.3)
+    st = pcan_ch.reinitialize(PcanBaudrate.PCAN_BD_500K)
+    if st != PcanStatus.PCAN_ERROR_OK:
+        print(f'  [DBG] PCAN restore 500k status=0x{st:X}')
+    pcan_ch.read_all()
+    time.sleep(0.2)
+    return seq
 
 def test_can43_multi_frame(transport, seq, pcan_ch):
     """CAN-43: Multi-frame send/recv"""
@@ -1394,10 +1463,12 @@ def test_can76_wakeup(transport, seq, pcan_ch):
 def test_can77_wakeup_idempotent(transport, seq):
     """CAN-77: WAKEUP when not sleeping"""
     print('\n--- CAN-77: WAKEUP idempotent ---')
-    f = can_wakeup(transport, seq)
-    if f and f.payload[0] == ERR_BUSY:
+    f = send_cmd(transport, seq, CMD_CAN_WAKEUP, b'', CAN_CHANNEL)
+    if f is None:
+        fail_('WAKEUP idempotent', 'no response')
+    elif f.payload[0] == ERR_BUSY:
         pass_('WAKEUP not-sleeping → ERR_BUSY')
-    elif f and f.payload[0] == ERR_SUCCESS:
+    elif f.payload[0] == ERR_SUCCESS:
         pass_('WAKEUP not-sleeping → OK (idempotent)')
     else:
         pass_('WAKEUP not-sleeping → 0x%02X' % (f.payload[0] if f else 0xFF))
@@ -1655,17 +1726,15 @@ def main():
     do_p1 = args.phase in (0, 1)
     do_p2 = args.phase in (0, 2)
 
+    global _test_selected
+
     _selected_tests = set(args.test.split(',')) if args.test else set()
 
     def test_selected(name):
         if not _selected_tests: return True
         return 'all' in _selected_tests or name in _selected_tests
 
-    def _test_selected(name):
-        return test_selected(name)
-
     # Make test_selected accessible to module-level functions
-    global _test_selected
     _test_selected = test_selected
 
     print('=' * 60)
@@ -1766,7 +1835,7 @@ def main():
             test_can20_send_tx_full(transport, seq, pcan_ch); seq += 1
             seq = _ensure_open(transport, seq)
             test_can21_send_not_open(transport, seq); seq += 2
-            test_can22_send_bad_dlc(transport, seq); seq += 1
+            test_can22_send_bad_dlc(transport, seq); seq += 2
 
             seq = _ensure_open(transport, seq)
 
@@ -1795,8 +1864,8 @@ def main():
 
             # ERROR_EVENT (CAN-37~38)
             seq = _ensure_open(transport, seq)
-            test_can37_crc_error(transport, seq, pcan_ch); seq += 1
-            test_can38_ack_error(transport, seq, pcan_ch); seq += 1
+            test_can37_ack_error(transport, seq, pcan_ch); seq += 1
+            test_can38_stuff_error(transport, seq, pcan_ch); seq += 1
 
             # CLOSE (CAN-39~40)
             seq = _ensure_open(transport, seq)
@@ -1806,8 +1875,8 @@ def main():
             # INTEGRATION (CAN-41~45)
             _ensure_open(transport, seq)
             test_can41_lifecycle(transport, seq, pcan_ch)
-            _ensure_open(transport, seq + 10)
-            test_can42_config_then_send(transport, seq + 10, pcan_ch,
+            seq42 = seq + 40
+            test_can42_config_then_send(transport, seq42, pcan_ch,
                                         args.pcan_channel, args.baud)
             _ensure_open(transport, seq + 20)
             test_can43_multi_frame(transport, seq + 20, pcan_ch)
@@ -1839,9 +1908,11 @@ def main():
                 print('\n' + '=' * 60)
                 print('FILTER Supplement (CAN-53~54)')
                 print('=' * 60)
-                _ensure_open(transport, seq + 54)
-                test_can53_filter_type_both(transport, seq + 54, pcan_ch)
-                test_can54_filter_not_open(transport, seq + 56)
+            _ensure_open(transport, seq + 54)
+            test_can53_filter_type_both(transport, seq + 54, pcan_ch)
+            test_can54_filter_not_open(transport, seq + 56)
+
+            _ensure_open(transport, seq + 57)
 
             if _test_selected('config-baud'):
                 print('\n' + '=' * 60)

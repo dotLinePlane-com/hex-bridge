@@ -331,7 +331,7 @@
 #define UBCP_ERR_CAN_RX_OVERFLOW    0x13
 #define UBCP_ERR_CAN_TX_TIMEOUT     0x14
 #define UBCP_ERR_CAN_FILTER_FULL    0x15
-#define UBCP_ERR_CAN_BAUD_UNSUPPORT 0x16
+#define UBCP_ERR_CAN_BAUD_UNSUPPORT 0x18
 
 /* ========================================================================
  * 网络错误码 (0x40-0x4F)

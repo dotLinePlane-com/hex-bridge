@@ -30,6 +30,7 @@
 #include "modules/mod_tcp.h"
 #include "modules/mod_udp.h"
 #include "modules/mod_ws.h"
+#include "modules/mod_can.h"
 
 static const char *TAG = "main";
 
@@ -63,6 +64,7 @@ void app_main(void)
     ESP_ERROR_CHECK(msg_bus_register_module(mod_tcp_get()));
     ESP_ERROR_CHECK(msg_bus_register_module(mod_udp_get()));
     ESP_ERROR_CHECK(msg_bus_register_module(mod_ws_get()));
+    ESP_ERROR_CHECK(msg_bus_register_module(mod_can_get()));
 
     /* ── 4. 初始化各功能模块 ── */
     const hex_module_t *modules[] = {
@@ -72,6 +74,7 @@ void app_main(void)
         mod_tcp_get(),
         mod_udp_get(),
         mod_ws_get(),
+        mod_can_get(),
     };
     for (int i = 0; i < sizeof(modules) / sizeof(modules[0]); i++) {
         if (modules[i]->init) {

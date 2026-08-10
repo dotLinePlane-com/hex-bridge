@@ -12,12 +12,15 @@ idf_component_register(
         "modules/mod_tcp.c"
         "modules/mod_udp.c"
         "modules/mod_ws.c"
+        "modules/mod_can.c"
+        "modules/mcp2518fd.c"
     INCLUDE_DIRS
         "."
     PRIV_REQUIRES
         driver
         esp_driver_gpio
         esp_driver_uart
+        esp_driver_spi
         esp_timer
         esp_netif
         esp_eth

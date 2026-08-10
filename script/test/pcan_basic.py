@@ -291,21 +291,27 @@ _pcan.CAN_GetErrorText.argtypes = [
     ctypes.c_char_p,       # Buffer
 ]
 
-_pcan.CAN_SetValueFD.restype = ctypes.c_uint32
-_pcan.CAN_SetValueFD.argtypes = [
-    ctypes.c_uint16,
-    ctypes.c_ubyte,
-    ctypes.c_void_p,
-    ctypes.c_uint32,
-]
+try:
+    _pcan.CAN_SetValueFD.restype = ctypes.c_uint32
+    _pcan.CAN_SetValueFD.argtypes = [
+        ctypes.c_uint16,
+        ctypes.c_ubyte,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+    ]
+except AttributeError:
+    pass
 
-_pcan.CAN_GetValueFD.restype = ctypes.c_uint32
-_pcan.CAN_GetValueFD.argtypes = [
-    ctypes.c_uint16,
-    ctypes.c_ubyte,
-    ctypes.c_void_p,
-    ctypes.c_uint32,
-]
+try:
+    _pcan.CAN_GetValueFD.restype = ctypes.c_uint32
+    _pcan.CAN_GetValueFD.argtypes = [
+        ctypes.c_uint16,
+        ctypes.c_ubyte,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+    ]
+except AttributeError:
+    pass
 
 _pcan.CAN_FilterMessages.restype = ctypes.c_uint32
 _pcan.CAN_FilterMessages.argtypes = [
@@ -579,6 +585,25 @@ class PcanChannel:
         if status == PcanStatus.PCAN_ERROR_OK:
             self._initialized = False
         return status
+
+    def set_baudrate(self, baudrate) -> None:
+        """Change the target baudrate for a subsequent reinitialize()."""
+        self._baudrate = baudrate
+
+    def reinitialize(self, baudrate=None, delay=0.5) -> int:
+        """Reuse the same PCAN client to switch baud: uninit then re-init.
+
+        Switching baud on the same PcanChannel object (same PCAN client)
+        avoids PCAN-Basic client-tracking issues that can leave the
+        hardware at the old bitrate after a cross-object re-init.
+        """
+        if baudrate is not None:
+            self._baudrate = baudrate
+        status = self.uninitialize()
+        if status != PcanStatus.PCAN_ERROR_OK and status != 0:
+            return status
+        time.sleep(delay)
+        return self.initialize()
 
     def write(self, msg) -> int:
         """Write a CAN/CAN FD message. Returns status code."""

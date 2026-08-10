@@ -105,7 +105,7 @@ hex-bridge/
 
 | ?? | ?? | ?? |
 |:---|:---|:---|
-| COM4 | MCP ?? (UART1) | 921600 bps, 8N1 |
+| COM4 | MCP ?? (UART1) | 115200 bps, 8N1 |
 | COM3 | ??? (UART2) | ?? 115200 bps, 8N1 |
 | COM5 | ???? (UART0) | 115200 bps, 8N1 |
 
@@ -149,6 +149,7 @@ hex-bridge/
 | ?? | `idf.py build` | `build-idf` |
 | ?? | `idf.py -p COMx flash` | `flash-idf` |
 | ???? | `idf.py -p COMx monitor` | `serial-monitor` |
+| CAN ?? (MCP2518FD ??/?????) | ? | `can-debug` |
 | ??+??+?? (???) | ? | `workflow` |
 | ???? (.map/ELF) | ? | `memory-analysis` |
 | ?????? | ? | `static-analysis` |
@@ -221,7 +222,7 @@ UBCP_CMD_CAN_WAKEUP      (0x1A)    UBCP_CMD_CAN_FILTER_BATCH (0x1B)
 UBCP_ERR_CAN_BUS_OFF     (0x10)    UBCP_ERR_CAN_BUS_PASSIVE (0x11)
 UBCP_ERR_CAN_TX_QUEUE_FULL (0x12)  UBCP_ERR_CAN_RX_OVERFLOW (0x13)
 UBCP_ERR_CAN_TX_TIMEOUT  (0x14)    UBCP_ERR_CAN_FILTER_FULL (0x15)
-UBCP_ERR_CAN_BAUD_UNSUPPORT (0x16)
+UBCP_ERR_CAN_BAUD_UNSUPPORT (0x18)
 
 // ???
 UBCP_CAP_CAN   (1 << 0)            UBCP_CAP_CAN_FD (1 << 1)

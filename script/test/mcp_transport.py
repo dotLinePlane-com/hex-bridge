@@ -1,5 +1,5 @@
 """
-MCP Transport â€?Serial port wrapper for HEX-Bridge testing.
+MCP Transport ---Serial port wrapper for HEX-Bridge testing.
 
 Connects to COM4 at 921600 bps for MCP communication.
 
@@ -22,6 +22,7 @@ class MCPTransport:
         self.baudrate = baudrate
         self.ser = None
         self.parser = UBCPParser()
+        self._pending_events = []
 
     def open(self):
         self.ser = serial.Serial(
@@ -62,17 +63,24 @@ class MCPTransport:
             frame = self.recv_frame(timeout=0.5)
             if frame is None:
                 continue
-            if not frame.is_response or frame.is_event:
+            if frame.is_event:
+                self._pending_events.append(frame)
                 continue
             if cmd_code is not None and frame.cmd_code != cmd_code:
+                self._pending_events.append(frame)
                 continue
             if seq_num is not None and frame.seq_num != seq_num:
+                self._pending_events.append(frame)
                 continue
             return frame
         return None
 
     def recv_event(self, cmd_code=None, timeout=2.0):
         """Receive next event frame (optional filter by cmd_code)."""
+        for idx, frame in enumerate(self._pending_events):
+            if frame.is_event and (cmd_code is None or frame.cmd_code == cmd_code):
+                self._pending_events.pop(idx)
+                return frame
         deadline = time.time() + timeout
         while time.time() < deadline:
             frame = self.recv_frame(timeout=0.5)
@@ -81,6 +89,8 @@ class MCPTransport:
             if frame.is_event:
                 if cmd_code is None or frame.cmd_code == cmd_code:
                     return frame
+            elif frame.is_response:
+                self._pending_events.append(frame)
         return None
 
     def flush_input(self):
@@ -88,6 +98,7 @@ class MCPTransport:
         if self.ser:
             self.ser.reset_input_buffer()
         self.parser.reset()
+        self._pending_events.clear()
 
     def __enter__(self):
         self.open()
