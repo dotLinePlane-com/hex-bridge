@@ -109,6 +109,7 @@ void msg_bus_dispatch(const ubcp_frame_t *frame)
 
 esp_err_t msg_bus_send_frame(const ubcp_frame_t *frame)
 {
+    uint32_t session = frame->session_id ? frame->session_id : mcp_transport_session_id();
     if (xSemaphoreTake(s_bus_mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
         HEX_LOGW(TAG, "消息总线互斥锁超时");
         return ESP_ERR_TIMEOUT;
@@ -122,7 +123,7 @@ esp_err_t msg_bus_send_frame(const ubcp_frame_t *frame)
         return err;
     }
 
-    err = mcp_transport_send(s_wire_buf, wire_len);
+    err = mcp_transport_send_session(s_wire_buf, wire_len, session);
 
     xSemaphoreGive(s_bus_mutex);
     return err;

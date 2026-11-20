@@ -181,3 +181,63 @@ sequenceDiagram
     Bus->>Bus: 释放 s_bus_mutex
     deactivate UART
 ```
+
+---
+
+## 7. 远程 MCP 传输扩展（Wi-Fi / 以太网 TCP）与上位机生态桥接规划
+
+### 7.1 设计原则：固件统一 UBCP 总线 + 上位机按需协议转换
+
+为了同时实现**全外设无线/有线远程使用**与**第三方标准串口软件生态兼容（RFC 2217）**，同时避免在 ESP32 固件内部引入多协议竞争硬件所有权的问题，遵循以下分层原则：
+
+1. **固件侧保持纯粹**：
+   - 所有外设模块（`mod_uart`、`mod_can`、`mod_spi`、`mod_i2c` 等）**仅对 `msg_bus` 负责**，不感知底层物理传输介质，也不在固件内直接实现 RFC 2217 等第三方应用层协议。
+   - 远程能力通过在 `mcp_transport` 层增加 **TCP Socket 传输适配**（监听 `TCP 9500` 端口，承载于ESP32 片内 2.4 GHz Wi-Fi STA）实现。
+   - TCP Socket 接收到的字节流直接复用 `ubcp_parser_feed()` 在线反转义与 CRC16 校验；`msg_bus_send_frame()` 构建的原子线路帧通过 `mcp_transport_send()` 写入活跃的 TCP 客户端 Socket（或 `UART1`）。
+2. **上位机侧提供 `本地 RFC 2217 端口 ↔ 远端 ESP32 UBCP (TCP/Serial)` 转换桥**：
+   - 在 PC 侧运行 `hex-bridge-rfc2217-bridge.py`（或由 MCP Server 守护启动），对外在本地回环地址（如 `127.0.0.1:2217`）提供标准 **RFC 2217 (Telnet Com Port Control)** 服务。
+   - 对内通过 `MCPTransport`（支持本地 `COM4` 串口或远端 `socket://<esp32_ip>:9500`）将 RFC 2217 的波特率/数据位/停止位/校验位/Break/Purge 控制与双向字节流实时翻译为 UBCP `0xA0-0xA7` 帧。
+   - 详细的 RFC 2217 子命令与 UBCP `0xA0-0xA7` 映射规范参见 [04-UART-Module.md 第 4.7 节](04-UART-Module.md#47-上位机-本地-rfc-2217-端口--远端-esp32-ubcp-tcpserial-转换桥设计规划)。
+
+### 7.2 远程全外设复用与本地 RFC 2217 桥接架构图
+
+```mermaid
+flowchart TB
+    subgraph HostPC["上位机 (PC)"]
+        direction TB
+        ThirdParty["第三方串口工具\n(pyserial / esptool / PuTTY / VCOM)"]
+        RFCBridge["本地 RFC 2217 转换桥\n(127.0.0.1:2217 ↔ UBCP 0xA0-0xA7)"]
+        MCPServer["MCP Server / CLI 工具\n(CAN FD / UART / 网络 / SPI / I2C)"]
+        MuxClient["上位机 UBCP 多路复用客户端\n(MCPTransport: Serial 或 TCP Socket)"]
+
+        ThirdParty <-->|"RFC 2217 (Telnet + Opt 44)"| RFCBridge
+        RFCBridge <-->|"UBCP 0xA0-0xA7"| MuxClient
+        MCPServer <-->|"UBCP 全命令集 (0x00-0xBF)"| MuxClient
+    end
+
+    subgraph ESP32["远端 / 本地 HEX-Bridge (ESP32)"]
+        direction TB
+        Trans["mcp_transport 传输适配层\n[UART1: COM4] / [Wi-Fi & ETH TCP: 9500]"]
+        Bus["msg_bus 核心消息总线\n(s_bus_mutex 原子帧保護 + 流控水位)"]
+        UART2["mod_uart\n(UART2 扩展口)"]
+        CAN["mod_can\n(MCP2518FD CAN FD)"]
+        NET["mod_network / tcp / udp / ws\n(网络测试代理)"]
+
+        Trans <--> Bus
+        Bus <--> UART2 & CAN & NET
+    end
+
+    MuxClient <===>|"物理链路二选一：\n1. 本地 USB 串口 (COM4)\n2. 远程 Wi-Fi / 以太网 (TCP 9500)"| Trans
+```
+
+### 7.3 该架构的核心工程优势
+
+1. **零 GPIO 额外消耗**：当前硬件外部 GPIO 已 100% 分配完毕（剩余 0 个），ESP32 片内 Wi-Fi 不占用任何外部引脚；且模组配备 8MB PSRAM，开启 `CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP` 后可轻松承载 Wi-Fi + lwIP 协议栈内存开销。
+2. **一处打通，全外设远程化**：`mcp_transport` 接入 Wi-Fi / 以太网 TCP 后，不仅扩展串口 `UART2` 可以远程使用，**CAN FD (`MCP2518FD`)、SPI、I2C、GPIO、OTA 也同步获得远程无线访问能力**。
+3. **抗无线网络抖动（Jitter）**：串口硬件断帧（行模式、定长模式、Modbus RTU 超时模式 `RxMode=0x03`）与 CAN 报文微秒级时间戳均在 ESP32 本地实时完成，封装为带 CRC16 的 UBCP 帧后再经 Wi-Fi 传输，不会因无线延迟抖动破坏协议时序。
+
+### 7.4 单活链路与切换边界（开发规约）
+
+UART1 为默认入口。启用远程控制时，仅允许一个 TCP 9500 客户端取得控制权。成功切换后，UART1 暂停命令分发，后续 TCP 客户端直接关闭；单活约束覆盖命令、同步回复、异步事件和流控。每次切换先停止旧入口接单，再结束或丢弃旧会话的待发帧，重置解析器、流控与收发队列后开放新入口。异步完成的旧请求必须按会话代次隔离。TCP 断开或 Wi-Fi 掉线后恢复 UART1，无需重启。UART1 的配网恢复路径须可用。TCP 9500 用于可信局域网或 VPN；跨公网中继如启用，须经鉴权并占用同一远程控制席位。
+
+CMSIS-DAP 使用独立服务，其会话规则见 [网络调试探针规约](08-DAPLink.md)。DAP 与一个活跃的 UBCP 会话可以同时工作。

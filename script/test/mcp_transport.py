@@ -25,8 +25,8 @@ class MCPTransport:
         self._pending_events = []
 
     def open(self):
-        self.ser = serial.Serial(
-            port=self.port,
+        self.ser = serial.serial_for_url(
+            self.port,
             baudrate=self.baudrate,
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_NONE,

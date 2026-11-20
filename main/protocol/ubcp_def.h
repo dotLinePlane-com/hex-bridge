@@ -167,6 +167,10 @@
 #define UBCP_CMD_NET_LINK_EVENT     0x43
 #define UBCP_CMD_NET_LIST_CONNS     0x44
 #define UBCP_CMD_NET_CLOSE_ALL      0x45
+#define UBCP_CMD_WIFI_JOIN          0x46
+#define UBCP_CMD_WIFI_STATUS        0x47
+#define UBCP_CMD_WIFI_LEAVE         0x48
+#define UBCP_CMD_WIFI_FORGET        0x49
 
 /* ========================================================================
  * 命令码定义 — TCP (0x50-0x5F)
@@ -365,6 +369,7 @@
 #define UBCP_CAP_GPIO               (1 << 9)
 #define UBCP_CAP_BULK               (1 << 10)
 #define UBCP_CAP_OTA                (1 << 11)
+#define UBCP_CAP_WIFI_STA           (1 << 12)
 
 /* ========================================================================
  * UART RxMode 定义

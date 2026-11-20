@@ -1,0 +1,79 @@
+/* ========================================================================
+ *  NET_LIST_CONNS (0x44)
+ * ======================================================================== */
+typedef struct {
+    uint8_t *buf;
+    uint16_t offset;
+    uint16_t capacity;
+    uint8_t  count;
+} list_conns_ctx_t;
+
+static void list_conns_collect_cb(const net_conn_entry_t *entry, void *ctx)
+{
+    list_conns_ctx_t *lc = (list_conns_ctx_t *)ctx;
+    if (lc->offset + 11 > lc->capacity) return;
+
+    lc->buf[lc->offset + 0] = entry->conn_type;
+    lc->buf[lc->offset + 1] = (uint8_t)(entry->handle >> 8);
+    lc->buf[lc->offset + 2] = (uint8_t)(entry->handle & 0xFF);
+    lc->buf[lc->offset + 3] = (uint8_t)(entry->parent_handle >> 8);
+    lc->buf[lc->offset + 4] = (uint8_t)(entry->parent_handle & 0xFF);
+    lc->buf[lc->offset + 5] = (uint8_t)(entry->local_port >> 8);
+    lc->buf[lc->offset + 6] = (uint8_t)(entry->local_port & 0xFF);
+        lc->buf[lc->offset + 7] = (uint8_t)(entry->remote_ip >> 24);
+        lc->buf[lc->offset + 8] = (uint8_t)(entry->remote_ip >> 16);
+        lc->buf[lc->offset + 9] = (uint8_t)(entry->remote_ip >> 8);
+        lc->buf[lc->offset + 10]= (uint8_t)(entry->remote_ip & 0xFF);
+    lc->offset += 11;
+    lc->count++;
+}
+
+static void handle_net_list_conns(const ubcp_frame_t *req)
+{
+    /* First pass: count total entries */
+    uint16_t max_entries = 60;
+    uint16_t buf_size = 2 + max_entries * 11;
+    uint8_t *payload = malloc(buf_size);
+    if (!payload) {
+        msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
+        return;
+    }
+
+    list_conns_ctx_t lc;
+    lc.buf      = payload + 2;
+    lc.offset   = 0;
+    lc.capacity = max_entries * 11;
+    lc.count    = 0;
+
+    for (int i = 0; i < s_conn_provider_count; i++) {
+        if (s_conn_providers[i].iterate) {
+            s_conn_providers[i].iterate(list_conns_collect_cb, &lc);
+        }
+    }
+
+    payload[0] = UBCP_ERR_SUCCESS;
+    payload[1] = lc.count;
+
+    ubcp_frame_t resp;
+    ubcp_frame_make_response(req, &resp);
+    resp.payload     = payload;
+    resp.payload_len = 2 + lc.offset;
+    msg_bus_send_frame(&resp);
+
+    free(payload);
+}
+
+/* ========================================================================
+ *  NET_CLOSE_ALL (0x45)
+ * ======================================================================== */
+static void handle_net_close_all(const ubcp_frame_t *req)
+{
+    HEX_LOGI(TAG, "NET_CLOSE_ALL: 关闭 %d 个连接提供者上报的所有连接", s_close_provider_count);
+    for (int i = 0; i < s_close_provider_count; i++) {
+        if (s_close_providers[i]) {
+            s_close_providers[i]();
+        }
+    }
+    msg_bus_send_status_response(req, UBCP_ERR_SUCCESS);
+}
+

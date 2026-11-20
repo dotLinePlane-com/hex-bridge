@@ -75,14 +75,15 @@
 | 2 | SPI | SPI 接口支持 |
 | 3 | I2C | I2C 接口支持 |
 | 4 | UART | UART 接口支持 |
-| 5 | ETH | 以太网支持 |
+| 5 | ETH | 以太网支持（旧设备）；Wi-Fi 板此位为 0 |
 | 6 | TCP | TCP 协议支持 |
 | 7 | UDP | UDP 协议支持 |
 | 8 | WebSocket | WebSocket 支持 |
 | 9 | GPIO | GPIO 支持 |
 | 10 | BULK | 批量传输支持 |
 | 11 | OTA | OTA 固件升级支持 |
-| 12-15 | — | 保留 |
+| 12 | WIFI_STA | 支持 Wi-Fi STA 配网命令 0x46–0x49；即使离线也置位 |
+| 13-15 | — | 保留 |
 
 ---
 

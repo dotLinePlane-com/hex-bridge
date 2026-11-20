@@ -408,9 +408,7 @@ $CLI ws-server-close --handle 0x2002 --force 1
 - **边界条件验证**: 最多Server/Client 数限制、无效句柄拒绝、参数校验
 ### 9.2 未覆盖用例
 18 与PENDING 用例主要是需要更复杂的NM 对端交互场景 (多客户端并发、接收窗口耗尽、大数据传输)。固件核心协议层、网络驱动层和端到端数据路径已全面验证通过、
-### 9.3 NM 工具改进建议
 
-详见 `Network-MCP-Test-Report.md` §6: 3 与NM 被动接收方向缓冲问题，HEX-Bridge 固件本身无缺陷、
 ---
 
 ## 10. Bug#5: DNS 阻塞修复

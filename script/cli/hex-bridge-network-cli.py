@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+# -*- coding: latin-1 -*-
 """
-hex-bridge-network-cli.py �?HEX-Bridge Network CLI Tool
+hex-bridge-network-cli.py - HEX-Bridge Network CLI Tool
 
 ============================================================
   MCP Network Command-Line Tool for UBCP v2.0 Protocol
@@ -10,18 +11,18 @@ Sends UBCP v2.0 network commands to HEX-Bridge device over MCP serial port.
 Covers NET, TCP, UDP, WebSocket modules, UBCP event monitoring,
 and async event capture for MCP NM Network Monitor coordinated testing.
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
  Quick Start
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
     # Basic usage (default: COM4, 115200 bps)
     python hex-bridge-network-cli.py net-status
     python hex-bridge-network-cli.py tcp-server-open --port 9191
     python hex-bridge-network-cli.py ws-send --handle 0xA000 --msg-type 1 --data "Hello"
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
  Global Options
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
     --port PORT           MCP serial port (default: COM4)
     --baud BAUD           Baud rate (default: 115200)
@@ -32,9 +33,9 @@ and async event capture for MCP NM Network Monitor coordinated testing.
                           wait for specified async events (hex cmd codes)
     --event-timeout SEC   Max seconds to wait for events (default: 10)
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
  MCP NM Network Monitor Coordinated Testing
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
   The --wait-events flag enables CLI + MCP Network Monitor
   end-to-end testing. After executing a command (e.g.
@@ -61,9 +62,9 @@ and async event capture for MCP NM Network Monitor coordinated testing.
     - ws-server-open:   wait for 0x76 (WS_ACCEPT), 0x75 (WS_RECV)
     - udp-server-open:  wait for 0x65 (UDP_RECV)
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
  Interactive Mode (-i)
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
     python hex-bridge-network-cli.py -i
     > tcp-server-open --port 9191 --save-as srv
@@ -77,9 +78,9 @@ and async event capture for MCP NM Network Monitor coordinated testing.
 
     Saved handles persist across commands within the session.
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
  JSON Output Mode (--json)
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
     python hex-bridge-network-cli.py --json net-status
     {
@@ -88,9 +89,9 @@ and async event capture for MCP NM Network Monitor coordinated testing.
       "link": "UP", ...
     }
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
  Event Listening (listen)
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
     # Listen live on COM4 for specific events
     python hex-bridge-network-cli.py listen --events 0x55,0x75 --timeout 30
@@ -111,9 +112,9 @@ and async event capture for MCP NM Network Monitor coordinated testing.
   command execution (via expect_response), enabling listen
   --source log to replay events from prior operations.
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
  Command Reference
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
   Network Config (0x40-0x4F):
     net-config     DHCP/static IP configuration (0x40)
@@ -121,6 +122,11 @@ and async event capture for MCP NM Network Monitor coordinated testing.
     net-dns        DNS hostname resolution (0x42)
     net-list-conns Global connection overview (0x44)
     net-close-all  Close all TCP/UDP/WS connections (0x45)
+    wifi-join      --ssid SSID [--save] [--open] (0x46)
+                   WPA2 key: HEX_BRIDGE_WIFI_PASSWORD or hidden prompt
+    wifi-status    STA progress and last failure reason (0x47)
+    wifi-leave     Stop reconnecting; retain saved profile (0x48)
+    wifi-forget    Stop and erase RAM/NVS credentials (0x49)
 
   TCP (0x50-0x5F):
     tcp-server-open       Create TCP server (0x50)
@@ -156,17 +162,17 @@ and async event capture for MCP NM Network Monitor coordinated testing.
     listen                Monitor UBCP event frames
     ping                  Send PING to verify connectivity
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
  Error Codes
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
     0x41  ERR_NET_CONN_REFUSED    0x43  ERR_NET_HANDLE_INVALID
     0x45  ERR_NET_PORT_IN_USE     0x46  ERR_NET_DNS_FAIL
     0x48  ERR_NET_MAX_CONN        0x49  ERR_NET_WS_HANDSHAKE
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
  Test Scripts
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
   Protocol unit tests (no network peer needed):
     python script/test/test_network.py --mcp COM4 --mcp-baud 115200 --auto
@@ -175,9 +181,9 @@ and async event capture for MCP NM Network Monitor coordinated testing.
     python script/test/test_cli_network_e2e.py
     python script/test/test_cli_network_e2e.py --esp-ip 192.168.1.105 --pc-ip 192.168.1.4
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
  Dependencies
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
     ubcp_client.py   UBCP v2.0 frame build/parse (CRC + byte-stuffing)
     mcp_transport.py Serial port wrapper with frame receive/event filter
@@ -192,6 +198,10 @@ import json
 import time
 import tempfile
 import atexit
+import getpass
+import warnings
+
+from wifi_utils import build_wifi_join, parse_wifi_status, require_wifi_capability
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'test'))
 from ubcp_client import UBCPBuilder, UBCPParser
@@ -373,7 +383,7 @@ def _forward_event_to_log(frame):
         'cmd_code': f'0x{frame.cmd_code:02X}',
         'seq': f'0x{frame.seq_num:04X}',
         'plen': frame.payload_len,
-        'payload_hex': frame.payload[:64].hex(),
+        'payload_hex': '' if 0x46 <= frame.cmd_code <= 0x49 else frame.payload[:64].hex(),
     }
     _write_event_log(entry)
 
@@ -383,7 +393,8 @@ def expect_response(transport, cmd, payload=b'', channel=0, timeout=5.0):
     Returns (frame, status_byte). Also captures and logs any
     events that arrive while waiting for the response."""
     transport.flush_input()
-    frame = UBCPBuilder.build_request(next_seq(), cmd, channel, payload)
+    seq = next_seq()
+    frame = UBCPBuilder.build_request(seq, cmd, channel, payload)
     transport.send(frame)
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -393,7 +404,7 @@ def expect_response(transport, cmd, payload=b'', channel=0, timeout=5.0):
         if f.is_event:
             _forward_event_to_log(f)
             continue
-        if f.cmd_code == cmd:
+        if f.is_response and f.cmd_code == cmd and f.seq_num == seq and f.payload:
             return f, f.payload[0]
     raise TimeoutError(f"No response for {cmd_name(cmd)}")
 
@@ -440,7 +451,7 @@ def cmd_net_status(transport, args):
         output({**frame_info(resp), "status": status_str(st)})
         return
     link = "UP" if resp.payload[3] else "DOWN"
-    conn_map = {0: "未连�?, 1: "已连�?, 2: "获取IP�?}
+    conn_map = {0: "DISCONNECTED", 1: "CONNECTED", 2: "WAIT_IP"}
     conn_state = conn_map.get(resp.payload[4] % 3, f"0x{resp.payload[4]:02X}")
     ip = int_to_ip(parse_u32(resp.payload, 5))
     mask = int_to_ip(parse_u32(resp.payload, 9))
@@ -485,6 +496,57 @@ def cmd_net_close_all(transport, args):
 # ════════════════════════════════════════════════════════════
 #  TCP commands
 # ════════════════════════════════════════════════════════════
+
+def _require_wifi(transport):
+    info, _ = expect_response(transport, 0x01)
+    require_wifi_capability(info.payload)
+
+
+def cmd_wifi_join(transport, args):
+    _require_wifi(transport)
+    key = ''
+    if not args.open_network:
+        key = os.environ.get('HEX_BRIDGE_WIFI_PASSWORD')
+        if key is None:
+            with warnings.catch_warnings():
+                warnings.simplefilter('error', getpass.GetPassWarning)
+                key = getpass.getpass('Wi-Fi password: ')
+    payload = build_wifi_join(args.ssid, key, args.save, 0 if args.open_network else 1)
+    try:
+        resp, st = expect_response(transport, 0x46, payload)
+    except TimeoutError:
+        output({'cmd': 'WIFI_JOIN', 'status': 'UNKNOWN',
+                'detail': 'Response timed out; checking status before any retry'})
+        _wifi_status(transport)
+        return
+    output({**frame_info(resp), 'status': status_str(st),
+            'detail': 'Join accepted; use wifi-status to verify IPv4 readiness' if st == 0 else 'Join rejected'})
+
+
+def _wifi_status(transport):
+    resp, st = expect_response(transport, 0x47, b'\x00')
+    result = {**frame_info(resp), 'status': status_str(st)}
+    if st == 0:
+        result.update(parse_wifi_status(resp.payload))
+    output(result)
+
+
+def cmd_wifi_status(transport, args):
+    _require_wifi(transport)
+    _wifi_status(transport)
+
+
+def cmd_wifi_leave(transport, args):
+    _require_wifi(transport)
+    resp, st = expect_response(transport, 0x48, b'\x00')
+    output({**frame_info(resp), 'status': status_str(st)})
+
+
+def cmd_wifi_forget(transport, args):
+    _require_wifi(transport)
+    resp, st = expect_response(transport, 0x49, b'\x00')
+    output({**frame_info(resp), 'status': status_str(st)})
+
 
 def cmd_tcp_server_open(transport, args):
     payload = encode_u16(args.port_num)
@@ -817,7 +879,7 @@ def probe_baud_rate(port, rates=None, ping_timeout=2.0):
 
 
 # ════════════════════════════════════════════════════════════
-#  listen �?event monitoring
+#  listen -event monitoring
 # ════════════════════════════════════════════════════════════
 
 def _post_command_listen(transport, args):
@@ -1051,7 +1113,7 @@ def _parse_interactive_line(line):
 
 def interactive_session(transport, global_args):
     """Run an interactive command loop. Parses each line as a CLI subcommand."""
-    print("HEX-Bridge Network CLI �?Interactive Mode")
+    print("HEX-Bridge Network CLI - Interactive Mode")
     print(f"  port={global_args.port}, baud={global_args.baud}")
     print("  Type 'help' for commands, 'quit' to exit.\n")
 
@@ -1073,7 +1135,7 @@ def interactive_session(transport, global_args):
             print("    udp-server-open/close, udp-client-create/delete/send,")
             print("    ws-server-open/close, ws-client-connect/disconnect/send,")
             print("    ws-list-clients, ws-kick-client,")
-            print("    mcp-baud, ping, listen, quit")
+            print("    wifi-join/status/leave/forget, mcp-baud, ping, listen, quit")
             print("  Handles: $name (saved with --save-as name)")
             continue
 
@@ -1123,6 +1185,14 @@ def _register_subcommands(parser):
 
     sub.add_parser('net-list-conns')
     sub.add_parser('net-close-all')
+
+    p_wj = sub.add_parser('wifi-join', help='Submit STA join (password from environment or hidden prompt)')
+    p_wj.add_argument('--ssid', required=True, help='SSID, 1-32 UTF-8 bytes')
+    p_wj.add_argument('--save', action='store_true', help='Save after first valid IPv4')
+    p_wj.add_argument('--open', dest='open_network', action='store_true', help='Open network without password')
+    sub.add_parser('wifi-status', help='STA progress and last failure reason')
+    sub.add_parser('wifi-leave', help='Stop reconnecting; retain saved credentials')
+    sub.add_parser('wifi-forget', help='Stop reconnecting and erase RAM/NVS credentials')
 
     # TCP
     p_tso = sub.add_parser('tcp-server-open')
@@ -1272,6 +1342,10 @@ DISPATCH = {
     'net-status':           cmd_net_status,
     'net-list-conns':       cmd_net_list_conns,
     'net-close-all':        cmd_net_close_all,
+    'wifi-join':            cmd_wifi_join,
+    'wifi-status':          cmd_wifi_status,
+    'wifi-leave':           cmd_wifi_leave,
+    'wifi-forget':          cmd_wifi_forget,
     'tcp-server-open':      cmd_tcp_server_open,
     'tcp-server-close':     cmd_tcp_server_close,
     'tcp-client-connect':   cmd_tcp_client_connect,
@@ -1318,7 +1392,7 @@ def main():
     global _json_mode
 
     parser = argparse.ArgumentParser(
-        description='HEX-Bridge Network CLI �?UBCP v2.0 MCP Command Tool',
+        description='HEX-Bridge Network CLI - UBCP v2.0 MCP Command Tool',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='Examples:\n'
                '  %(prog)s net-status\n'

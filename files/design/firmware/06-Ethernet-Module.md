@@ -1,5 +1,7 @@
 # 6. 以太网 (LAN8720) 驱动及网络模块设计
 
+> Wi-Fi 版已移除 LAN8720；下文的以太网电路、引脚占用和驱动仅作旧板记录。当前网络方案见 [Wi-Fi STA 设计](../firmware/06-WiFi-STA.md)。
+
 ## 6.1 概述
 
 HEX-Bridge 通过 LAN8720A 以太网 PHY 芯片提供 10/100 Mbps 有线网络接入能力。基于 ESP-IDF 内置的 `esp_eth` 框架实现 PHY 驱动、lwIP 协议栈集成以及 UBCP 协议中的网络命令组 (0x40-0x4F / 0x50-0x5F / 0x60-0x6F / 0x70-0x7F)。支持 NET_CLOSE_ALL (0x45) 一键关闭所有连接，以及 RESET (0x04) 触发的模块级 stop() 清理钩子。

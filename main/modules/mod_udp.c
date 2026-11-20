@@ -13,6 +13,12 @@
 #include "hex_config.h"
 #include "utils/hex_log.h"
 
+/* All waits are interruptible so network teardown can acquire the module lock. */
+static bool network_matches(uint32_t generation)
+{
+    return mod_network_is_ready() && mod_network_generation() == generation;
+}
+
 static const char *TAG = "mod_udp";
 
 #define UDP_MAX_SERVERS  4
@@ -39,6 +45,7 @@ typedef struct {
 static udp_server_t s_servers[UDP_MAX_SERVERS];
 static udp_client_t s_clients[UDP_MAX_CLIENTS];
 static SemaphoreHandle_t s_mutex = NULL;
+static uint32_t s_socket_epoch; /* Protected by s_mutex. */
 static TaskHandle_t s_select_task = NULL;
 static volatile bool s_task_running = false;
 
@@ -53,6 +60,7 @@ static uint16_t alloc_handle(void)
 
 static void send_event(uint8_t cmd, uint8_t *payload, uint16_t len)
 {
+    if (!mod_network_is_ready()) return;
     ubcp_frame_t evt;
     memset(&evt, 0, sizeof(evt));
     evt.version       = UBCP_VERSION;
@@ -108,6 +116,8 @@ static void udp_event_task(void *arg)
         int max_fd = -1;
 
         xSemaphoreTake(s_mutex, portMAX_DELAY);
+        uint32_t select_epoch = s_socket_epoch;
+        uint32_t generation = mod_network_generation();
         for (int i = 0; i < UDP_MAX_SERVERS; i++) {
             if (s_servers[i].active && s_servers[i].socket_fd >= 0) {
                 FD_SET(s_servers[i].socket_fd, &read_fds);
@@ -134,6 +144,10 @@ static void udp_event_task(void *arg)
         if (ret <= 0) continue;
 
         xSemaphoreTake(s_mutex, portMAX_DELAY);
+        if (select_epoch != s_socket_epoch || !network_matches(generation)) {
+            xSemaphoreGive(s_mutex);
+            continue;
+        }
 
         /* Check servers */
         for (int i = 0; i < UDP_MAX_SERVERS; i++) {
@@ -161,10 +175,9 @@ static void udp_event_task(void *arg)
                     evt_payload[9] = (uint8_t)(recv_len & 0xFF);
                     memcpy(&evt_payload[10], recv_buf, recv_len);
 
-                    xSemaphoreGive(s_mutex);
                     send_event(UBCP_CMD_UDP_RECV, evt_payload, evt_len);
                     free(evt_payload);
-                    xSemaphoreTake(s_mutex, portMAX_DELAY);
+
                 }
             }
         }
@@ -195,10 +208,9 @@ static void udp_event_task(void *arg)
                     evt_payload[9] = (uint8_t)(recv_len & 0xFF);
                     memcpy(&evt_payload[10], recv_buf, recv_len);
 
-                    xSemaphoreGive(s_mutex);
                     send_event(UBCP_CMD_UDP_RECV, evt_payload, evt_len);
                     free(evt_payload);
-                    xSemaphoreTake(s_mutex, portMAX_DELAY);
+
                 }
             }
         }
@@ -225,6 +237,12 @@ static void handle_server_open(const ubcp_frame_t *req)
                           ((uint32_t)req->payload[5] << 8)  |  (uint32_t)req->payload[6];
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
+    uint32_t generation = mod_network_generation();
+    if (!network_matches(generation)) {
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
+        return;
+    }
     udp_server_t *svr = NULL;
     for (int i = 0; i < UDP_MAX_SERVERS; i++) {
         if (!s_servers[i].active) { svr = &s_servers[i]; break; }
@@ -270,7 +288,7 @@ static void handle_server_open(const ubcp_frame_t *req)
 
     if (multicast) {
         struct ip_mreq mreq;
-        mreq.imr_multiaddr.s_addr = multicast;
+        mreq.imr_multiaddr.s_addr = htonl(multicast);
         mreq.imr_interface.s_addr = INADDR_ANY;
         setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
 
@@ -288,6 +306,13 @@ static void handle_server_open(const ubcp_frame_t *req)
         actual_port = ntohs(actual_addr.sin_port);
     }
 
+    if (!network_matches(generation)) {
+        close(sock);
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
+        return;
+    }
+    s_socket_epoch++;
     svr->handle         = alloc_handle();
     svr->socket_fd      = sock;
     svr->port           = actual_port;
@@ -296,7 +321,6 @@ static void handle_server_open(const ubcp_frame_t *req)
     svr->active         = true;
 
     ESP_LOGI(TAG, "UDP Server opened: handle=0x%04X, port=%u", svr->handle, actual_port);
-    xSemaphoreGive(s_mutex);
 
     uint8_t payload[5];
     payload[0] = UBCP_ERR_SUCCESS;
@@ -310,6 +334,7 @@ static void handle_server_open(const ubcp_frame_t *req)
     resp.payload     = payload;
     resp.payload_len = sizeof(payload);
     msg_bus_send_frame(&resp);
+    xSemaphoreGive(s_mutex);
 }
 
 /* ========================================================================
@@ -328,6 +353,8 @@ static void handle_server_close(const ubcp_frame_t *req)
     for (int i = 0; i < UDP_MAX_SERVERS; i++) {
         if (s_servers[i].active && s_servers[i].handle == handle) {
             close(s_servers[i].socket_fd);
+            s_servers[i].socket_fd = -1;
+            s_socket_epoch++;
             s_servers[i].active = false;
             xSemaphoreGive(s_mutex);
             msg_bus_send_status_response(req, UBCP_ERR_SUCCESS);
@@ -354,6 +381,12 @@ static void handle_client_create(const ubcp_frame_t *req)
     uint16_t local_port = ((uint16_t)req->payload[6] << 8) | req->payload[7];
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
+    uint32_t generation = mod_network_generation();
+    if (!network_matches(generation)) {
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
+        return;
+    }
     udp_client_t *cli = NULL;
     for (int i = 0; i < UDP_MAX_CLIENTS; i++) {
         if (!s_clients[i].active) { cli = &s_clients[i]; break; }
@@ -397,6 +430,13 @@ static void handle_client_create(const ubcp_frame_t *req)
         actual_port = ntohs(actual_addr.sin_port);
     }
 
+    if (!network_matches(generation)) {
+        close(sock);
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
+        return;
+    }
+    s_socket_epoch++;
     cli->handle           = alloc_handle() | 0x8000; /* Mark as client handle (high bit) */
     cli->socket_fd        = sock;
     cli->default_dest_ip  = dest_ip;
@@ -405,7 +445,6 @@ static void handle_client_create(const ubcp_frame_t *req)
     cli->active           = true;
 
     ESP_LOGI(TAG, "UDP Client created: handle=0x%04X, port=%u", cli->handle, actual_port);
-    xSemaphoreGive(s_mutex);
 
     uint8_t payload[5];
     payload[0] = UBCP_ERR_SUCCESS;
@@ -419,6 +458,7 @@ static void handle_client_create(const ubcp_frame_t *req)
     resp.payload     = payload;
     resp.payload_len = sizeof(payload);
     msg_bus_send_frame(&resp);
+    xSemaphoreGive(s_mutex);
 }
 
 /* ========================================================================
@@ -437,6 +477,8 @@ static void handle_client_delete(const ubcp_frame_t *req)
     for (int i = 0; i < UDP_MAX_CLIENTS; i++) {
         if (s_clients[i].active && s_clients[i].handle == handle) {
             close(s_clients[i].socket_fd);
+            s_clients[i].socket_fd = -1;
+            s_socket_epoch++;
             s_clients[i].active = false;
             xSemaphoreGive(s_mutex);
             msg_bus_send_status_response(req, UBCP_ERR_SUCCESS);
@@ -476,9 +518,8 @@ static void handle_server_send(const ubcp_frame_t *req)
             break;
         }
     }
-    xSemaphoreGive(s_mutex);
-
     if (sock_fd < 0) {
+        xSemaphoreGive(s_mutex);
         msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
         return;
     }
@@ -486,11 +527,12 @@ static void handle_server_send(const ubcp_frame_t *req)
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = dest_ip;
+    addr.sin_addr.s_addr = htonl(dest_ip);
     addr.sin_port        = htons(dest_port);
 
     int sent = sendto(sock_fd, &req->payload[10], data_len, MSG_DONTWAIT,
                       (struct sockaddr *)&addr, sizeof(addr));
+    xSemaphoreGive(s_mutex);
 
     uint8_t payload[3];
     payload[0] = (sent >= 0) ? UBCP_ERR_SUCCESS : UBCP_ERR_NET_DISCONNECTED;
@@ -571,16 +613,16 @@ static void handle_client_send(const ubcp_frame_t *req)
     }
 
     int sock_fd = cli->socket_fd;
-    xSemaphoreGive(s_mutex);
 
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = dest_ip;
+    addr.sin_addr.s_addr = htonl(dest_ip);
     addr.sin_port        = htons(dest_port);
 
     int sent = sendto(sock_fd, &req->payload[data_offset], data_len, MSG_DONTWAIT,
                       (struct sockaddr *)&addr, sizeof(addr));
+    xSemaphoreGive(s_mutex);
 
     uint8_t payload[3];
     payload[0] = (sent >= 0) ? UBCP_ERR_SUCCESS : UBCP_ERR_NET_DISCONNECTED;
@@ -623,16 +665,21 @@ static esp_err_t udp_init(void)
 
 static void udp_close_all(void)
 {
+    if (!s_mutex) return;
     xSemaphoreTake(s_mutex, portMAX_DELAY);
     for (int i = 0; i < UDP_MAX_SERVERS; i++) {
         if (s_servers[i].active) {
             close(s_servers[i].socket_fd);
+            s_servers[i].socket_fd = -1;
+            s_socket_epoch++;
             s_servers[i].active = false;
         }
     }
     for (int i = 0; i < UDP_MAX_CLIENTS; i++) {
         if (s_clients[i].active) {
             close(s_clients[i].socket_fd);
+            s_clients[i].socket_fd = -1;
+            s_socket_epoch++;
             s_clients[i].active = false;
         }
     }

@@ -1,3 +1,4 @@
+# -*- coding: latin-1 -*-
 """
 HEX-Bridge Network Module Tests (DRV-01 ~ DRV-05, NET-01 ~ NET-16,
 TCP-01 ~ TCP-35, UDP-01 ~ UDP-14, WS-01 ~ WS-21, STR-01 ~ STR-10)
@@ -214,13 +215,13 @@ def check_device_ready():
 
 
 def check_link_up():
-    """Verify ethernet link is up via NET_STATUS."""
-    f = expect_status(CMD_NET_STATUS, b'\x00', 0, ERR_SUCCESS, 'NET_STATUS(ETH0)')
+    """Verify default interface link is up via NET_STATUS."""
+    f = expect_status(CMD_NET_STATUS, b'\x00', 0, ERR_SUCCESS, 'NET_STATUS(default interface)')
     if f is None:
         return False
     pos = 2  # after Status + IntfCount
     if f.payload[pos + 1] != 0x01:  # LinkState byte
-        print(f'  [WARN] Ethernet link is DOWN. Some tests will fail.')
+        print(f'  [WARN] Default network link is DOWN. Some tests will fail.')
         return False
     if f.payload[pos + 2] == 0x00:  # ConnState byte
         print(f'  [WARN] No connection established. Check DHCP.')
@@ -266,7 +267,7 @@ def test_drv_01():
 
 
 def test_drv_02():
-    """DRV-02: 网线拔出检�?""
+    """DRV-02: 网线拔出检�?"""
     print('\n--- DRV-02: Cable unplug detection ---')
     f0 = send_cmd(CMD_NET_STATUS, b'\x00', 0)
     if f0 is None or f0.payload[2 + 1] != 0x01:
@@ -347,7 +348,7 @@ def test_net_02():
         return
     count = f.payload[1]
     assert_in_range('NET-02 IntfCount', count, 1, 4)
-    # Verify at least ETH0 is present
+    # Verify default STA/legacy Ethernet interface is present
     assert_eq('NET-02 IntfIndex[0]', f.payload[2], 0x00)
 
 
@@ -438,7 +439,7 @@ def test_net_09():
 
 
 def test_net_10():
-    """NET-10: NET_STATUS �?网线拔出时查�?""
+    """NET-10: NET_STATUS �?网线拔出时查�?"""
     print('\n--- NET-10: NET_STATUS when cable unplugged ---')
     f = send_cmd(CMD_NET_STATUS, b'\x00', 0)
     if f is None:
@@ -514,7 +515,7 @@ def test_tcp_03():
 
 
 def test_tcp_04():
-    """TCP-04: TCP_SERVER_OPEN �?超过最�?Server �?""
+    """TCP-04: TCP_SERVER_OPEN �?超过最�?Server �?"""
     print('\n--- TCP-04: Max servers exceeded ---')
     handles = []
     for i in range(5):
@@ -534,7 +535,7 @@ def test_tcp_04():
 
 
 def test_tcp_send():
-    """TCP-06: TCP_SEND �?Server 端发送数据到客户�?""
+    """TCP-06: TCP_SEND �?Server 端发送数据到客户�?"""
     print('\n--- TCP-06: Send data to connected client ---')
     # Create server
     payload = struct.pack('>HBBB', 8086, 3, 0x01, 0)
@@ -877,7 +878,7 @@ def test_drv_04():
 
 
 def test_drv_05():
-    """DRV-05: 网线快速插�?""
+    """DRV-05: 网线快速插�?"""
     print('\n--- DRV-05: Rapid cable plug/unplug ---')
     # Observation test: requires manual cable cycling
     # Just verify current state is stable
@@ -924,7 +925,7 @@ def test_net_12():
 
 
 def test_net_13():
-    """NET-13: NET_DNS �?�?IP 时调�?""
+    """NET-13: NET_DNS �?�?IP 时调�?"""
     print('\n--- NET-13: NET_DNS when no IP ---')
     _, has_ip, _ = get_link_status()
     if has_ip:
@@ -936,7 +937,7 @@ def test_net_13():
 
 
 def test_net_14():
-    """NET-14: NET_CONFIG �?NVS 持久化验�?""
+    """NET-14: NET_CONFIG �?NVS 持久化验�?"""
     print('\n--- NET-14: NVS persistence check ---')
     # Read current config
     f = send_cmd(CMD_NET_STATUS, b'\x00', 0)
@@ -1044,7 +1045,7 @@ def test_tcp_29():
 
 
 def test_udp_11():
-    """UDP-11: UDP_SERVER_OPEN �?超过最�?Server �?""
+    """UDP-11: UDP_SERVER_OPEN �?超过最�?Server �?"""
     print('\n--- UDP-11: Max UDP servers exceeded ---')
     handles = []
     for i in range(5):
@@ -1065,7 +1066,7 @@ def test_udp_11():
 
 
 def test_udp_12():
-    """UDP-12: UDP_CLIENT_CREATE �?超过最�?Client �?""
+    """UDP-12: UDP_CLIENT_CREATE �?超过最�?Client �?"""
     print('\n--- UDP-12: Max UDP clients exceeded ---')
     handles = []
     test_ip = ip_to_u32('192.168.1.200')
@@ -1115,7 +1116,7 @@ def test_ws_14():
 
 
 def test_ws_15():
-    """WS-15: WS_SEND Close �?""
+    """WS-15: WS_SEND Close �?"""
     print('\n--- WS-15: Send Close frame ---')
     skip_('WS-15', 'Requires MCP NM WS client connection')
     # Create WS server, accept client, then WS_SEND(MsgType=0x08)
@@ -1175,7 +1176,7 @@ def test_stress_07():
 
 
 def test_stress_08():
-    """STR-08: 并发命令流水�?""
+    """STR-08: 并发命令流水�?"""
     print('\n--- STR-08: Command pipeline test ---')
     # Send 5 NET_STATUS commands without waiting
     transports = []
@@ -1201,7 +1202,7 @@ def test_stress_08():
 def test_stress_09():
     """STR-09: 所有保留命令码返回 ERR_NOT_SUPPORT"""
     print('\n--- STR-09: All reserved command codes ---')
-    reserved_codes = list(range(0x46, 0x50)) + list(range(0x5C, 0x60)) + \
+    reserved_codes = list(range(0x4A, 0x50)) + list(range(0x5C, 0x60)) + \
                      list(range(0x67, 0x70)) + list(range(0x78, 0x80))
     failed_codes = []
     for rc in reserved_codes[:10]:  # Test first 10 to keep test time reasonable
@@ -1215,7 +1216,7 @@ def test_stress_09():
 
 
 def test_stress_10():
-    """STR-10: TCP_SEND DataLen 声明不匹�?""
+    """STR-10: TCP_SEND DataLen 声明不匹�?"""
     print('\n--- STR-10: TCP SEND DataLen mismatch ---')
     # Declare DataLen=10 but provide only 3 bytes of Data
     payload = struct.pack('>HH', 0x8000, 10) + b'ABC'  # DataLen=10, Data=3 bytes
@@ -1280,7 +1281,7 @@ def test_net_17():
 
 
 def test_net_18():
-    """NET-18: NET_CLOSE_ALL �?一键关闭所有网络连�?""
+    """NET-18: NET_CLOSE_ALL �?一键关闭所有网络连�?"""
     print('\n--- NET-18: Close all connections ---')
     # Create 3 servers
     f1 = expect_status(CMD_TCP_SERVER_OPEN, struct.pack('>HBBB', 9400, 3, 0x01, 0), 0, ERR_SUCCESS, 'NET-18 TCP')

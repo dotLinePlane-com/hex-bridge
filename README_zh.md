@@ -4,7 +4,7 @@
 
 **基于 ESP32 的多接口桥接设备 — 通过统一串行协议为 AI Agent 赋予硬件 I/O 能力。**
 
-上位机 MCP Server 通过 UART 与固件通信，协议采用 UBCP (Unified Binary Communication Protocol) v2.0。桥接器对外暴露 CAN FD、SPI、I2C、UART、GPIO、以太网 (TCP/UDP/WebSocket)、OTA 固件升级和批量传输——让 AI 编码 Agent 从纯软件工具进化为可直接操控物理目标板的手和眼。
+上位机 MCP Server 通过 UART 与固件通信，协议采用 UBCP (Unified Binary Communication Protocol) v2.0。桥接器对外暴露 CAN FD、SPI、I2C、UART、GPIO、Wi-Fi STA (TCP/UDP/WebSocket)、OTA 固件升级和批量传输——让 AI 编码 Agent 从纯软件工具进化为可直接操控物理目标板的手和眼。
 
 ---
 
@@ -40,7 +40,7 @@
 |:---|:---|:---|
 | CAN FD (MCP2518FD) | SCK=14, MOSI=13, MISO=36, CS=15, INT=39 | SPI 接口，CS 为 Strapping 引脚（需 10 kΩ 上拉） |
 | I2C (EEPROM 24C02) | SCL=12, SDA=33 | GPIO12=MTDI，需 4.7 kΩ 上拉确保启动电平 |
-| 以太网 (LAN8720) | RMII 固定引脚, PHY_RST=5 | MDC=23, MDIO=18, PHY 地址=1, MDIO 需 4.7 kΩ 上拉 |
+| Wi-Fi STA | ESP32 内置无线接口 | 2.4 GHz、IPv4，通过 UART1 配网 |
 | UART1 (MCP) | TX=4, RX=34 | RX 为 GPI，需外接 10 kΩ 上拉 |
 | UART2 (扩展) | TX=32, RX=35 | RX 为 GPI，需外接 10 kΩ 上拉 |
 | UART0 (调试) | TX=1, RX=3 | ESP32 默认调试串口 |
@@ -56,7 +56,7 @@
 └──────────────┘                    └──────────────┘  ├─── I2C
                                                        ├─── UART ×2 (扩展 + 调试)
                                                        ├─── GPIO
-                                                       └─── 以太网 (100M)
+                                                       └─── Wi-Fi STA (2.4 GHz)
 ```
 
 - **UART1** — MCP 通信通道，115200 bps (GPIO4 TX / GPIO34 RX)
@@ -113,7 +113,7 @@ SOF(AA 55) | Ver | Flags | SeqNum(2B) | CmdCode | ChannelID | PayloadLen(2B) | [
 | **传输层 (MCP)** | ✅ 完成 | UART1 115200 bps 收发与帧组装 |
 | **系统管理 (0x00-0x0F)** | ✅ 基础 | PING、GET_INFO、GET/SET_CONFIG、RESET、FLOW_CONTROL、SYS_BOOT_EVENT、TOPOLOGY |
 | **UART 扩展 (0xA0-0xAF)** | ✅ 完整 | 全部 8 条命令，57 条用例 — 57/57 PASS |
-| **网络 (0x40-0x7F)** | ✅ 完整 | **LAN8720 以太网 100M、DHCP、DNS** — 测试 70 PASS / 0 FAIL |
+| **网络 (0x40-0x7F)** | Wi-Fi STA | DHCP、静态 IPv4、DNS 和 UART1 配网。[网络规约](files/design/protocol/08-Network.md) |
 | 　 ├─ 网络配置 (0x40-0x4F) | ✅ | NET_CONFIG、NET_STATUS、NET_DNS、NET_LINK_EVENT、NET_LIST_CONNS |
 | 　 ├─ TCP (0x50-0x5F) | ✅ | 12 条命令：Server/Client、select() 事件循环、list/kick/conn-status |
 | 　 ├─ UDP (0x60-0x6F) | ✅ | 7 条命令：Server/Client、select() 事件循环 |

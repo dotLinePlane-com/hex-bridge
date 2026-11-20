@@ -10,7 +10,11 @@
 | `0x43` | NET_LINK_EVENT | 事件上报 | 网络链路状态变更 |
 | `0x44` | NET_LIST_CONNS | 请求-响应 | 查询所有活跃网络连接概况 |
 | `0x45` | NET_CLOSE_ALL | 请求-响应 | 一键关闭所有 TCP/UDP/WS 连接 |
-| `0x46-0x4F` | — | — | 保留 |
+| `0x46` | WIFI_JOIN | 请求-响应 | 提交 STA 入网请求 |
+| `0x47` | WIFI_STATUS | 请求-响应 | 查询入网进度和最近失败原因 |
+| `0x48` | WIFI_LEAVE | 请求-响应 | 暂停连接 |
+| `0x49` | WIFI_FORGET | 请求-响应 | 断开并清除配网信息 |
+| `0x4A-0x4F` | — | — | 保留 |
 
 > **关于 IPv6**：当前版本所有 IP 地址字段均为 4 字节（IPv4）。IPv6 支持列为未来扩展计划，届时 IP 地址字段将改为可变长度（由地址族字段决定 4B 或 16B）。
 
@@ -34,14 +38,14 @@
 
 | 值 | 接口 |
 |:---|:---|
-| 0x00 | ETH0 (以太网口 0) |
-| 0x01 | ETH1 (以太网口 1, 如果有) |
+| 0x00 | 默认接口（Wi-Fi 板为 STA，旧板为 ETH0） |
+| 0x01 | 保留（Wi-Fi 板仅有接口 0） |
 
 ### ConfigType 定义
 
 | 值 | 含义 | 载荷 |
 |:---|:---|:---|
-| 0x00 | 启用 DHCP | 仅 InterfaceIndex (1 字节) |
+| 0x00 | 启用 DHCP | InterfaceIndex、ConfigType（共 2 字节） |
 | 0x01 | 设置静态 IP | 完整 22 字节载荷 |
 
 ### 响应
@@ -62,7 +66,7 @@
 
 | 偏移 | 字段 | 类型 | 说明 |
 |:---|:---|:---|:---|
-| 0 | InterfaceIndex | u8 | 接口索引 (**当前版本忽略**，始终返回 ETH0) |
+| 0 | InterfaceIndex | u8 | 接口索引 (**当前版本忽略**，始终返回默认接口) |
 
 ### 响应
 
@@ -106,7 +110,7 @@
 
 ## 8.4 NET_LINK_EVENT (0x43) — 网络链路状态变更 (事件上报)
 
-当网线插拔或 DHCP 地址变化时，设备主动上报。
+当 STA 关联状态或有效 IPv4 地址变化时，设备主动上报。
 
 ### 设备 → 主机主动上报
 
@@ -122,9 +126,9 @@ Flags: DIR=1, EVT=1
 
 | 值 | 事件 | 说明 |
 |:---|:---|:---|
-| 0x00 | LINK_DOWN | 网线断开 / 链路丢失 |
-| 0x01 | LINK_UP | 网线连接 / 链路建立 |
-| 0x02 | IP_ACQUIRED | 获取到 IP 地址 (DHCP 成功) |
+| 0x00 | LINK_DOWN | STA 与 AP 解除关联 |
+| 0x01 | LINK_UP | STA 与 AP 完成关联 |
+| 0x02 | IP_ACQUIRED | IPv4 可用（DHCP 或静态地址） |
 | 0x03 | IP_LOST | IP 地址丢失 (DHCP 续期失败) |
 | 0x04 | IP_CHANGED | IP 地址发生变化 |
 
@@ -197,3 +201,19 @@ Flags: DIR=1, EVT=1
 1. 测试脚本 `test_network.py` 每次运行前调用，确保从零状态开始
 2. CLI 工具 `hex-bridge-network-cli.py` 添加 `net-close-all` 子命令
 3. 主机重新配置网络前回收所有连接资源
+## 8.7 Wi-Fi STA 扩展
+
+主机通过 UART1 读取系统能力位 12 后启用配网。沿用 NET 命令的 ChannelId。下表每个定长字段均为一个字节，变长字段按字节计数，无终止符。所有失败响应仅含 Status。
+
+| 命令 | 请求载荷（依次排列） | 成功响应 |
+|---|---|---|
+| WIFI_JOIN | Index, Save, Auth, SsidLen, KeyLen, SSID[SsidLen], Key[KeyLen] | 00，表示已受理 |
+| WIFI_STATUS | Index | 00, State, Reason, Channel, RSSI, SsidLen, SSID[SsidLen] |
+| WIFI_LEAVE | Index | 00，停止当前会话的自动重连，保留已保存配置 |
+| WIFI_FORGET | Index | 00，已停止连接并清除 RAM 和 NVS 中的凭据 |
+
+Index 固定为 0。Save 为 0（仅本次启动）或 1（首次 IPv4 就绪后原子替换上次成功配置）。Auth 为 0（开放，KeyLen=0）或 1（WPA2-Personal，8–63 字节可打印 ASCII 口令）；SSID 为 1–32 字节。解析时先验证总长度和全部字段，失败返回 PARAM，保留当前连接。相同在途 JOIN 幂等，不同在途 JOIN 返回 BUSY；更换已连接的网络会断开原连接。LEAVE 和 FORGET 可重复，取消在途 JOIN、定时器和待保存操作。旧会话的迟到事件不得触发重连或写入 NVS。
+
+State 枚举为 0 空闲、1 关联中、2 已关联等待 IPv4、3 IPv4 就绪、4 等待重试、5 失败。Reason 为 0 无、1 找不到 AP、2 认证失败、3 链路丢失、4 获取地址超时、5 驱动异常、6 保存失败。成功入网清除上一轮失败原因；保存失败时维持在线并报告原因 6。Channel 未关联时为 0；RSSI 为有符号 dBm，未知为 -128。SSID 为当前会话的目标，空闲时长度为 0。
+
+关联成功上报 LINK_UP，此时 NET_STATUS 的 LinkState=1、ConnState=2；取得有效 IPv4 后上报 IP_ACQUIRED，ConnState=1。断联时按原状态依次上报 IP_LOST、LINK_DOWN，清空有效 IP、掩码并置 ConnState=0。重复底层通知只上报一次。有效地址直接替换时上报 IP_CHANGED。查询和所有事件均不携带口令。

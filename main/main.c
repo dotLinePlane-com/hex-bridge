@@ -24,6 +24,8 @@
 #include "core/msg_bus.h"
 #include "core/topology.h"
 #include "transport/mcp_transport.h"
+#include "dap/dap_server.h"
+#include "dap/dap_engine.h"
 #include "modules/mod_system.h"
 #include "modules/mod_uart.h"
 #include "modules/mod_network.h"
@@ -44,12 +46,10 @@ void app_main(void)
 
     /* ── 1. 初始化 NVS Flash ── */
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
+    if (ret != ESP_OK) {
+        /* Keep UART/CAN alive; do not erase previously saved credentials. */
+        HEX_LOGE(TAG, "NVS unavailable: 0x%x; persistent settings disabled", ret);
     }
-    ESP_ERROR_CHECK(ret);
-    HEX_LOGI(TAG, "NVS Flash 初始化完成");
 
     /* ── 2. 初始化消息总线 ── */
     ESP_ERROR_CHECK(msg_bus_init());
@@ -66,25 +66,23 @@ void app_main(void)
     ESP_ERROR_CHECK(msg_bus_register_module(mod_ws_get()));
     ESP_ERROR_CHECK(msg_bus_register_module(mod_can_get()));
 
-    /* ── 4. 初始化各功能模块 ── */
+    /* Initialize every dispatcher target before UART1 can receive commands. */
+    ESP_ERROR_CHECK(mod_system_get()->init());
     const hex_module_t *modules[] = {
-        mod_system_get(),
-        mod_uart_get(),
-        mod_network_get(),
-        mod_tcp_get(),
-        mod_udp_get(),
-        mod_ws_get(),
-        mod_can_get(),
+        mod_uart_get(), mod_can_get(),
+        mod_tcp_get(), mod_udp_get(), mod_ws_get(), mod_network_get(),
     };
     for (int i = 0; i < sizeof(modules) / sizeof(modules[0]); i++) {
-        if (modules[i]->init) {
-            ESP_ERROR_CHECK(modules[i]->init());
-        }
+        if (modules[i]->init) ESP_ERROR_CHECK(modules[i]->init());
     }
-
-    /* ── 5. 初始化 MCP 传输层（启动 UART1 收发任务） ── */
     uint32_t mcp_baud = mod_system_get_mcp_baud_rate();
     ESP_ERROR_CHECK(mcp_transport_init(mcp_baud));
+    dap_release();
+    ret = dap_server_start();
+    if (ret != ESP_OK) {
+        HEX_LOGE(TAG, "DAP service unavailable: %s", esp_err_to_name(ret));
+    }
+    mod_network_start();
 
     /* ── 6. 广播 SYS_BOOT_EVENT 通知主机系统复位/启动原因 ── */
     mod_system_send_boot_event();

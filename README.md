@@ -4,7 +4,7 @@
 
 **ESP32-based multi-interface bridge device — gives AI agents hardware I/O capability over a unified serial protocol.**
 
-Host-side MCP Server communicates with this firmware via UBCP (Unified Binary Communication Protocol) v2.0 over UART. The bridge exposes CAN FD, SPI, I2C, UART, GPIO, Ethernet (TCP/UDP/WebSocket), OTA, and bulk transfer — turning an AI coding agent from a software-only tool into one that can interact with physical targets directly.
+Host-side MCP Server communicates with this firmware via UBCP (Unified Binary Communication Protocol) v2.0 over UART. The bridge exposes CAN FD, SPI, I2C, UART, GPIO, Wi-Fi STA (TCP/UDP/WebSocket), OTA, and bulk transfer — turning an AI coding agent from a software-only tool into one that can interact with physical targets directly.
 
 ---
 
@@ -40,7 +40,7 @@ Host-side MCP Server communicates with this firmware via UBCP (Unified Binary Co
 |:---|:---|:---|
 | CAN FD (MCP2518FD) | SCK=14, MOSI=13, MISO=36, CS=15, INT=39 | SPI-attached, CS on strapping pin (10 kΩ pull-up) |
 | I2C (EEPROM 24C02) | SCL=12, SDA=33 | GPIO12=MTDI, 4.7 kΩ pull-up required for boot |
-| Ethernet (LAN8720) | RMII fixed pins, PHY_RST=5 | SMI=GPIO23/18, PHY addr=1, MDIO needs 4.7kΩ pull-up |
+| Wi-Fi STA | ESP32 integrated radio | 2.4 GHz, IPv4, provisioning over UART1 |
 | UART1 (MCP) | TX=4, RX=34 | RX is GPI only, external 10 kΩ pull-up |
 | UART2 (ext) | TX=32, RX=35 | RX is GPI only, external 10 kΩ pull-up |
 | UART0 (debug) | TX=1, RX=3 | Default ESP32 debug UART |
@@ -56,7 +56,7 @@ Host-side MCP Server communicates with this firmware via UBCP (Unified Binary Co
 └──────────────┘                    └──────────────┘  ├─── I2C
                                                        ├─── UART ×2 (ext + debug)
                                                        ├─── GPIO
-                                                       └─── Ethernet (100M)
+                                                       └─── Wi-Fi STA (2.4 GHz)
 ```
 
 - **UART1** — MCP communication, 115200 bps (GPIO4 TX / GPIO34 RX)
@@ -113,7 +113,7 @@ Streaming byte-level parser with single-buffer online CRC. Filters spurious SOF 
 | **Transport (MCP)** | ✅ Done | UART1 115200 bps RX/TX with frame assembly |
 | **System (0x00-0x0F)** | ✅ Base | PING, GET_INFO, GET/SET_CONFIG, RESET, FLOW_CONTROL, SYS_BOOT_EVENT, TOPOLOGY |
 | **UART Extension (0xA0-0xAF)** | ✅ Complete | All 8 commands, 57 test cases — 57/57 PASS |
-| **Network (0x40-0x7F)** | ✅ Complete | **LAN8720 Ethernet 100M, DHCP, DNS** — tested to 70 PASS / 0 FAIL |
+| **Network (0x40-0x7F)** | Wi-Fi STA | DHCP, static IPv4, DNS and provisioning over UART1. [Protocol](files/design/protocol/08-Network.md) |
 | 　 ├─ Network Config (0x40-0x4F) | ✅ | NET_CONFIG, NET_STATUS, NET_DNS, NET_LINK_EVENT, NET_LIST_CONNS |
 | 　 ├─ TCP (0x50-0x5F) | ✅ | 12 commands: Server/Client, select() event loop, list/kick/conn-status |
 | 　 ├─ UDP (0x60-0x6F) | ✅ | 7 commands: Server/Client, select() event loop |

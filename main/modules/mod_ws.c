@@ -9,10 +9,31 @@
 #include "esp_timer.h"
 #include "modules/mod_ws.h"
 #include "modules/mod_network.h"
+#include "transport/service_ports.h"
 #include "core/msg_bus.h"
 #include "core/seq_num.h"
 #include "hex_config.h"
 #include "utils/hex_log.h"
+
+/* All waits are interruptible so network teardown can acquire the module lock. */
+static bool network_matches(uint32_t generation)
+{
+    return mod_network_is_ready() && mod_network_generation() == generation;
+}
+
+static int wait_network_socket(int fd, bool write, uint32_t generation, int64_t deadline)
+{
+    while (network_matches(generation) && esp_timer_get_time() < deadline) {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(fd, &fds);
+        struct timeval tv = { .tv_sec = 0, .tv_usec = 100000 };
+        int ret = select(fd + 1, write ? NULL : &fds, write ? &fds : NULL, NULL, &tv);
+        if (ret > 0) return network_matches(generation) ? ret : -1;
+        if (ret < 0 && errno != EINTR) return -1;
+    }
+    return 0;
+}
 
 static const char *TAG = "mod_ws";
 
@@ -54,6 +75,8 @@ typedef struct {
 static ws_server_t s_servers[WS_MAX_SERVERS];
 static ws_conn_t   s_conns[WS_MAX_CONNS];
 static SemaphoreHandle_t s_mutex = NULL;
+static uint32_t s_socket_epoch; /* Protected by s_mutex. */
+static uint32_t s_close_epoch; /* Only close_all invalidates pending clients. */
 static TaskHandle_t s_ws_task = NULL;
 static volatile bool s_task_running = false;
 
@@ -76,6 +99,7 @@ static uint16_t alloc_conn_handle(void)
 
 static void send_event(uint8_t cmd, uint8_t *payload, uint16_t len)
 {
+    if (cmd != UBCP_CMD_WS_DISC_EVENT && !mod_network_is_ready()) return;
     ubcp_frame_t evt;
     memset(&evt, 0, sizeof(evt));
     evt.version       = UBCP_VERSION;
@@ -96,6 +120,7 @@ static void cleanup_conn(ws_conn_t *conn)
         close(conn->socket_fd);
         conn->socket_fd = -1;
     }
+    s_socket_epoch++;
     conn->active = false;
     conn->handshake_state = 0;
 }
@@ -292,6 +317,7 @@ static int ws_handshake_try_read(ws_conn_t *conn)
         ESP_LOGW(TAG, "WS handshake timeout fd=%d", conn->socket_fd);
         close(conn->socket_fd);
         conn->socket_fd = -1;
+        s_socket_epoch++;
         conn->active = false;
         conn->handshake_state = 0;
         return -1;
@@ -303,6 +329,7 @@ static int ws_handshake_try_read(ws_conn_t *conn)
         ESP_LOGW(TAG, "WS handshake: client closed fd=%d", conn->socket_fd);
         close(conn->socket_fd);
         conn->socket_fd = -1;
+        s_socket_epoch++;
         conn->active = false;
         conn->handshake_state = 0;
         return -1;
@@ -312,6 +339,7 @@ static int ws_handshake_try_read(ws_conn_t *conn)
             ESP_LOGW(TAG, "WS handshake recv error fd=%d errno=%d", conn->socket_fd, errno);
             close(conn->socket_fd);
             conn->socket_fd = -1;
+            s_socket_epoch++;
             conn->active = false;
             conn->handshake_state = 0;
             return -1;
@@ -341,6 +369,7 @@ static int ws_handshake_try_read(ws_conn_t *conn)
         ESP_LOGW(TAG, "WS handshake parse failed fd=%d", conn->socket_fd);
         close(conn->socket_fd);
         conn->socket_fd = -1;
+        s_socket_epoch++;
         conn->active = false;
         conn->handshake_state = 0;
         return -1;
@@ -351,6 +380,7 @@ static int ws_handshake_try_read(ws_conn_t *conn)
         ESP_LOGW(TAG, "WS handshake: server gone, fd=%d", conn->socket_fd);
         close(conn->socket_fd);
         conn->socket_fd = -1;
+        s_socket_epoch++;
         conn->active = false;
         conn->handshake_state = 0;
         return -1;
@@ -363,6 +393,7 @@ static int ws_handshake_try_read(ws_conn_t *conn)
             ws_send_404_response(conn->socket_fd);
             close(conn->socket_fd);
             conn->socket_fd = -1;
+            s_socket_epoch++;
             conn->active = false;
             conn->handshake_state = 0;
             return -1;
@@ -373,6 +404,7 @@ static int ws_handshake_try_read(ws_conn_t *conn)
         ESP_LOGW(TAG, "WS handshake send 101 failed fd=%d", conn->socket_fd);
         close(conn->socket_fd);
         conn->socket_fd = -1;
+        s_socket_epoch++;
         conn->active = false;
         conn->handshake_state = 0;
         return -1;
@@ -395,7 +427,7 @@ static int ws_handshake_try_read(ws_conn_t *conn)
 }
 
 /* ── WS Client handshake ── */
-static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_headers, uint8_t header_len)
+static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_headers, uint8_t header_len, uint32_t generation)
 {
     /* Generate RFC 6455 Sec-WebSocket-Key: 16 random bytes → Base64 = 24 chars */
     uint8_t raw_key[16];
@@ -407,7 +439,7 @@ static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_hea
 
     /* Build HTTP upgrade request */
     char request[1024];
-    static char response[512];
+    char response[512];
     int req_len = snprintf(request, sizeof(request),
         "GET %s HTTP/1.1\r\n"
         "Host: localhost\r\n"
@@ -425,39 +457,28 @@ static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_hea
     request[req_len++] = '\r';
     request[req_len++] = '\n';
 
+    int64_t deadline = esp_timer_get_time() + 5000000;
     int sent = 0;
     while (sent < req_len) {
-        int n = send(sock_fd, request + sent, req_len - sent, 0);
-        if (n < 0) {
-            ESP_LOGD(TAG, "ws_client_handshake: send error=%d (errno=%d)", n, errno);
-            return -1;
-        }
+        if (wait_network_socket(sock_fd, true, generation, deadline) <= 0) return -1;
+        int n = send(sock_fd, request + sent, req_len - sent, MSG_DONTWAIT);
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) continue;
+        if (n <= 0) return -1;
         sent += n;
     }
-    ESP_LOGD(TAG, "ws_client_handshake: sent %d bytes", sent);
-
-    /* Read response with timeout */
-    struct timeval tv;
-    fd_set read_fds;
-    FD_ZERO(&read_fds);
-    FD_SET(sock_fd, &read_fds);
-    tv.tv_sec  = 5;
-    tv.tv_usec = 0;
-
-    int sel = select(sock_fd + 1, &read_fds, NULL, NULL, &tv);
-    ESP_LOGD(TAG, "ws_client_handshake: select=%d", sel);
-    if (sel <= 0) return -1;
 
     int total = 0;
+    response[0] = '\0';
     while (total < (int)sizeof(response) - 1) {
-        int n = recv(sock_fd, response + total, sizeof(response) - 1 - total, 0);
-        if (n <= 0) break;
+        if (wait_network_socket(sock_fd, false, generation, deadline) <= 0) return -1;
+        int n = recv(sock_fd, response + total, sizeof(response) - 1 - total, MSG_DONTWAIT);
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) continue;
+        if (n <= 0) return -1;
         total += n;
+        response[total] = '\0';
         if (strstr(response, "\r\n\r\n")) break;
     }
-    ESP_LOGD(TAG, "ws_client_handshake: recv %d bytes", total);
-    if (total <= 0) return -1;
-    response[total] = '\0';
+    if (!network_matches(generation) || total <= 0 || !strstr(response, "\r\n\r\n")) return -1;
 
     /* Check for 101 */
     int found = (strstr(response, "101") != NULL);
@@ -469,23 +490,31 @@ static int ws_client_handshake(int sock_fd, const char *path, uint8_t *extra_hea
 
 /* ── WS frame encode ── */
 static int ws_encode_frame(uint8_t opcode, const uint8_t *data, uint16_t data_len,
-                            uint8_t *out, size_t out_size)
+                           uint8_t *out, size_t out_size, bool masked)
 {
-    /* Server→Client: MASK=0 */
+    size_t header_len = (data_len < 126 ? 2 : 4) + (masked ? 4 : 0);
+    if (header_len + data_len > out_size) return -1;
     size_t pos = 0;
-    out[pos++] = 0x80 | opcode;  /* FIN=1 */
-
+    out[pos++] = 0x80 | opcode;
+    uint8_t mask_bit = masked ? 0x80 : 0;
     if (data_len < 126) {
-        out[pos++] = (uint8_t)data_len;
+        out[pos++] = mask_bit | (uint8_t)data_len;
     } else {
-        out[pos++] = 126;
+        out[pos++] = mask_bit | 126;
         out[pos++] = (uint8_t)(data_len >> 8);
-        out[pos++] = (uint8_t)(data_len & 0xFF);
+        out[pos++] = (uint8_t)data_len;
     }
-
-    if (pos + data_len > out_size) return -1;
-    if (data_len > 0) memcpy(out + pos, data, data_len);
-    return pos + data_len;
+    uint8_t mask_key[4];
+    if (masked) {
+        uint32_t random = esp_random();
+        memcpy(mask_key, &random, sizeof(mask_key));
+        memcpy(out + pos, mask_key, sizeof(mask_key));
+        pos += sizeof(mask_key);
+    }
+    for (size_t i = 0; i < data_len; i++) {
+        out[pos + i] = data[i] ^ (masked ? mask_key[i % 4] : 0);
+    }
+    return (int)(pos + data_len);
 }
 
 /* ── WS frame decode ── */
@@ -556,7 +585,7 @@ static void ws_iterate_conns(net_conn_iter_cb cb, void *ctx)
             entry.handle        = s_conns[i].conn_handle;
             entry.parent_handle = s_conns[i].is_client_side ? 0 : s_conns[i].server_handle;
             entry.local_port    = 0;
-            entry.remote_ip     = s_conns[i].client_ip;
+            entry.remote_ip     = ntohl(s_conns[i].client_ip);
             cb(&entry, ctx);
         }
     }
@@ -622,6 +651,8 @@ static void ws_event_task(void *arg)
         int max_fd = -1;
 
         xSemaphoreTake(s_mutex, portMAX_DELAY);
+        uint32_t select_epoch = s_socket_epoch;
+        uint32_t generation = mod_network_generation();
         for (int i = 0; i < WS_MAX_SERVERS; i++) {
             if (!s_servers[i].active || s_servers[i].listen_fd < 0) continue;
 
@@ -660,6 +691,10 @@ static void ws_event_task(void *arg)
         if (select(max_fd + 1, &read_fds, NULL, NULL, &tv) <= 0) continue;
 
         xSemaphoreTake(s_mutex, portMAX_DELAY);
+        if (select_epoch != s_socket_epoch || !network_matches(generation)) {
+            xSemaphoreGive(s_mutex);
+            continue;
+        }
 
         /* Accept new connections on servers */
         for (int i = 0; i < WS_MAX_SERVERS; i++) {
@@ -738,10 +773,9 @@ static void ws_event_task(void *arg)
                     evt_payload[11] = s_conns[i].path_len;
                     if (s_conns[i].path_len > 0) memcpy(&evt_payload[12], s_conns[i].path, s_conns[i].path_len);
 
-                    xSemaphoreGive(s_mutex);
                     send_event(UBCP_CMD_WS_ACCEPT, evt_payload, evt_len);
                     free(evt_payload);
-                    xSemaphoreTake(s_mutex, portMAX_DELAY);
+
                 }
             }
         }
@@ -792,9 +826,9 @@ static void ws_event_task(void *arg)
                 cleanup_conn(&s_conns[i]);
             } else if (hdr.opcode == 0x09) {
                 /* Ping → send Pong */
-                uint8_t pong_frame[128];
+                uint8_t pong_frame[132];
                 int pong_len = ws_encode_frame(0x0A, raw_buf + frame_offset, payload_len,
-                                                pong_frame, sizeof(pong_frame));
+                                                pong_frame, sizeof(pong_frame), s_conns[i].is_client_side);
                 if (pong_len > 0) send(s_conns[i].socket_fd, pong_frame, pong_len, MSG_DONTWAIT);
             } else if (hdr.opcode == 0x01 || hdr.opcode == 0x02) {
                 /* Text or Binary → send WS_RECV event */
@@ -808,10 +842,9 @@ static void ws_event_task(void *arg)
                     evt_payload[4] = (uint8_t)(payload_len & 0xFF);
                     if (payload_len > 0) memcpy(&evt_payload[5], raw_buf + frame_offset, payload_len);
 
-                    xSemaphoreGive(s_mutex);
                     send_event(UBCP_CMD_WS_RECV, evt_payload, evt_len);
                     free(evt_payload);
-                    xSemaphoreTake(s_mutex, portMAX_DELAY);
+
                 }
             }
         }
@@ -834,6 +867,10 @@ static void handle_server_open(const ubcp_frame_t *req)
     }
 
     uint16_t port    = ((uint16_t)req->payload[0] << 8) | req->payload[1];
+    if (hex_tcp_port_reserved(port)) {
+        msg_bus_send_status_response(req, UBCP_ERR_NET_PORT_IN_USE);
+        return;
+    }
     uint8_t  maxconn = req->payload[2];
     uint8_t  path_len = req->payload[3];
     const char *path = (const char *)&req->payload[4];
@@ -844,6 +881,12 @@ static void handle_server_open(const ubcp_frame_t *req)
     }
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
+    uint32_t generation = mod_network_generation();
+    if (!network_matches(generation)) {
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
+        return;
+    }
     ws_server_t *svr = find_server_slot();
     if (!svr) {
         xSemaphoreGive(s_mutex);
@@ -891,6 +934,13 @@ static void handle_server_open(const ubcp_frame_t *req)
         actual_port = ntohs(actual_addr.sin_port);
     }
 
+    if (!network_matches(generation)) {
+        close(sock);
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
+        return;
+    }
+    s_socket_epoch++;
     svr->server_handle = alloc_server_handle();
     svr->listen_fd     = sock;
     svr->port          = actual_port;
@@ -903,7 +953,6 @@ static void handle_server_open(const ubcp_frame_t *req)
     svr->active = true;
 
     ESP_LOGI(TAG, "WS Server opened: handle=0x%04X, port=%u, path=%s", svr->server_handle, actual_port, svr->path);
-    xSemaphoreGive(s_mutex);
 
     uint8_t payload[5];
     payload[0] = UBCP_ERR_SUCCESS;
@@ -917,6 +966,7 @@ static void handle_server_open(const ubcp_frame_t *req)
     resp.payload     = payload;
     resp.payload_len = sizeof(payload);
     msg_bus_send_frame(&resp);
+    xSemaphoreGive(s_mutex);
 }
 
 /* ========================================================================
@@ -949,6 +999,7 @@ static void handle_server_close(const ubcp_frame_t *req)
     }
 
     close(svr->listen_fd);
+    s_socket_epoch++;
     svr->active = false;
     xSemaphoreGive(s_mutex);
 
@@ -986,22 +1037,29 @@ static void handle_client_connect(const ubcp_frame_t *req)
     }
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
-    ws_conn_t *conn = find_conn_slot();
-    if (!conn) {
-        xSemaphoreGive(s_mutex);
-        msg_bus_send_status_response(req, UBCP_ERR_NET_MAX_CONN);
+    uint32_t generation = mod_network_generation();
+    uint32_t close_epoch = s_close_epoch;
+    bool ready = network_matches(generation) && s_task_running;
+    xSemaphoreGive(s_mutex);
+    if (!ready) {
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
         return;
     }
 
+    /* The temporary fd is private until the final locked publication below.
+     * Inbound accepts and server handshakes must continue during this wait. */
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
-        xSemaphoreGive(s_mutex);
         msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
         return;
     }
 
     int flags = fcntl(sock, F_GETFL, 0);
-    if (flags >= 0) fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+    if (flags < 0 || fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0) {
+        close(sock);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
+        return;
+    }
 
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
@@ -1012,23 +1070,16 @@ static void handle_client_connect(const ubcp_frame_t *req)
     int cr = connect(sock, (struct sockaddr *)&addr, sizeof(addr));
     if (cr < 0 && errno != EINPROGRESS) {
         close(sock);
-        xSemaphoreGive(s_mutex);
-        msg_bus_send_status_response(req, UBCP_ERR_NET_CONN_REFUSED);
+        msg_bus_send_status_response(req, network_matches(generation) ? UBCP_ERR_NET_CONN_REFUSED : UBCP_ERR_NET_NO_IP);
         return;
     }
 
     if (cr < 0) {
-        fd_set wfds;
-        struct timeval tv;
-        FD_ZERO(&wfds);
-        FD_SET(sock, &wfds);
-        tv.tv_sec  = 5;
-        tv.tv_usec = 0;
-        int sel = select(sock + 1, NULL, &wfds, NULL, &tv);
+        int64_t deadline = esp_timer_get_time() + (int64_t)5 * 1000000;
+        int sel = wait_network_socket(sock, true, generation, deadline);
         if (sel <= 0) {
             close(sock);
-            xSemaphoreGive(s_mutex);
-            msg_bus_send_status_response(req, UBCP_ERR_NET_TIMEOUT);
+            msg_bus_send_status_response(req, network_matches(generation) ? UBCP_ERR_NET_TIMEOUT : UBCP_ERR_NET_NO_IP);
             return;
         }
         int err = 0;
@@ -1036,24 +1087,21 @@ static void handle_client_connect(const ubcp_frame_t *req)
         getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &errlen);
         if (err != 0) {
             close(sock);
-            xSemaphoreGive(s_mutex);
-            msg_bus_send_status_response(req, UBCP_ERR_NET_CONN_REFUSED);
+            msg_bus_send_status_response(req, network_matches(generation) ? UBCP_ERR_NET_CONN_REFUSED : UBCP_ERR_NET_NO_IP);
             return;
         }
     }
 
-    /* Perform WS handshake — switch to blocking for reliable send/recv */
+    /* Keep the handshake nonblocking so network changes interrupt it. */
     ESP_LOGD(TAG, "WS_CLIENT_CONNECT: calling ws_client_handshake");
-    if (flags >= 0) fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 
-    int hs_ret = ws_client_handshake(sock, path, extra_headers, header_len);
+    int hs_ret = ws_client_handshake(sock, path, extra_headers, header_len, generation);
 
     if (flags >= 0) fcntl(sock, F_SETFL, flags | O_NONBLOCK);
     ESP_LOGD(TAG, "WS_CLIENT_CONNECT: ws_client_handshake returned %d", hs_ret);
     if (hs_ret != 0) {
         close(sock);
-        xSemaphoreGive(s_mutex);
-        uint8_t err_payload[1] = { UBCP_ERR_NET_WS_HANDSHAKE };
+        uint8_t err_payload[1] = { network_matches(generation) ? UBCP_ERR_NET_WS_HANDSHAKE : UBCP_ERR_NET_NO_IP };
         ubcp_frame_t resp;
         ubcp_frame_make_response(req, &resp);
         resp.payload     = err_payload;
@@ -1062,10 +1110,25 @@ static void handle_client_connect(const ubcp_frame_t *req)
         return;
     }
 
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    if (!network_matches(generation) || close_epoch != s_close_epoch || !s_task_running) {
+        close(sock);
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
+        return;
+    }
+    ws_conn_t *conn = find_conn_slot();
+    if (!conn) {
+        close(sock);
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_MAX_CONN);
+        return;
+    }
+    s_socket_epoch++;
     conn->conn_handle      = alloc_conn_handle();
     conn->server_handle    = 0;
     conn->socket_fd        = sock;
-    conn->client_ip        = ip;
+    conn->client_ip        = htonl(ip);
     conn->client_port      = port;
     conn->subproto_index   = 0;
     conn->path_len         = path_len;
@@ -1076,7 +1139,6 @@ static void handle_client_connect(const ubcp_frame_t *req)
     conn->handshake_state  = 2;
 
     ESP_LOGI(TAG, "WS Client connected: handle=0x%04X, fd=%d", conn->conn_handle, sock);
-    xSemaphoreGive(s_mutex);
 
     uint8_t payload[4];
     payload[0] = UBCP_ERR_SUCCESS;
@@ -1089,6 +1151,7 @@ static void handle_client_connect(const ubcp_frame_t *req)
     resp.payload     = payload;
     resp.payload_len = sizeof(payload);
     msg_bus_send_frame(&resp);
+    xSemaphoreGive(s_mutex);
 }
 
 /* ========================================================================
@@ -1117,7 +1180,7 @@ static void handle_client_disconnect(const ubcp_frame_t *req)
         (uint8_t)(close_code >> 8), (uint8_t)(close_code & 0xFF)
     };
     uint8_t frame_buf[128];
-    int frame_len = ws_encode_frame(0x08, close_payload, 2, frame_buf, sizeof(frame_buf));
+    int frame_len = ws_encode_frame(0x08, close_payload, 2, frame_buf, sizeof(frame_buf), conn->is_client_side);
     if (frame_len > 0) send(conn->socket_fd, frame_buf, frame_len, MSG_DONTWAIT);
 
     cleanup_conn(conn);
@@ -1140,34 +1203,64 @@ static void handle_send(const ubcp_frame_t *req)
     uint8_t  msg_type  = req->payload[2];
     uint16_t data_len  = ((uint16_t)req->payload[3] << 8) | req->payload[4];
 
-    if (req->payload_len < (uint16_t)(5 + data_len)) {
+    if ((msg_type != 0x01 && msg_type != 0x02 && msg_type != 0x09 && msg_type != 0x0A) ||
+        (msg_type >= 0x08 && data_len > 125) ||
+        req->payload_len < (size_t)5 + data_len) {
         msg_bus_send_status_response(req, UBCP_ERR_PARAM);
         return;
     }
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
     ws_conn_t *conn = find_conn_by_handle(handle);
-    if (!conn) {
+    if (!conn || conn->handshake_state != 2) {
         xSemaphoreGive(s_mutex);
         msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
         return;
     }
 
     /* Encode WS frame */
-    uint8_t frame_buf[UBCP_MAX_PAYLOAD_LEN];
+    uint8_t frame_buf[UBCP_MAX_PAYLOAD_LEN + 8];
     int frame_len = ws_encode_frame(msg_type, &req->payload[5], data_len,
-                                     frame_buf, sizeof(frame_buf));
+                                     frame_buf, sizeof(frame_buf), conn->is_client_side);
 
-    int sent = 0;
-    if (frame_len > 0) {
-        sent = send(conn->socket_fd, frame_buf, frame_len, MSG_DONTWAIT);
+    if (frame_len < 0) {
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_PARAM);
+        return;
     }
+
+    uint32_t generation = mod_network_generation();
+    int64_t deadline = esp_timer_get_time() + 5000000;
+    int sent = 0;
+    uint8_t status = UBCP_ERR_SUCCESS;
+    while (sent < frame_len) {
+        int ready = wait_network_socket(conn->socket_fd, true, generation, deadline);
+        if (ready <= 0) {
+            status = !network_matches(generation) ? UBCP_ERR_NET_NO_IP :
+                     ready == 0 ? UBCP_ERR_NET_TIMEOUT : UBCP_ERR_NET_DISCONNECTED;
+            break;
+        }
+        int n = send(conn->socket_fd, frame_buf + sent, frame_len - sent, MSG_DONTWAIT);
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) continue;
+        if (n <= 0) {
+            status = UBCP_ERR_NET_DISCONNECTED;
+            break;
+        }
+        sent += n;
+    }
+    /* A partial frame cannot be retried as a new frame on the same stream. */
+    if (sent != frame_len) {
+        send_ws_disconnect(conn, 1006, 0x04);
+        cleanup_conn(conn);
+    }
+    int header_len = frame_len - data_len;
+    uint16_t actual = sent > header_len ? (uint16_t)(sent - header_len) : 0;
     xSemaphoreGive(s_mutex);
 
     uint8_t payload[3];
-    payload[0] = (sent >= 0) ? UBCP_ERR_SUCCESS : UBCP_ERR_NET_DISCONNECTED;
-    payload[1] = (uint8_t)((sent > 0 ? sent : 0) >> 8);
-    payload[2] = (uint8_t)((sent > 0 ? sent : 0) & 0xFF);
+    payload[0] = status;
+    payload[1] = (uint8_t)(actual >> 8);
+    payload[2] = (uint8_t)actual;
 
     ubcp_frame_t resp;
     ubcp_frame_make_response(req, &resp);
@@ -1268,7 +1361,7 @@ static void handle_kick_client(const ubcp_frame_t *req)
         /* Send close frame */
         uint8_t close_payload[2] = { 0x03, 0xE8 }; /* 1000 = normal */
         uint8_t frame_buf[128];
-        int frame_len = ws_encode_frame(0x08, close_payload, 2, frame_buf, sizeof(frame_buf));
+        int frame_len = ws_encode_frame(0x08, close_payload, 2, frame_buf, sizeof(frame_buf), conn->is_client_side);
         if (frame_len > 0) send(conn->socket_fd, frame_buf, frame_len, MSG_DONTWAIT);
     }
 
@@ -1308,15 +1401,22 @@ static esp_err_t ws_init(void)
 
 static void ws_close_all(void)
 {
+    if (!s_mutex) return;
     xSemaphoreTake(s_mutex, portMAX_DELAY);
+    s_close_epoch++;
     for (int i = 0; i < WS_MAX_CONNS; i++) {
         if (s_conns[i].active) {
+            if (s_conns[i].handshake_state == 2) {
+                send_ws_disconnect(&s_conns[i], 1006, 0x04);
+            }
             cleanup_conn(&s_conns[i]);
         }
     }
     for (int i = 0; i < WS_MAX_SERVERS; i++) {
         if (s_servers[i].active) {
             close(s_servers[i].listen_fd);
+            s_servers[i].listen_fd = -1;
+            s_socket_epoch++;
             s_servers[i].active = false;
         }
     }

@@ -4,8 +4,11 @@ idf_component_register(
         "protocol/ubcp_frame.c"
         "core/msg_bus.c"
         "core/topology.c"
-        "core/eth_init.c"
         "transport/mcp_transport.c"
+        "dap/dap_engine.c"
+        "dap/swd_gpio.c"
+        "dap/dap_server.c"
+        "dap/dap_stream.c"
         "modules/mod_system.c"
         "modules/mod_uart.c"
         "modules/mod_network.c"
@@ -22,10 +25,13 @@ idf_component_register(
         esp_driver_uart
         esp_driver_spi
         esp_timer
+        esp_rom
+        esp_hw_support
+        lwip
         esp_netif
-        esp_eth
+        esp_wifi
+        esp_event
         nvs_flash
         spi_flash
         esp_psram
-        espressif__lan87xx
 )

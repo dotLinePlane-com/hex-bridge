@@ -28,6 +28,7 @@
 #include "driver/uart.h"
 #include "modules/mod_uart.h"
 #include "core/msg_bus.h"
+#include "transport/mcp_transport.h"
 #include "core/seq_num.h"
 #include "core/topology.h"
 #include "hex_config.h"
@@ -136,7 +137,7 @@ static void check_rx_flow(uart_channel_t *ch)
 /**
  * @brief 发送 UART_RECV 事件帧到 MCP
  */
-static void send_recv_event(uint8_t channel, uint8_t rx_flags,
+static void send_recv_event(uint32_t session, uint8_t channel, uint8_t rx_flags,
                             const uint8_t *data, uint16_t data_len)
 {
     uint16_t event_data_len = data_len;
@@ -160,6 +161,7 @@ static void send_recv_event(uint8_t channel, uint8_t rx_flags,
     ubcp_frame_make_event(&evt, UBCP_CMD_UART_RECV, channel, seq_num_next());
     evt.payload     = payload;
     evt.payload_len = total_len;
+    evt.session_id = session;
 
     msg_bus_send_frame(&evt);
 
@@ -219,17 +221,25 @@ static uint8_t drain_uart_events(uart_channel_t *ch)
 static void uart_rx_task_passive(void *arg)
 {
     uart_channel_t *ch = (uart_channel_t *)arg;
+    uint32_t session = mcp_transport_session_id();
     uint8_t rx_buf[512];
 
     HEX_LOGI(TAG, "UART RX 任务启动（被动上报模式）");
 
     while (ch->rx_running) {
+        if (!mcp_transport_session_is_current(session)) {
+            session = mcp_transport_session_id();
+            uart_flush_input(HEX_EXT_UART_NUM);
+            drain_uart_events(ch);
+            continue;
+        }
         int len = uart_read_bytes(HEX_EXT_UART_NUM, rx_buf, sizeof(rx_buf),
                                   pdMS_TO_TICKS(50));
+        if (!mcp_transport_session_is_current(session)) continue;
         if (len > 0) {
             ch->rx_count += len;
             uint8_t flags = drain_uart_events(ch);
-            send_recv_event(ch->channel_id, flags, rx_buf, (uint16_t)len);
+            send_recv_event(session, ch->channel_id, flags, rx_buf, (uint16_t)len);
         } else {
             drain_uart_events(ch);
         }
@@ -248,6 +258,7 @@ static void uart_rx_task_passive(void *arg)
 static void uart_rx_task_line(void *arg)
 {
     uart_channel_t *ch = (uart_channel_t *)arg;
+    uint32_t session = mcp_transport_session_id();
     uint8_t rx_buf[16];
     uint8_t line_buf[1024];
     size_t line_pos = 0;
@@ -255,8 +266,16 @@ static void uart_rx_task_line(void *arg)
     HEX_LOGI(TAG, "UART RX 任务启动（行模式）");
 
     while (ch->rx_running) {
+        if (!mcp_transport_session_is_current(session)) {
+            session = mcp_transport_session_id();
+            uart_flush_input(HEX_EXT_UART_NUM);
+            line_pos = 0;
+            drain_uart_events(ch);
+            continue;
+        }
         int len = uart_read_bytes(HEX_EXT_UART_NUM, rx_buf, sizeof(rx_buf),
                                   pdMS_TO_TICKS(50));
+        if (!mcp_transport_session_is_current(session)) continue;
         if (len <= 0) {
             drain_uart_events(ch);
             check_rx_flow(ch);
@@ -271,7 +290,7 @@ static void uart_rx_task_line(void *arg)
                 line_buf[line_pos++] = rx_buf[i];
             }
             if (rx_buf[i] == '\n' || line_pos >= sizeof(line_buf)) {
-                send_recv_event(ch->channel_id, err_flags, line_buf, (uint16_t)line_pos);
+                send_recv_event(session, ch->channel_id, err_flags, line_buf, (uint16_t)line_pos);
                 line_pos = 0;
             }
         }
@@ -282,7 +301,7 @@ static void uart_rx_task_line(void *arg)
 
     /* 上报残余数据 */
     if (line_pos > 0) {
-        send_recv_event(ch->channel_id, 0x00, line_buf, (uint16_t)line_pos);
+        send_recv_event(session, ch->channel_id, 0x00, line_buf, (uint16_t)line_pos);
     }
 
     HEX_LOGI(TAG, "UART RX 任务退出（行模式）");
@@ -297,6 +316,7 @@ static void uart_rx_task_line(void *arg)
 static void uart_rx_task_fixed(void *arg)
 {
     uart_channel_t *ch = (uart_channel_t *)arg;
+    uint32_t session = mcp_transport_session_id();
     uint16_t threshold = ch->rx_threshold > 0 ? ch->rx_threshold : 64;
     uint8_t *accum_buf = malloc(threshold);
     if (!accum_buf) {
@@ -309,15 +329,23 @@ static void uart_rx_task_fixed(void *arg)
     HEX_LOGI(TAG, "UART RX 任务启动（定长模式，阈值=%u）", threshold);
 
     while (ch->rx_running) {
+        if (!mcp_transport_session_is_current(session)) {
+            session = mcp_transport_session_id();
+            uart_flush_input(HEX_EXT_UART_NUM);
+            accum_pos = 0;
+            drain_uart_events(ch);
+            continue;
+        }
         size_t want = threshold - accum_pos;
         int len = uart_read_bytes(HEX_EXT_UART_NUM, accum_buf + accum_pos,
                                   want, pdMS_TO_TICKS(100));
+        if (!mcp_transport_session_is_current(session)) continue;
         if (len > 0) {
             ch->rx_count += len;
             accum_pos += len;
             if (accum_pos >= threshold) {
                 uint8_t flags = drain_uart_events(ch);
-                send_recv_event(ch->channel_id, flags, accum_buf, threshold);
+                send_recv_event(session, ch->channel_id, flags, accum_buf, threshold);
                 accum_pos = 0;
             }
         } else {
@@ -330,7 +358,7 @@ static void uart_rx_task_fixed(void *arg)
 
     /* 上报残余数据 */
     if (accum_pos > 0) {
-        send_recv_event(ch->channel_id, 0x00, accum_buf, (uint16_t)accum_pos);
+        send_recv_event(session, ch->channel_id, 0x00, accum_buf, (uint16_t)accum_pos);
     }
 
     free(accum_buf);
@@ -346,6 +374,7 @@ static void uart_rx_task_fixed(void *arg)
 static void uart_rx_task_timeout(void *arg)
 {
     uart_channel_t *ch = (uart_channel_t *)arg;
+    uint32_t session = mcp_transport_session_id();
     uint8_t rx_buf[512];
     uint8_t accum_buf[1024];
     size_t accum_pos = 0;
@@ -354,11 +383,19 @@ static void uart_rx_task_timeout(void *arg)
     HEX_LOGI(TAG, "UART RX 任务启动（超时模式，超时=%ums）", timeout_ms);
 
     while (ch->rx_running) {
+        if (!mcp_transport_session_is_current(session)) {
+            session = mcp_transport_session_id();
+            uart_flush_input(HEX_EXT_UART_NUM);
+            accum_pos = 0;
+            drain_uart_events(ch);
+            continue;
+        }
         TickType_t wait_ticks = (accum_pos > 0) ?
             pdMS_TO_TICKS(timeout_ms) : pdMS_TO_TICKS(50);
 
         int len = uart_read_bytes(HEX_EXT_UART_NUM, rx_buf, sizeof(rx_buf),
                                   wait_ticks);
+        if (!mcp_transport_session_is_current(session)) continue;
         if (len > 0) {
             ch->rx_count += len;
             drain_uart_events(ch);
@@ -372,12 +409,12 @@ static void uart_rx_task_timeout(void *arg)
 
             if (accum_pos >= sizeof(accum_buf)) {
                 uint8_t flags = drain_uart_events(ch);
-                send_recv_event(ch->channel_id, flags, accum_buf, (uint16_t)accum_pos);
+                send_recv_event(session, ch->channel_id, flags, accum_buf, (uint16_t)accum_pos);
                 accum_pos = 0;
             }
         } else if (accum_pos > 0) {
             uint8_t flags = drain_uart_events(ch);
-            send_recv_event(ch->channel_id, flags, accum_buf, (uint16_t)accum_pos);
+            send_recv_event(session, ch->channel_id, flags, accum_buf, (uint16_t)accum_pos);
             accum_pos = 0;
         } else {
             drain_uart_events(ch);
@@ -389,7 +426,7 @@ static void uart_rx_task_timeout(void *arg)
 
     /* 上报残余数据 */
     if (accum_pos > 0) {
-        send_recv_event(ch->channel_id, 0x00, accum_buf, (uint16_t)accum_pos);
+        send_recv_event(session, ch->channel_id, 0x00, accum_buf, (uint16_t)accum_pos);
     }
 
     HEX_LOGI(TAG, "UART RX 任务退出（超时模式）");

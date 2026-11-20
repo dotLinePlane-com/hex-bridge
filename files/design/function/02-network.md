@@ -1,13 +1,13 @@
 # 02. 网络功能
 
-> **状态**: 固件待实现
+> **状态**: Wi-Fi STA，使用系统能力位 12 发现
 > **命令码范围**: `0x40-0x4F` / `0x50-0x5F` / `0x60-0x6F` / `0x70-0x7F`
 
 ---
 
 ## 1. 功能描述
 
-通过 LAN8720A 以太网 PHY 为 HEX-Bridge 提供 10/100 Mbps 有线网络接入能力，支持 TCP、UDP、WebSocket 三种协议的 Server/Client 模式，实现与 MCP Network Monitor 的能力对齐。
+通过 ESP32 内置 Wi-Fi STA 加入局域网，提供 TCP、UDP、WebSocket 的 Server/Client 模式。
 
 ---
 
@@ -26,12 +26,7 @@
 
 ## 3. 硬件依赖
 
-- **以太网 PHY**: LAN8720A，RMII 接口，50MHz REF_CLK → GPIO 0
-- **管理总线**: SMI (MDC=GPIO23, MDIO=GPIO18)
-- **PHY 复位**: GPIO5 (低有效, 外接 10kΩ 下拉)
-- **关键约束**: GPIO 0 为 Strapping 引脚，上电时 LAN8720 必须保持复位状态
-
-> 完整引脚分配见 [ESP32 引脚分配方案](../sch/esp32-pinout-design.md)。
+- ESP32 内置 2.4 GHz Wi-Fi；UART1 提供离线配网。
 
 ---
 
@@ -44,7 +39,7 @@
 | | UDP 协议 | `../protocol/10-UDP.md` |
 | | WebSocket 协议 | `../protocol/11-WebSocket.md` |
 | | 网络错误码 | `../protocol/14-ErrorCode.md` |
-| 固件设计 | 以太网驱动 + 网络模块实现设计 | `../firmware/06-Ethernet-Module.md` |
+| 固件设计 | Wi-Fi STA + 网络模块实现设计 | `../firmware/06-WiFi-STA.md` |
 | 测试 | 网络模块测试用例 | `../test/09-Network-Tests.md` |
 
 ---

@@ -153,7 +153,7 @@ static void handle_get_info(const ubcp_frame_t *req)
 
     /* 能力位图 */
     uint16_t caps = UBCP_CAP_CAN | UBCP_CAP_CAN_FD | UBCP_CAP_SPI |
-                    UBCP_CAP_I2C | UBCP_CAP_UART | UBCP_CAP_ETH |
+                    UBCP_CAP_I2C | UBCP_CAP_UART | UBCP_CAP_WIFI_STA |
                     UBCP_CAP_TCP | UBCP_CAP_UDP | UBCP_CAP_WEBSOCKET |
                     UBCP_CAP_GPIO | UBCP_CAP_BULK | UBCP_CAP_OTA;
     payload[12] = (uint8_t)(caps >> 8);

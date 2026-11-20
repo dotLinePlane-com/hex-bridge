@@ -8,13 +8,34 @@
 #include "lwip/netdb.h"
 #include "lwip/ip4_addr.h"
 #include "esp_timer.h"
+#include "esp_netif_ip_addr.h"
 #include "modules/mod_tcp.h"
 #include "modules/mod_network.h"
+#include "transport/service_ports.h"
 #include "core/msg_bus.h"
 #include "core/seq_num.h"
-#include "core/eth_init.h"
 #include "hex_config.h"
 #include "utils/hex_log.h"
+
+/* All waits are interruptible so network teardown can acquire the module lock. */
+static bool network_matches(uint32_t generation)
+{
+    return mod_network_is_ready() && mod_network_generation() == generation;
+}
+
+static int wait_network_socket(int fd, bool write, uint32_t generation, int64_t deadline)
+{
+    while (network_matches(generation) && esp_timer_get_time() < deadline) {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(fd, &fds);
+        struct timeval tv = { .tv_sec = 0, .tv_usec = 100000 };
+        int ret = select(fd + 1, write ? NULL : &fds, write ? &fds : NULL, NULL, &tv);
+        if (ret > 0) return network_matches(generation) ? ret : -1;
+        if (ret < 0 && errno != EINTR) return -1;
+    }
+    return 0;
+}
 
 static const char *TAG = "mod_tcp";
 
@@ -55,6 +76,8 @@ typedef struct {
 static tcp_server_t s_servers[TCP_MAX_SERVERS];
 static tcp_conn_t   s_conns[TCP_MAX_CONNS];
 static SemaphoreHandle_t s_mutex = NULL;
+static uint32_t s_socket_epoch; /* Protected by s_mutex. */
+static uint32_t s_close_epoch; /* Only close_all invalidates pending clients. */
 static TaskHandle_t s_select_task = NULL;
 static volatile bool s_task_running = false;
 
@@ -79,6 +102,7 @@ static uint16_t alloc_client_handle(void)
 /* ── Send event frame helper ── */
 static void send_event(uint8_t cmd, uint8_t *payload, uint16_t len)
 {
+    if (cmd != UBCP_CMD_TCP_DISC_EVENT && !mod_network_is_ready()) return;
     ubcp_frame_t evt;
     memset(&evt, 0, sizeof(evt));
     evt.version       = UBCP_VERSION;
@@ -137,6 +161,7 @@ static void cleanup_conn(tcp_conn_t *conn)
         close(conn->socket_fd);
         conn->socket_fd = -1;
     }
+    s_socket_epoch++;
     conn->active = false;
 }
 
@@ -179,7 +204,7 @@ static void tcp_iterate_conns(net_conn_iter_cb cb, void *ctx)
             entry.handle        = s_conns[i].conn_handle;
             entry.parent_handle = s_conns[i].is_server_child ? s_conns[i].server_handle : 0;
             entry.local_port    = s_conns[i].local_port;
-            entry.remote_ip     = s_conns[i].remote_ip;
+            entry.remote_ip     = ntohl(s_conns[i].remote_ip);
             cb(&entry, ctx);
         }
     }
@@ -202,6 +227,8 @@ static void tcp_event_task(void *arg)
         int max_fd = -1;
 
         xSemaphoreTake(s_mutex, portMAX_DELAY);
+        uint32_t select_epoch = s_socket_epoch;
+        uint32_t generation = mod_network_generation();
 
         for (int i = 0; i < TCP_MAX_SERVERS; i++) {
             if (!s_servers[i].active || s_servers[i].listen_fd < 0) continue;
@@ -251,6 +278,10 @@ static void tcp_event_task(void *arg)
         if (ret == 0) continue;
 
         xSemaphoreTake(s_mutex, portMAX_DELAY);
+        if (select_epoch != s_socket_epoch || !network_matches(generation)) {
+            xSemaphoreGive(s_mutex);
+            continue;
+        }
 
         /* Check server accept */
         for (int i = 0; i < TCP_MAX_SERVERS; i++) {
@@ -331,9 +362,9 @@ static void tcp_event_task(void *arg)
             evt_payload[9] = (uint8_t)(conn->remote_port & 0xFF);
 
             /* Need to release mutex before sending event to avoid deadlock */
-            xSemaphoreGive(s_mutex);
+
             send_event(UBCP_CMD_TCP_ACCEPT, evt_payload, sizeof(evt_payload));
-            xSemaphoreTake(s_mutex, portMAX_DELAY);
+            
         }
 
         /* Check connection readability */
@@ -374,10 +405,9 @@ static void tcp_event_task(void *arg)
                         evt_payload[3] = (uint8_t)(recv_len & 0xFF);
                         memcpy(&evt_payload[4], recv_buf, recv_len);
 
-                        xSemaphoreGive(s_mutex);
                         send_event(UBCP_CMD_TCP_RECV, evt_payload, evt_len);
                         free(evt_payload);
-                        xSemaphoreTake(s_mutex, portMAX_DELAY);
+
                     }
                 }
             }
@@ -400,11 +430,21 @@ static void handle_server_open(const ubcp_frame_t *req)
     }
 
     uint16_t port   = ((uint16_t)req->payload[0] << 8) | req->payload[1];
+    if (hex_tcp_port_reserved(port)) {
+        msg_bus_send_status_response(req, UBCP_ERR_NET_PORT_IN_USE);
+        return;
+    }
     uint8_t  maxconn = req->payload[2];
     uint8_t  accept_mode = req->payload[3];
     uint8_t  keepalive   = (req->payload_len > 4) ? req->payload[4] : 0;
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
+    uint32_t generation = mod_network_generation();
+    if (!network_matches(generation)) {
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
+        return;
+    }
 
     tcp_server_t *svr = find_empty_server_slot();
     if (!svr) {
@@ -457,6 +497,13 @@ static void handle_server_open(const ubcp_frame_t *req)
         actual_port = ntohs(actual_addr.sin_port);
     }
 
+    if (!network_matches(generation)) {
+        close(sock);
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
+        return;
+    }
+    s_socket_epoch++;
     svr->server_handle = alloc_server_handle();
     svr->listen_fd     = sock;
     svr->port          = actual_port;
@@ -467,7 +514,6 @@ static void handle_server_open(const ubcp_frame_t *req)
 
     ESP_LOGI(TAG, "TCP Server opened: handle=0x%04X, port=%u", svr->server_handle, actual_port);
 
-    xSemaphoreGive(s_mutex);
 
     uint8_t payload[5];
     payload[0] = UBCP_ERR_SUCCESS;
@@ -481,6 +527,7 @@ static void handle_server_open(const ubcp_frame_t *req)
     resp.payload     = payload;
     resp.payload_len = sizeof(payload);
     msg_bus_send_frame(&resp);
+    xSemaphoreGive(s_mutex);
 }
 
 /* ========================================================================
@@ -514,6 +561,7 @@ static void handle_server_close(const ubcp_frame_t *req)
     }
 
     close(svr->listen_fd);
+    s_socket_epoch++;
     svr->active = false;
     xSemaphoreGive(s_mutex);
 
@@ -537,23 +585,30 @@ static void handle_client_connect(const ubcp_frame_t *req)
     uint8_t  keepalive = (req->payload_len > 7) ? req->payload[7] : 0;
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
-    tcp_conn_t *conn = find_empty_conn_slot();
-    if (!conn) {
-        xSemaphoreGive(s_mutex);
-        msg_bus_send_status_response(req, UBCP_ERR_NET_MAX_CONN);
+    uint32_t generation = mod_network_generation();
+    uint32_t close_epoch = s_close_epoch;
+    bool ready = network_matches(generation) && s_task_running;
+    xSemaphoreGive(s_mutex);
+    if (!ready) {
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
         return;
     }
 
+    /* The temporary fd is private until the final locked publication below.
+     * Inbound accepts and server handshakes must continue during this wait. */
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: socket() -> %d (errno=%d)", sock, errno);
     if (sock < 0) {
-        xSemaphoreGive(s_mutex);
         msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
         return;
     }
 
     int flags = fcntl(sock, F_GETFL, 0);
-    if (flags >= 0) fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+    if (flags < 0 || fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0) {
+        close(sock);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_HANDLE_INVALID);
+        return;
+    }
     ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: O_NONBLOCK set, flags=0x%x", flags);
 
     struct sockaddr_in addr;
@@ -578,30 +633,17 @@ static void handle_client_connect(const ubcp_frame_t *req)
              cr, errno, strerror(errno));
     if (cr < 0 && errno != EINPROGRESS) {
         close(sock);
-        xSemaphoreGive(s_mutex);
-        msg_bus_send_status_response(req, UBCP_ERR_NET_CONN_REFUSED);
+        msg_bus_send_status_response(req, network_matches(generation) ? UBCP_ERR_NET_CONN_REFUSED : UBCP_ERR_NET_NO_IP);
         return;
     }
 
     /* Wait for connection via select */
     if (cr < 0) {
-        fd_set wfds;
-        struct timeval tv;
-        FD_ZERO(&wfds);
-        FD_SET(sock, &wfds);
-        tv.tv_sec  = timeout > 0 ? timeout : 5;
-        tv.tv_usec = 0;
-
-        ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: select(sock+1=%d, timeout=%d.%06d)",
-                 sock + 1, (int)tv.tv_sec, (int)tv.tv_usec);
-
-        int sel = select(sock + 1, NULL, &wfds, NULL, &tv);
-        ESP_LOGI(TAG, "TCP_CLIENT_CONNECT: select() -> %d (errno=%d: %s)",
-                 sel, errno, strerror(errno));
+        int64_t deadline = esp_timer_get_time() + (int64_t)(timeout > 0 ? timeout : 5) * 1000000;
+        int sel = wait_network_socket(sock, true, generation, deadline);
         if (sel <= 0) {
             close(sock);
-            xSemaphoreGive(s_mutex);
-            msg_bus_send_status_response(req, UBCP_ERR_NET_TIMEOUT);
+            msg_bus_send_status_response(req, network_matches(generation) ? UBCP_ERR_NET_TIMEOUT : UBCP_ERR_NET_NO_IP);
             return;
         }
 
@@ -613,8 +655,7 @@ static void handle_client_connect(const ubcp_frame_t *req)
                  (int)errlen, err, strerror(err));
         if (err != 0) {
             close(sock);
-            xSemaphoreGive(s_mutex);
-            msg_bus_send_status_response(req, UBCP_ERR_NET_CONN_REFUSED);
+            msg_bus_send_status_response(req, network_matches(generation) ? UBCP_ERR_NET_CONN_REFUSED : UBCP_ERR_NET_NO_IP);
             return;
         }
     }
@@ -629,10 +670,25 @@ static void handle_client_connect(const ubcp_frame_t *req)
         local_port = ntohs(local_addr.sin_port);
     }
 
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    if (!network_matches(generation) || close_epoch != s_close_epoch || !s_task_running) {
+        close(sock);
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_NO_IP);
+        return;
+    }
+    tcp_conn_t *conn = find_empty_conn_slot();
+    if (!conn) {
+        close(sock);
+        xSemaphoreGive(s_mutex);
+        msg_bus_send_status_response(req, UBCP_ERR_NET_MAX_CONN);
+        return;
+    }
+    s_socket_epoch++;
     conn->conn_handle      = alloc_client_handle();
     conn->server_handle    = 0;
     conn->socket_fd        = sock;
-    conn->remote_ip        = dest_ip;
+    conn->remote_ip        = htonl(dest_ip);
     conn->remote_port      = dest_port;
     conn->local_ip         = local_ip;
     conn->local_port       = local_port;
@@ -645,7 +701,6 @@ static void handle_client_connect(const ubcp_frame_t *req)
     conn->conn_state       = 0;
 
     ESP_LOGI(TAG, "TCP Client connected: handle=0x%04X, fd=%d", conn->conn_handle, sock);
-    xSemaphoreGive(s_mutex);
 
     uint8_t payload[9];
     payload[0] = UBCP_ERR_SUCCESS;
@@ -663,6 +718,7 @@ static void handle_client_connect(const ubcp_frame_t *req)
     resp.payload     = payload;
     resp.payload_len = sizeof(payload);
     msg_bus_send_frame(&resp);
+    xSemaphoreGive(s_mutex);
 }
 
 /* ========================================================================
@@ -884,6 +940,7 @@ static void handle_close(const ubcp_frame_t *req)
             }
         }
         close(svr->listen_fd);
+        s_socket_epoch++;
         svr->active = false;
     }
 
@@ -1077,15 +1134,18 @@ static esp_err_t tcp_init(void)
 
 static void tcp_close_all(void)
 {
+    if (!s_mutex) return;
     xSemaphoreTake(s_mutex, portMAX_DELAY);
+    s_close_epoch++;
     for (int i = 0; i < TCP_MAX_CONNS; i++) {
         if (s_conns[i].active) {
             if (s_conns[i].socket_fd >= 0) {
                 close(s_conns[i].socket_fd);
                 s_conns[i].socket_fd = -1;
             }
+            s_socket_epoch++;
             s_conns[i].active = false;
-            send_disconnect_event(&s_conns[i], 0x00);
+            send_disconnect_event(&s_conns[i], mod_network_is_ready() ? 0x00 : 0x03);
         }
     }
     for (int i = 0; i < TCP_MAX_SERVERS; i++) {
@@ -1094,6 +1154,7 @@ static void tcp_close_all(void)
                 close(s_servers[i].listen_fd);
                 s_servers[i].listen_fd = -1;
             }
+            s_socket_epoch++;
             s_servers[i].active = false;
         }
     }

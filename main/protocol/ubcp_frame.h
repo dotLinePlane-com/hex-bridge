@@ -38,6 +38,7 @@ typedef struct {
 
     /* --- 载荷 --- */
     uint8_t    *payload;        /**< 载荷数据指针（不拥有内存） */
+    uint32_t session_id; /**< Local routing generation; never on the wire. */
 } ubcp_frame_t;
 
 /* ========================================================================

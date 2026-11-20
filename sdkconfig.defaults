@@ -1,0 +1,5 @@
+# Wi-Fi STA board; preserve CAN/UART/I2C pins.
+# CONFIG_ETH_ENABLED is not set
+CONFIG_ESP_WIFI_ENABLED=y
+# Two listeners, two active clients and one slot to accept/reject contenders.
+CONFIG_LWIP_MAX_SOCKETS=15

@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEX-Bridge Wi-Fi"
+  short_description: "Connect HEX-Bridge over UART1 and verify its Wi-Fi address"
+  default_prompt: "Use $connect-hex-wifi to join the configured network and verify the board IPv4 address."

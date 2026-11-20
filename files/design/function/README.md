@@ -11,7 +11,7 @@
 |:---|:---|:---|:---|:---|
 | 01 | `01-system.md` | `0x00-0x0F` | ⬜ 待创建 | 系统管理 (PING, GET_INFO, RESET, 版本查询等) |
 | 02 | `02-network.md` | `0x40-0x7F` | ✅ 已创建 | 网络配置 + TCP + UDP + WebSocket |
-| 03 | `03-uart.md` | `0xA0-0xAF` | ⬜ 待创建 | UART 扩展口管理 |
+| 03 | `03-uart.md` | `0xA0-0xAF` | ✅ 已创建 | UART 扩展口管理与上位机 RFC 2217 桥接规划 |
 | 04 | `04-can.md` | `0x10-0x1F` | ⬜ 待创建 | CAN FD 通信 (MCP2518FD) |
 | 05 | `05-spi.md` | `0x20-0x2F` | ⬜ 待创建 | SPI 通信 |
 | 06 | `06-i2c.md` | `0x30-0x3F` | ⬜ 待创建 | I2C 通信 (EEPROM) |

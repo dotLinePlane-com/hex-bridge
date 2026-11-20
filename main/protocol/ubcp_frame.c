@@ -143,6 +143,7 @@ ubcp_parse_result_t ubcp_parser_feed(ubcp_parser_t *parser, uint8_t byte)
 
 esp_err_t ubcp_parser_get_frame(const ubcp_parser_t *parser, ubcp_frame_t *frame)
 {
+    frame->session_id = 0;
     const uint8_t *buf = parser->buf;
     size_t len = parser->buf_pos;
 
@@ -293,6 +294,7 @@ esp_err_t ubcp_frame_build(const ubcp_frame_t *frame,
 void ubcp_frame_make_response(const ubcp_frame_t *req, ubcp_frame_t *resp)
 {
     memset(resp, 0, sizeof(ubcp_frame_t));
+    resp->session_id    = req->session_id;
     resp->version       = UBCP_VERSION;
     resp->flags         = UBCP_FLAG_DIR; /* DIR=1 (设备→主机), 其余为 0 */
     resp->seq_num       = req->seq_num;  /* 回填请求的序列号 */

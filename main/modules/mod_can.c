@@ -32,6 +32,7 @@
 #include "modules/mod_can.h"
 #include "modules/mcp2518fd.h"
 #include "core/msg_bus.h"
+#include "transport/mcp_transport.h"
 #include "core/seq_num.h"
 #include "core/topology.h"
 #include "hex_config.h"
@@ -88,6 +89,7 @@ static const char *TAG = "mod_can";
  * ======================================================================== */
 
 typedef struct {
+    uint32_t session_id;
     uint32_t id;            /* UBCP CanID (含标志位) */
     uint8_t  dlc;           /* 实际数据字节数 */
     uint8_t  data[64];
@@ -384,6 +386,7 @@ static void drain_rx_fifo(uint8_t channel)
     }
 
     while (mcp2518fd_rx_not_empty(channel)) {
+        uint32_t session = mcp_transport_session_id();
         mcp2518fd_rx_obj_t obj;
         uint8_t data_len = 0;
         if (mcp2518fd_rx_read(channel, &obj, &data_len) != ESP_OK) {
@@ -412,6 +415,7 @@ static void drain_rx_fifo(uint8_t channel)
         if (fdf) can_id |= CANID_FD;
         if (brs && !ide) can_id |= CANID_BRS;
 
+        item.session_id = session;
         item.id   = can_id;
         item.dlc  = data_len;
         memcpy(item.data, obj.data, data_len);
@@ -498,6 +502,7 @@ static void can_rx_proc_fn(void *arg)
                               seq_num_next());
         evt.payload     = payload;
         evt.payload_len = len;
+        evt.session_id = item.session_id;
         msg_bus_send_frame(&evt);
     }
 

@@ -76,7 +76,7 @@ def assert_eq(name, actual, expected):
 def send_cmd(transport, seq, cmd, payload=b'', channel=UART_CHANNEL):
     wire = UBCPBuilder.build_request(seq, cmd, channel, payload)
     transport.send(wire)
-    return transport.recv_frame(timeout=2.0)
+    return transport.recv_response(cmd_code=cmd, seq_num=seq, timeout=2.0)
 
 
 def expect_status(transport, seq, cmd, payload, channel, expected_status, name=''):
@@ -536,7 +536,7 @@ def test_uart30_flow_xoff(transport, seq):
         total_injected += 256
         time.sleep(0.01)
 
-    print(f'    [COM3] Injected {total_injected} bytes �?UART2')
+    print(f'    [COM3] Injected {total_injected} bytes -> UART2')
     time.sleep(0.3)
 
     # Check for XOFF/XON events
@@ -564,7 +564,7 @@ def test_uart30_flow_xoff(transport, seq):
 # ====================================================================
 
 def _ensure_open_passive(transport, seq):
-    """确保 UART 通道处于打开+被动上报+115200 8N1 状�?""
+    """确保 UART 通道处于打开+被动上报+115200 8N1 状态"""
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
     uart_open(transport, seq, RXMODE_PASSIVE); seq += 1
     uart_config(transport, seq, 115200); seq += 1
@@ -572,7 +572,7 @@ def _ensure_open_passive(transport, seq):
 
 
 def test_uart31_send_not_open(transport, seq):
-    """UART-31: SEND when closed �?ERR_NOT_OPEN"""
+    """UART-31: SEND when closed -> ERR_NOT_OPEN"""
     print('\n--- UART-31: SEND not open ---')
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
     payload = struct.pack('>H', 5) + b'Hello'
@@ -582,7 +582,7 @@ def test_uart31_send_not_open(transport, seq):
 
 
 def test_uart32_break_not_open(transport, seq):
-    """UART-32: SET_BREAK when closed �?ERR_NOT_OPEN"""
+    """UART-32: SET_BREAK when closed -> ERR_NOT_OPEN"""
     print('\n--- UART-32: SET_BREAK not open ---')
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
     payload = struct.pack('>H', 10)
@@ -592,7 +592,7 @@ def test_uart32_break_not_open(transport, seq):
 
 
 def test_uart33_flush_not_open(transport, seq):
-    """UART-33: FLUSH when closed �?ERR_NOT_OPEN"""
+    """UART-33: FLUSH when closed -> ERR_NOT_OPEN"""
     print('\n--- UART-33: FLUSH not open ---')
     uart_close(transport, seq, ERR_SUCCESS); seq += 1
     expect_status(transport, seq, CMD_UART_FLUSH, bytes([FLUSH_ALL]), UART_CHANNEL, ERR_NOT_OPEN, 'FLUSH closed')
@@ -601,20 +601,20 @@ def test_uart33_flush_not_open(transport, seq):
 
 
 def test_uart34_config_short_payload(transport, seq):
-    """UART-34: CONFIG with short payload �?ERR_PARAM"""
+    """UART-34: CONFIG with short payload -> ERR_PARAM"""
     print('\n--- UART-34: CONFIG short payload ---')
     payload = bytes([0x00, 0x01, 0x02, 0x03, 0x08])  # 5 bytes, need 11
     expect_status(transport, seq, CMD_UART_CONFIG, payload, UART_CHANNEL, ERR_PARAM, 'CONFIG short')
 
 
 def test_uart35_send_short_payload(transport, seq):
-    """UART-35: SEND payload < 2 bytes �?ERR_PARAM"""
+    """UART-35: SEND payload < 2 bytes -> ERR_PARAM"""
     print('\n--- UART-35: SEND short payload ---')
     expect_status(transport, seq, CMD_UART_SEND, bytes([0x00]), UART_CHANNEL, ERR_PARAM, 'SEND short')
 
 
 def test_uart36_break_empty_payload(transport, seq):
-    """UART-36: SET_BREAK empty payload �?uses default 10ms"""
+    """UART-36: SET_BREAK empty payload -> uses default 10ms"""
     print('\n--- UART-36: SET_BREAK empty payload ---')
     expect_status(transport, seq, CMD_UART_SET_BREAK, b'', UART_CHANNEL, ERR_SUCCESS, 'BREAK empty')
 
@@ -653,7 +653,7 @@ def test_uart40_break_detect(transport, seq):
     transport.flush_input()
     COM3.flushInput()
 
-    # Send Break �?GPIO32 TXD goes low, GPIO35 should see Break if loopback
+    # Send Break -> GPIO32 TXD goes low, GPIO35 should see Break if loopback
     payload = struct.pack('>H', 10)
     send_cmd(transport, seq, CMD_UART_SET_BREAK, payload); seq += 1
     transport.recv_frame(timeout=0.5)
@@ -668,7 +668,7 @@ def test_uart40_break_detect(transport, seq):
             pass_('BreakDetect (RxFlags Bit3=1)')
             break
     if not found_break:
-        skip_('BreakDetect', 'no loopback �?Break not reflected to RX')
+        skip_('BreakDetect', 'no loopback - Break not reflected to RX')
 
 
 def test_uart41_parity_error(transport, seq):
@@ -679,7 +679,7 @@ def test_uart41_parity_error(transport, seq):
         return
 
     seq = _ensure_open_passive(transport, seq)
-    # Configure 7E1, but COM3 sends 8N1 �?parity mismatch
+    # Configure 7E1, but COM3 sends 8N1 -> parity mismatch
     uart_config(transport, seq, 115200, data_bits=0x07, parity=0x02); seq += 1
 
     transport.flush_input()
@@ -708,7 +708,7 @@ def test_uart42_frame_error(transport, seq):
     seq = _ensure_open_passive(transport, seq)
     transport.flush_input()
 
-    # Configure 8N1, but COM3 sends with 2 stop bits �?frame error
+    # Configure 8N1, but COM3 sends with 2 stop bits -> frame error
     import serial
     saved_baud = 115200
     try:
@@ -757,7 +757,7 @@ def test_uart43_buffer_overflow(transport, seq):
             pass_('BufferOverflow (RxFlags Bit0=1)')
             break
     if not found_overflow:
-        pass_('No overflow �?buffer keeps up')
+        pass_('No overflow - buffer keeps up')
 
 
 def test_uart44_status_after_send(transport, seq):
@@ -869,7 +869,7 @@ def test_uart49_fixed_threshold_restart(transport, seq):
     transport.flush_input()
     time.sleep(0.2)
 
-    # Send 8 bytes �?should report as one 8-byte chunk with new threshold
+    # Send 8 bytes -> should report as one 8-byte chunk with new threshold
     COM3_write(bytes([0, 1, 2, 3, 4, 5, 6, 7]))
     time.sleep(0.3)
 
@@ -900,7 +900,7 @@ def test_uart50_timeout_restart(transport, seq):
     transport.flush_input()
     time.sleep(0.2)
 
-    # Send data �?should report after 10ms timeout with NEW task
+    # Send data -> should report after 10ms timeout with NEW task
     COM3_write(b'\xAA\xBB\xCC')
     time.sleep(0.3)  # > 10ms, should trigger report
 
@@ -936,11 +936,11 @@ def test_uart53_break_long(transport, seq):
     payload = struct.pack('>H', 1000)
     f = expect_status(transport, seq, CMD_UART_SET_BREAK, payload, UART_CHANNEL, ERR_SUCCESS, 'BREAK 1000ms')
     elapsed = time.time() - start
-    pass_(f'Break took {elapsed:.1f}s (expected ~1.1s with 20ms restore)')
+    assert_bool(f'Break took {elapsed:.1f}s', elapsed >= 1.0)
 
 
 def test_uart54_close_reopen(transport, seq):
-    """UART-54: CLOSE �?re-OPEN with different RxMode"""
+    """UART-54: CLOSE -> re-OPEN with different RxMode"""
     print('\n--- UART-54: Close-reopen ---')
     if COM3 is None:
         skip_('Close-reopen', 'COM3 not available')
@@ -1057,7 +1057,7 @@ def test_uart57_lifecycle(transport, seq):
     assert_bool('7.CLOSE', f is not None and f.payload[0] == ERR_SUCCESS)
     seq += 1
 
-    # 8. STATUS (after close) �?ERR_NOT_OPEN
+    # 8. STATUS (after close) -> ERR_NOT_OPEN
     f = expect_status(transport, seq, CMD_UART_STATUS, b'', UART_CHANNEL, ERR_NOT_OPEN, '8.STATUS closed')
 
     pass_('Full lifecycle complete')
@@ -1067,6 +1067,9 @@ def main():
     global passed, failed, skipped, COM3
     import argparse
     ap = argparse.ArgumentParser()
+    ap.add_argument('--mcp', default='COM4', help='UBCP control port')
+    ap.add_argument('--mcp-baud', type=int, default=921600)
+    ap.add_argument('--no-ext', action='store_true', help='No external UART2 peer connected')
     ap.add_argument('--COM3', default='COM3', help='COM3 port for ext device')
     ap.add_argument('--ext-baud', type=int, default=115200,
                     help='External device baud rate')
@@ -1076,7 +1079,7 @@ def main():
     print('HEX-Bridge UART Module Tests')
     print('=' * 50)
 
-    transport = MCPTransport()
+    transport = MCPTransport(args.mcp, args.mcp_baud)
     try:
         transport.open()
     except Exception as e:
@@ -1084,12 +1087,14 @@ def main():
         return 1
 
     # Try opening COM3 for external data injection/monitoring
-    open_COM3(args.COM3, args.ext_baud)
+    if not args.no_ext:
+        open_COM3(args.COM3, args.ext_baud)
 
     seq = 10
     try:
         transport.flush_input()
-        # 预清理：确保 UART 通道初始为关闭状�?        send_cmd(transport, 1, CMD_UART_CLOSE, b'', 0)
+        # 预清理：确保 UART 通道初始为关闭状态
+        send_cmd(transport, 1, CMD_UART_CLOSE, b'', 0)
         transport.recv_frame(timeout=1.0)  # 丢弃可能的旧响应
         transport.flush_input()
 

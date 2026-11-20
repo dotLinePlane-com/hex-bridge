@@ -18,6 +18,12 @@
 /** 调试 UART (UART0) 开关。设为 0 可在量产固件中关闭调试输出 */
 #define HEX_DEBUG_UART_ENABLE       1
 
+/* SWD target header, 3.3 V. Fit a target-side pull-up when using nRESET. */
+#define HEX_SWD_CLK_GPIO            GPIO_NUM_25
+#define HEX_SWD_IO_GPIO             GPIO_NUM_26
+#define HEX_SWD_RESET_GPIO          GPIO_NUM_27
+#define HEX_SWD_RESET_ENABLED       0
+
 /* ========================================================================
  * UART1 — MCP 通信口 (与上位机通信)
  * ======================================================================== */
@@ -56,14 +62,6 @@
 
 #define HEX_I2C_SCL_PIN             GPIO_NUM_12    /* GPIO12=MTDI，I2C 开漏+4.7kΩ上拉确保复位高电平 */
 #define HEX_I2C_SDA_PIN             GPIO_NUM_33
-
-/* ========================================================================
- * 以太网 — LAN8720 (RMII)
- * ======================================================================== */
-
-#define HEX_ETH_PHY_RST_PIN         GPIO_NUM_5     /* 默认下拉，上电后软件拉高激活 */
-#define HEX_ETH_MDC_PIN             GPIO_NUM_23
-#define HEX_ETH_MDIO_PIN            GPIO_NUM_18
 
 /* ========================================================================
  * UBCP 协议参数
