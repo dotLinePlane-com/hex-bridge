@@ -16,6 +16,7 @@ idf_component_register(
         "modules/mod_udp.c"
         "modules/mod_ws.c"
         "modules/mod_can.c"
+        "modules/mod_spi.c"
         "modules/mcp2518fd.c"
     INCLUDE_DIRS
         "."

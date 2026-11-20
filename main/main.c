@@ -33,6 +33,7 @@
 #include "modules/mod_udp.h"
 #include "modules/mod_ws.h"
 #include "modules/mod_can.h"
+#include "modules/mod_spi.h"
 
 static const char *TAG = "main";
 
@@ -65,12 +66,13 @@ void app_main(void)
     ESP_ERROR_CHECK(msg_bus_register_module(mod_udp_get()));
     ESP_ERROR_CHECK(msg_bus_register_module(mod_ws_get()));
     ESP_ERROR_CHECK(msg_bus_register_module(mod_can_get()));
+    ESP_ERROR_CHECK(msg_bus_register_module(mod_spi_get()));
 
     /* Initialize every dispatcher target before UART1 can receive commands. */
     ESP_ERROR_CHECK(mod_system_get()->init());
     const hex_module_t *modules[] = {
         mod_uart_get(), mod_can_get(),
-        mod_tcp_get(), mod_udp_get(), mod_ws_get(), mod_network_get(),
+        mod_tcp_get(), mod_udp_get(), mod_ws_get(), mod_network_get(), mod_spi_get(),
     };
     for (int i = 0; i < sizeof(modules) / sizeof(modules[0]); i++) {
         if (modules[i]->init) ESP_ERROR_CHECK(modules[i]->init());

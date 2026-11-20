@@ -1,0 +1,117 @@
+# 06. SPI2 外部扩展接口测试计划
+
+> **测试范围**：UBCP SPI 命令 `0x20-0x26`、ESP32 SPI2 主机、单线与 Quad SPI。
+> **状态**：测试规约；需接入 SPI 被测从设备后执行。
+> **协议依据**：[05-SPI.md](../protocol/05-SPI.md)
+
+---
+
+## 1. 测试拓扑
+
+```text
+测试主机 ── MCP/UART1 UBCP ──> HEX-Bridge (DUT: SPI2 Master)
+                                      │
+                                      └── SPI2 GPIO18/19/21/22/23/27
+                                            │
+                                      SPI 被测从设备
+```
+
+MCP 通信使用现有 COM4/`mcp_transport.py`，SPI DUT 必须连接到 SPI2 引脚。板载 MCP2518FD 接在 SPI3，不能直接作为 SPI2 DUT；若使用 CAN 扩展板，应将其 SPI 端单独接到 SPI2 引脚，不能把 SPI3 上的板载器件误认为已测试 SPI2。
+
+### 推荐 DUT 组合
+
+| DUT | 可覆盖内容 | 限制 |
+|:---|:---|:---|
+| MOSI–MISO 短接（GPIO19–GPIO21） | SPI_TRANSFER 回环、单线时钟与收发缓存基本验证 | 不验证真实从设备时序、CS 协议、Mode/位序的器件兼容性；不支持 Quad 验证 |
+| 独立 MCP2518FD CAN 扩展模块（SPI 端接 SPI2） | 单线 Mode 0、CS、跨请求手动 CS、读写寄存器和稳定器件响应 | 不验证 Quad；板载 SPI3 控制器不能同时当作此 DUT；不要让两路主机同时驱动同一 SPI 线 |
+| 支持 QPI/Quad 纯数据阶段的存储器、FPGA 或 MCU 从机 | Quad IO0–IO3 读写和线宽切换 | DUT 必须能在当前协议限制下工作：一条事务内各阶段使用相同线宽；普通单线命令/地址 + Quad 数据的器件流程不在现协议覆盖范围内 |
+
+**结论**：现有 CAN 扩展模块适合作为单线 SPI2 被测从设备，前提是它是可独立接线的 MCP2518FD 板并连接到 SPI2；若指 HEX-Bridge 板载 MCP2518FD，它位于 SPI3，不能直接验证 SPI2。若目标是验证 SPI2 的通用电气收发，先用回环短接；若目标是验证真实从设备事务，优先外接 MCP2518FD 并读 DEVID/只读寄存器；Quad 必须另备支持 Quad/QPI 的 DUT。此测试只使用 MCP2518FD 的 SPI 接口，不测试 CAN 总线功能。
+
+## 2. 接线要求
+
+| HEX-Bridge SPI2 | DUT 端 |
+|:---|:---|
+| GPIO18 SCLK | SCK/CLK |
+| GPIO19 IO0/MOSI | SDI/MOSI 或 IO0 |
+| GPIO21 IO1/MISO | SDO/MISO 或 IO1 |
+| GPIO22 IO2 | IO2（仅 Quad） |
+| GPIO23 IO3 | IO3（仅 Quad） |
+| GPIO27 CS | CS#/SS |
+| GND | GND |
+| 3.3 V | 按 DUT 供电要求连接；确认逻辑电平兼容 |
+
+使用 MCP2518FD 时连接其 SPI 端并配置 Mode 0，建议从低时钟（例如 1 MHz）开始。禁止把不兼容电压的 DUT IO 直接连接 ESP32。
+
+## 3. 测试步骤与验收
+
+### SPI-01 生命周期与参数校验
+
+1. 对通道 4 调用 CLOSE（未 OPEN）：应为 `ERR_NOT_OPEN`。
+2. 使用 GPIO27 与合法极性 OPEN：应成功；重复 OPEN 应为 `ERR_ALREADY_OPEN`。
+3. 非法 CS、非法极性、错误载荷长度应返回协议规定错误，不应改变打开状态。
+4. 对关闭设备 CONFIG/TRANSFER/WRITE/READ/CS_CONTROL，应返回 `ERR_NOT_OPEN`。
+5. CLOSE 后再次 OPEN 应成功。
+
+### SPI-02 配置参数
+
+依次配置四种 SPI Mode、最小/最大边界频率（10 kHz、40 MHz）、MSB/LSB、8/16 位、自动/手动 CS、单线/Quad。接受合法配置，拒绝频率越界、枚举越界及 Quad+16 位组合。无 DUT 时只判定配置命令和错误处理，不据此判定信号时序。
+
+### SPI-03 单线回环
+
+1. 断电后将 GPIO19（IO0/MOSI）与 GPIO21（IO1/MISO）短接，其他 SPI 信号不接外设。
+2. OPEN、配置单线、Mode 0、低速。
+3. TRANSFER 测试空值非法、单字节、包含 `0x00/0x7E/0x7D/0xFF` 的模式数据及不同长度；回读应与发送字节一致。
+4. 运行 WRITE/READ 基本请求及最大长度边界；检查成功响应长度、返回数据和越界错误。
+5. 断开回环短接后结果不作确定性要求，只确认链路不会死锁并能 CLOSE。
+
+短接仅用于低速功能确认；不要将 IO0 与 IO1 短接时再接一个主动驱动 MISO 的从设备。
+
+### SPI-04 真实单线 DUT（MCP2518FD）
+
+1. DUT 选独立 MCP2518FD 模块；将它的 SCK、SDI、SDO、CS 接 GPIO18、GPIO19、GPIO21、GPIO27，并共地。确认不与板载 SPI3 线并接。
+2. 配 Mode 0、MSB、8 位，先用 1 MHz；使用手动 CS。
+3. CS Assert，WRITE MCP2518FD 的 READ 指令与寄存器地址，READ 返回数据，再 CS Deassert；重复读取 DEVID 应稳定且非全 `0x00`/全 `0xFF`。
+4. 对数据手册确认可安全读写的非破坏性寄存器做写入/读回/恢复；不得对保留位、状态寄存器或运行中控制寄存器做盲写。
+5. 测试连续两个 UBCP 请求期间 CS 保持有效；每个阶段响应后读取值仍正确；最后确认 CS 已释放。
+
+DEVID 只读测试可证明 SPI2 的时钟、数据方向、CS 和跨请求保持协作；它不能单独证明 MCP CAN 驱动或 CAN 总线通过。
+
+### SPI-05 Quad DUT
+
+需准备能在 Quad/QPI 模式下以同一线宽接收命令/数据的器件或测试从机。对 IO0–IO3 做可重复模式读写，验证四线数据方向、长度边界、自动/手动 CS 和错误恢复。普通 QSPI Flash 若需要单线命令/地址加 Quad 数据，当前协议不支持该混合阶段，不能把它作为现行协议的直接验收 DUT。
+
+### SPI-06 错误恢复和重复性
+
+在自动/手动 CS 下分别模拟断线或无响应 DUT，验证请求按时返回错误/响应，不挂死；检查自动 CS 释放、手动 CS 能通过 Deassert/CLOSE 释放；连续执行不少于 100 次读写后结果稳定，CLOSE/OPEN 后功能恢复。
+
+## 4. 主机测试脚本要求
+
+新增 `script/test/test_spi.py`，复用 `ubcp_client.py` 与 `mcp_transport.py`，支持至少：
+
+- COM 参数、MCP 波特率、通道号和 DUT 类型参数；
+- 生命周期/非法参数测试；
+- 回环模式下 TRANSFER 数据校验；
+- 外接 MCP2518FD 模式下 READ/WRITE/CS 分段寄存器读取；
+- Quad 模式仅在用户明确选择 Quad DUT 时执行；
+- 每个用例记录请求、响应状态、关键载荷摘要和 PASS/FAIL/N/A；
+- 任何异常退出都尝试发送 CS Deassert 和 SPI_CLOSE。
+
+脚本不应把缺少硬件的回环或 Quad 测试报告为 PASS；应标记 N/A 并注明所需 DUT。
+
+## 5. 当前验收状态
+
+| 项目 | 状态 |
+|:---|:---|
+| 固件编译 | 已通过增量构建；不代表硬件 SPI2 已验证 |
+| UBCP 协议和功能文档 | 已定义 |
+| 主机 SPI 自动化脚本 | 待实现 |
+| GPIO19–21 回环测试 | 待硬件执行 |
+| 外接 MCP2518FD SPI2 测试 | 待硬件执行 |
+| Quad DUT 测试 | 待准备 Quad/QPI 从设备后执行 |
+
+## 6. 后续 SPI 从设备模式验证（尚未实现）
+
+当前所有用例只针对 ESP32 作为 SPI 主设备。SPI 从设备功能规划阶段可先不采购专用 DUT：使用测试固件将 SPI2 配成从设备、SPI3 配成主设备，GPIO Matrix/跳线连接两者，并停用 CAN 驱动。板载 MCP2518FD 的 CS（GPIO15）保持非有效；SPI3 测试主机另用一个测试 GPIO 驱动 SPI2 从设备 CS，避免同时选中 MCP2518FD。SPI3 的主设备事务作为 SPI2 从设备的 stimulus，互传模式数据后可验证队列、长度、连续帧和错误恢复。该方案是软件闭环，不等价于真实外部主设备的电气时序验收。
+
+实现从设备前需先冻结 READY 引脚和时序契约。阶段 A 通过板内 SPI2↔SPI3 回环验证驱动；阶段 B 增加 UBCP 预置 TX、取回 RX、队列耗尽/溢出及断连清理用例；阶段 C 使用外部 SPI 主机夹具验证 READY 与目标频率。测试固件必须与产品构建配置隔离，不覆盖 SPI2 主设备产品引脚和 SPI3 CAN 配置。

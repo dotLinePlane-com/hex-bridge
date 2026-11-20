@@ -67,6 +67,25 @@
 #define UBCP_CH_CAN_EXT1            3       /**< 物理扩展 CAN 1 */
 #define UBCP_CH_SPI_EXT1            4       /**< 物理扩展 SPI 1 */
 
+/* External SPI2 mode and transfer width */
+#define UBCP_SPI_MODE_0             0x00
+#define UBCP_SPI_MODE_1             0x01
+#define UBCP_SPI_MODE_2             0x02
+#define UBCP_SPI_MODE_3             0x03
+#define UBCP_SPI_BITORDER_MSB       0x00
+#define UBCP_SPI_BITORDER_LSB       0x01
+#define UBCP_SPI_WORD_8              0x00
+#define UBCP_SPI_WORD_16             0x01
+#define UBCP_SPI_CS_AUTO             0x00
+#define UBCP_SPI_CS_MANUAL           0x01
+#define UBCP_SPI_WIDTH_SINGLE        0x01
+#define UBCP_SPI_WIDTH_QUAD          0x04
+
+#define UBCP_ERR_SPI_TRANSFER        0x20
+#define UBCP_ERR_SPI_CS_INVALID      0x21
+#define UBCP_ERR_SPI_CLOCK           0x22
+#define UBCP_ERR_SPI_CS_MODE         0x23
+
 /* ========================================================================
  * 命令码定义 — 系统管理 (0x00-0x0F)
  * ======================================================================== */
@@ -362,7 +381,6 @@
 #define UBCP_CAP_SPI                (1 << 2)
 #define UBCP_CAP_I2C                (1 << 3)
 #define UBCP_CAP_UART               (1 << 4)
-#define UBCP_CAP_ETH                (1 << 5)
 #define UBCP_CAP_TCP                (1 << 6)
 #define UBCP_CAP_UDP                (1 << 7)
 #define UBCP_CAP_WEBSOCKET          (1 << 8)

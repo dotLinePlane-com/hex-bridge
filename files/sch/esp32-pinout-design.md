@@ -19,7 +19,7 @@
 | | RXD0 | **GPIO 3** | 双向 | 默认 UART0 调试口 |
 | **SWD 调试（规划）** | SWCLK | **GPIO 25** | 输出 | 接目标 SWCLK |
 | | SWDIO | **GPIO 26** | 双向 | 接目标 SWDIO，读阶段释放输出 |
-| | nRESET | **GPIO 27**（预留） | 开漏 | 默认禁用，可选接目标 nRESET，释放时由目标板上拉 |
+| | nRESET | — | — | 现由外部 SPI2 占用 GPIO27，不再提供 SWD nRESET |
 | | GND | **GND** | 公共参考 | 接目标 GND。按 3.3 V 逻辑、目标板独立供电设计 |
 | **mcp串口 1 (UART1)** | TXD1 | **GPIO 4** | 双向 | 通过 GPIO 矩阵映射 |  
 | | RXD1 | **GPIO 34** | **仅输入 (GPI)**| 外部必须接 10kΩ 上拉电阻到 3.3V（避免悬空） |
@@ -32,6 +32,12 @@
 | | INT | **GPIO 39** | **仅输入 (GPI)**| 接收中断引脚 |
 | **EEPROM (24C02等)** | SCL | **GPIO 12 (MTDI)** | 双向 | I2C 时钟线，需外接 4.7kΩ 上拉电阻。GPIO12 是 MTDI Strapping 引脚控制 PSRAM VDD_SDIO。4.7kΩ 上拉确保复位期间保持高电平 (→1.8V PSRAM 安全)。 |
 | *(I2C 接口)* | SDA | **GPIO 33** | 双向 | I2C 数据线，需外接 4.7kΩ 上拉电阻 |
+| **外部 SPI 扩展 (SPI2)** | SCLK | **GPIO 18** | 双向 | GPIO Matrix 映射到 SPI2_CLK |
+| | IO0 / MOSI | **GPIO 19** | 双向 | 单线模式 MOSI；Quad 模式 IO0 |
+| | IO1 / MISO | **GPIO 21** | 双向 | 单线模式 MISO；Quad 模式 IO1 |
+| | IO2 / WP | **GPIO 22** | 双向 | Quad SPI 数据线 IO2；单线模式不使用 |
+| | IO3 / HOLD | **GPIO 23** | 双向 | Quad SPI 数据线 IO3；单线模式不使用 |
+| | CS | **GPIO 27** | 双向 | 外部 SPI 片选，可配置高/低有效；原 SWD nRESET 预留取消 |
 
 ---
 
@@ -41,12 +47,15 @@
 
 ### 3.1 未分配引脚
 
-GPIO 18、19、21、22、23 当前未分配，实际可用性取决于排针引出及板上负载。GPIO 0、2、5 涉及启动配置，保留。GPIO 27 已为可选复位预留。
+GPIO 18、19、21、22、23、27 已分配给外部 SPI2。GPIO 0、2、5 涉及启动配置，保留。当前 pinout 没有可供额外 GPIO 功能使用的已确认空闲脚。
 
 ### 3.2 无法引出或模组内部占用的 GPIO
 * **`GPIO 16, 17`**：被 8MB PSRAM 占用，外部排针悬空或不可连线。
 * **`GPIO 6, 7, 8, 9, 10, 11`**：被 16MB Flash 占用，不可连接。
 * **`GPIO 37, 38`**：在大多数 ESP32 模组（如 ESP32-WROOM-3E / WROVER-E 等）中，未将管脚引出到外部排针。
+
+### 3.3 SPI2 接口资源冲突
+SPI2 固定使用 GPIO18/19/21/22/23/27，如上表所列。原理图/PCB 应按此表连接；这些引脚不得另分配给其他功能。
 
 ---
 

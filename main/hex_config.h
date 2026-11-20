@@ -9,6 +9,7 @@
 #pragma once
 
 #include "driver/gpio.h"
+#include "driver/spi_master.h"
 #include "driver/uart.h"
 
 /* ========================================================================
@@ -62,6 +63,18 @@
 
 #define HEX_I2C_SCL_PIN             GPIO_NUM_12    /* GPIO12=MTDI，I2C 开漏+4.7kΩ上拉确保复位高电平 */
 #define HEX_I2C_SDA_PIN             GPIO_NUM_33
+
+/* ========================================================================
+ * SPI2 — 外部扩展 SPI（GPIO Matrix）
+ * ======================================================================== */
+#define HEX_EXT_SPI_HOST            SPI2_HOST
+#define HEX_EXT_SPI_SCLK_PIN        GPIO_NUM_18
+#define HEX_EXT_SPI_DATA0_PIN       GPIO_NUM_19  /* MOSI / Quad IO0 */
+#define HEX_EXT_SPI_DATA1_PIN       GPIO_NUM_21  /* MISO / Quad IO1 */
+#define HEX_EXT_SPI_DATA2_PIN       GPIO_NUM_22  /* Quad IO2 / WP */
+#define HEX_EXT_SPI_DATA3_PIN       GPIO_NUM_23  /* Quad IO3 / HD */
+#define HEX_EXT_SPI_CS_PIN          GPIO_NUM_27
+#define HEX_EXT_SPI_MAX_TRANSFER    2045
 
 /* ========================================================================
  * UBCP 协议参数

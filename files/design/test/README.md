@@ -78,8 +78,9 @@ python script/test/test_uart.py --COM3 COM3 --ext-baud 115200
 | [02-UART-Tests.md](02-UART-Tests.md) | UART 扩展模块 (0xA0-0xAF) 全部 8 命令 + 流控 | 57 | �?57/57 PASS |
 | [03-Protocol-Tests.md](03-Protocol-Tests.md) | 帧协议层 (转义/CRC/边界) | 8 | 待验�?|
 | [04-UART-MCP-Tests.md](04-UART-MCP-Tests.md) | MCP Serial Monitor 分屏通信 (hex-bridge 透明桥接) | 12 | 待验�?|
-| [09-Network-Tests.md](09-Network-Tests.md) | 以太网 TCP/UDP/WebSocket 模块 | 80 | 70/70 PASS (auto) |
+| [09-Network-Tests.md](09-Network-Tests.md) | Wi-Fi STA 上的 TCP/UDP/WebSocket 模块 | 76 | 测试计划；需在 Wi-Fi STA 目标上执行 |
 | [05-CAN-Tests.md](05-CAN-Tests.md) | CAN FD 模块 (Phase 1: 12 + Phase 2: 72) | 84 | ✅ 脚本已实现 |
+| [06-SPI-Tests.md](06-SPI-Tests.md) | SPI2 外部扩展接口（单线/Quad、回环及从设备验证） | 规约已创建 | 需接入 SPI DUT；自动化脚本待实现 |
 
 ## 帧构建约�?
 测试用例中的 Payload 使用 hex 编码（如 `0x00` 表示字节�?0），帧字节序均为**大端**�?
