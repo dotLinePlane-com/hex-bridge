@@ -48,6 +48,7 @@
 | [14-ErrorCode.md](14-ErrorCode.md) | 错误码速查表 | — |
 | [15-Appendix.md](15-Appendix.md) | 附录：MCP 映射、实现阶段 | — |
 | [16-OTA.md](16-OTA.md) | OTA 固件升级命令 | 0xB0-0xBF |
+| [17-Device-Profile.md](17-Device-Profile.md) | 设备功能开关、板级引脚策略、配置试用与确认 | 0x08 |
 
 ---
 

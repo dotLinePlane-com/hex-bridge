@@ -10,6 +10,7 @@
 #include "freertos/semphr.h"
 #include "driver/spi_master.h"
 #include "esp_log.h"
+#include "core/device_profile.h"
 #include "hex_config.h"
 #include "modules/mcp2518fd.h"
 
@@ -826,9 +827,9 @@ esp_err_t mcp2518fd_init(void)
     }
 
     spi_bus_config_t buscfg = {
-        .sclk_io_num   = HEX_CAN_SPI_SCK_PIN,
-        .mosi_io_num   = HEX_CAN_SPI_MOSI_PIN,
-        .miso_io_num   = HEX_CAN_SPI_MISO_PIN,
+        .sclk_io_num   = profile_pin(SIG_CAN_SCK),
+        .mosi_io_num   = profile_pin(SIG_CAN_MOSI),
+        .miso_io_num   = profile_pin(SIG_CAN_MISO),
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
         .max_transfer_sz = 4096,
@@ -843,7 +844,7 @@ esp_err_t mcp2518fd_init(void)
     spi_device_interface_config_t devcfg = {
         .clock_speed_hz = 10 * 1000 * 1000,   /* 10 MHz */
         .mode           = 0,                  /* CPOL=0, CPHA=0 */
-        .spics_io_num   = HEX_CAN_SPI_CS_PIN,
+        .spics_io_num   = profile_pin(SIG_CAN_CS),
         .queue_size     = 4,
     };
 

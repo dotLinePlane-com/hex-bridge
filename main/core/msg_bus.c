@@ -12,6 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "core/msg_bus.h"
+#include "core/device_profile.h"
 #include "transport/mcp_transport.h"
 #include "utils/hex_log.h"
 
@@ -104,7 +105,14 @@ void msg_bus_dispatch(const ubcp_frame_t *frame)
 
     /* 未找到处理模块 */
     HEX_LOGW(TAG, "未注册的命令码 0x%02X，发送 ERR_NOT_SUPPORT", cmd);
-    msg_bus_send_status_response(frame, UBCP_ERR_NOT_SUPPORT);
+    /* Recognized module families may be absent from the dispatcher by configuration. */
+    static const unsigned feature_by_family[16] = {
+        [1] = PF_CAN, [4] = PF_WIFI, [5] = PF_TCP, [6] = PF_UDP,
+        [7] = PF_WS, [10] = PF_UART,
+    };
+    unsigned feature = feature_by_family[cmd >> 4];
+    uint8_t status = feature && !profile_enabled(feature) ? UBCP_ERR_PERMISSION : UBCP_ERR_NOT_SUPPORT;
+    msg_bus_send_status_response(frame, status);
 }
 
 esp_err_t msg_bus_send_frame(const ubcp_frame_t *frame)

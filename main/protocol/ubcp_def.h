@@ -97,6 +97,7 @@
 #define UBCP_CMD_RESET              0x04
 #define UBCP_CMD_FLOW_CONTROL       0x05
 #define UBCP_CMD_SYS_BOOT_EVENT     0x06
+#define UBCP_CMD_DEVICE_PROFILE     0x08
 #define UBCP_CMD_GET_TOPOLOGY       0x07
 
 /* ========================================================================
@@ -129,7 +130,7 @@
 #define UBCP_CFGKEY_HEARTBEAT_INTERVAL      0x02    /**< HeartbeatInterval, u16, 默认 5000ms */
 #define UBCP_CFGKEY_FLOW_CONTROL_ENABLE     0x03    /**< FlowControlEnable, u8, 默认 0x01 (启用) */
 #define UBCP_CFGKEY_UART_CHANNEL_COUNT      0x10    /**< UartChannelCount, u8, 只读, 默认 1 */
-#define UBCP_CFGKEY_CAN_CHANNEL_COUNT       0x11    /**< CanChannelCount, u8, 只读, 默认 2 */
+#define UBCP_CFGKEY_CAN_CHANNEL_COUNT       0x11    /**< CanChannelCount, u8, 只读, 当前启用数 */
 #define UBCP_CFGKEY_MCP_BAUD_RATE          0x12    /**< McpBaudRate, u32, 可读写, 默认 921600 */
 #define UBCP_CFGKEY_CAN_ERROR_THROTTLE_MS  0x04    /**< CanErrorThrottleMs, u16, 可读写, 默认 500ms */
 

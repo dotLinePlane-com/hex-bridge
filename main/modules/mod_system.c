@@ -19,6 +19,7 @@
 #include "core/msg_bus.h"
 #include "core/seq_num.h"
 #include "core/topology.h"
+#include "core/device_profile.h"
 #include "hex_config.h"
 #include "utils/hex_log.h"
 #include "esp_system.h"
@@ -152,10 +153,13 @@ static void handle_get_info(const ubcp_frame_t *req)
     memcpy(&payload[8], HEX_MODEL_ID, 4);
 
     /* 能力位图 */
-    uint16_t caps = UBCP_CAP_CAN | UBCP_CAP_CAN_FD | UBCP_CAP_SPI |
-                    UBCP_CAP_I2C | UBCP_CAP_UART | UBCP_CAP_WIFI_STA |
-                    UBCP_CAP_TCP | UBCP_CAP_UDP | UBCP_CAP_WEBSOCKET |
-                    UBCP_CAP_GPIO | UBCP_CAP_BULK | UBCP_CAP_OTA;
+    uint16_t caps = UBCP_CAP_SPI;
+    if (profile_enabled(PF_CAN)) caps |= UBCP_CAP_CAN | UBCP_CAP_CAN_FD;
+    if (profile_enabled(PF_UART)) caps |= UBCP_CAP_UART;
+    if (profile_enabled(PF_WIFI)) caps |= UBCP_CAP_WIFI_STA;
+    if (profile_enabled(PF_TCP)) caps |= UBCP_CAP_TCP;
+    if (profile_enabled(PF_UDP)) caps |= UBCP_CAP_UDP;
+    if (profile_enabled(PF_WS)) caps |= UBCP_CAP_WEBSOCKET;
     payload[12] = (uint8_t)(caps >> 8);
     payload[13] = (uint8_t)(caps & 0xFF);
 
@@ -351,10 +355,6 @@ static uint16_t s_heartbeat_interval              = 5000;   /* ms */
 static uint8_t  s_flow_control_enable             = 0x01;   /* 启用 */
 static uint32_t s_mcp_baud_rate                   = HEX_MCP_UART_BAUD;
 
-/** 只读硬件能力参数 */
-#define UART_CHANNEL_COUNT      1
-#define CAN_CHANNEL_COUNT       2
-
 /* ========================================================================
  * GET_CONFIG 处理 (0x02)
  * ======================================================================== */
@@ -410,15 +410,15 @@ static void handle_get_config(const ubcp_frame_t *req)
         break;
 
     case UBCP_CFGKEY_UART_CHANNEL_COUNT: {
-        static const uint8_t uart_cnt = UART_CHANNEL_COUNT;
-        value     = &uart_cnt;
+        tmp_buf[0] = profile_enabled(PF_UART) ? 1 : 0;
+        value = tmp_buf;
         value_len = 1;
         break;
     }
 
     case UBCP_CFGKEY_CAN_CHANNEL_COUNT: {
-        static const uint8_t can_cnt = CAN_CHANNEL_COUNT;
-        value     = &can_cnt;
+        tmp_buf[0] = profile_enabled(PF_CAN) ? 1 : 0;
+        value = tmp_buf;
         value_len = 1;
         break;
     }
@@ -626,6 +626,10 @@ static void system_handle_cmd(const ubcp_frame_t *frame)
 
     case UBCP_CMD_RESET:
         handle_reset(frame);
+        break;
+
+    case UBCP_CMD_DEVICE_PROFILE:
+        profile_command(frame);
         break;
 
     case UBCP_CMD_GET_TOPOLOGY:

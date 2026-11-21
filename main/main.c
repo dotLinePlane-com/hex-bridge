@@ -19,6 +19,7 @@
 #include "esp_system.h"
 #include "nvs_flash.h"
 
+#include "core/device_profile.h"
 #include "hex_config.h"
 #include "utils/hex_log.h"
 #include "core/msg_bus.h"
@@ -59,32 +60,32 @@ void app_main(void)
     topology_init();
 
     /* ── 3. 注册功能模块 ── */
-    ESP_ERROR_CHECK(msg_bus_register_module(mod_system_get()));
-    ESP_ERROR_CHECK(msg_bus_register_module(mod_uart_get()));
-    ESP_ERROR_CHECK(msg_bus_register_module(mod_network_get()));
-    ESP_ERROR_CHECK(msg_bus_register_module(mod_tcp_get()));
-    ESP_ERROR_CHECK(msg_bus_register_module(mod_udp_get()));
-    ESP_ERROR_CHECK(msg_bus_register_module(mod_ws_get()));
-    ESP_ERROR_CHECK(msg_bus_register_module(mod_can_get()));
-    ESP_ERROR_CHECK(msg_bus_register_module(mod_spi_get()));
-
-    /* Initialize every dispatcher target before UART1 can receive commands. */
-    ESP_ERROR_CHECK(mod_system_get()->init());
-    const hex_module_t *modules[] = {
-        mod_uart_get(), mod_can_get(),
-        mod_tcp_get(), mod_udp_get(), mod_ws_get(), mod_network_get(), mod_spi_get(),
+    profile_init();
+    const struct {
+        const hex_module_t *module;
+        unsigned feature;
+    } modules[] = {
+        {mod_system_get(), 0}, {mod_uart_get(), PF_UART}, {mod_can_get(), PF_CAN},
+        {mod_tcp_get(), PF_TCP}, {mod_udp_get(), PF_UDP}, {mod_ws_get(), PF_WS},
+        {mod_network_get(), PF_WIFI}, {mod_spi_get(), 0},
     };
-    for (int i = 0; i < sizeof(modules) / sizeof(modules[0]); i++) {
-        if (modules[i]->init) ESP_ERROR_CHECK(modules[i]->init());
+    for (size_t i = 0; i < sizeof(modules) / sizeof(modules[0]); i++) {
+        if (modules[i].feature && !profile_enabled(modules[i].feature)) continue;
+        const hex_module_t *module = modules[i].module;
+        ESP_ERROR_CHECK(msg_bus_register_module(module));
+        if (module->init) ESP_ERROR_CHECK(module->init());
     }
     uint32_t mcp_baud = mod_system_get_mcp_baud_rate();
     ESP_ERROR_CHECK(mcp_transport_init(mcp_baud));
-    dap_release();
-    ret = dap_server_start();
-    if (ret != ESP_OK) {
-        HEX_LOGE(TAG, "DAP service unavailable: %s", esp_err_to_name(ret));
+    if (profile_enabled(PF_DAP)) {
+        dap_release();
+        ret = dap_server_start();
+        if (ret != ESP_OK) {
+            HEX_LOGE(TAG, "DAP service unavailable: %s", esp_err_to_name(ret));
+            profile_driver_failed();
+        }
     }
-    mod_network_start();
+    if (profile_enabled(PF_WIFI)) mod_network_start();
 
     /* ── 6. 广播 SYS_BOOT_EVENT 通知主机系统复位/启动原因 ── */
     mod_system_send_boot_event();

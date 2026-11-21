@@ -8,6 +8,8 @@ The firmware currently supports CAN FD through an MCP2518FD controller, an exter
 
 ## Current capabilities
 
+Device profiles configure feature switches and peripheral pins over UBCP. UART1 control (GPIO4/34) and UART0 programming (GPIO1/3) have fixed assignments. The host CLI supports export, validation, staging and a reboot trial. See the [device profile protocol and partition upgrade instructions](files/design/protocol/17-Device-Profile.md).
+
 | Feature | Interface | Status |
 |:---|:---|:---|
 | UBCP control | UART1 or one Wi-Fi TCP client on port `9500` | Implemented. TCP takes over the UBCP session while connected; Wi-Fi loss returns control to UART1. |

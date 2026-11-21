@@ -13,6 +13,7 @@
 #include "lwip/sockets.h"
 #include "lwip/netdb.h"
 #include "modules/mod_network.h"
+#include "core/device_profile.h"
 #include "core/msg_bus.h"
 #include "transport/mcp_transport.h"
 #include "core/seq_num.h"
@@ -152,15 +153,26 @@ static esp_err_t record_write(bool erase)
     nvs_close(h);
     return err;
 }
-static void record_load(void)
+static bool read_saved_record(wifi_record_t *record)
 {
     nvs_handle_t h;
-    wifi_record_t r = {0};
-    size_t len = sizeof(r);
-    if (nvs_open("hex_wifi", NVS_READONLY, &h) != ESP_OK) return;
-    esp_err_t err = nvs_get_blob(h, "sta", &r, &len);
+    size_t len = sizeof(*record);
+    if (nvs_open("hex_wifi", NVS_READONLY, &h) != ESP_OK) return false;
+    esp_err_t err = nvs_get_blob(h, "sta", record, &len);
     nvs_close(h);
-    if (err == ESP_OK && len == sizeof(r) && valid_record(&r)) {
+    return err == ESP_OK && len == sizeof(*record) && valid_record(record);
+}
+
+bool mod_network_has_saved_credentials(void)
+{
+    wifi_record_t record = {0};
+    return read_saved_record(&record);
+}
+
+static void record_load(void)
+{
+    wifi_record_t r = {0};
+    if (read_saved_record(&r)) {
         s_target = r; s_active = true; s_state = 1;
     }
     memset(&r, 0, sizeof(r));
@@ -513,7 +525,7 @@ static void network_task(void *arg)
 {
     (void)arg;
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    if (driver_init() != ESP_OK) { s_state = 5; s_reason = 5; }
+    if (driver_init() != ESP_OK) { profile_driver_failed(); s_state = 5; s_reason = 5; }
     else {
         s_driver_ready = true;
         record_load();
@@ -570,6 +582,7 @@ static esp_err_t network_init(void)
         if (s_dns_commands) vQueueDelete(s_dns_commands);
         s_commands = s_events = s_dns_commands = NULL;
         s_state = 5; s_reason = 5;
+        profile_driver_failed();
         return ESP_OK; /* network failure never prevents CAN/UART boot */
     }
     if (xTaskCreate(dns_task, "net_dns", 4096, NULL, 1, NULL) != pdPASS) {
@@ -577,6 +590,7 @@ static esp_err_t network_init(void)
     }
     if (xTaskCreate(network_task, "net_sta", 6144, NULL, 2, &s_worker) != pdPASS) {
         vQueueDelete(s_commands); s_commands = NULL;
+        profile_driver_failed();
         s_state = 5; s_reason = 5;
     }
     return ESP_OK;

@@ -31,6 +31,7 @@
 #include "transport/mcp_transport.h"
 #include "core/seq_num.h"
 #include "core/topology.h"
+#include "core/device_profile.h"
 #include "hex_config.h"
 #include "utils/hex_log.h"
 
@@ -536,8 +537,8 @@ static void handle_uart_open(const ubcp_frame_t *req)
     }
 
     err = uart_set_pin(HEX_EXT_UART_NUM,
-                       HEX_EXT_UART_TX_PIN,
-                       HEX_EXT_UART_RX_PIN,
+                       profile_pin(SIG_UART_TX),
+                       profile_pin(SIG_UART_RX),
                        UART_PIN_NO_CHANGE,
                        UART_PIN_NO_CHANGE);
     if (err != ESP_OK) {
@@ -834,7 +835,7 @@ static void handle_uart_set_break(const ubcp_frame_t *req)
         if (duration_ms == 0) duration_ms = 10;
     }
 
-    int tx_pin = HEX_EXT_UART_TX_PIN;
+    int tx_pin = profile_pin(SIG_UART_TX);
 
     /* 等待正在进行的 UART 发送完成 */
     uart_wait_tx_done(HEX_EXT_UART_NUM, pdMS_TO_TICKS(100));
@@ -863,7 +864,7 @@ static void handle_uart_set_break(const ubcp_frame_t *req)
     /* 恢复 UART 控制 */
     gpio_set_direction(tx_pin, GPIO_MODE_INPUT_OUTPUT);
     uart_set_pin(HEX_EXT_UART_NUM,
-                 tx_pin, HEX_EXT_UART_RX_PIN,
+                 tx_pin, profile_pin(SIG_UART_RX),
                  UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 
     msg_bus_send_status_response(req, UBCP_ERR_SUCCESS);
@@ -1014,7 +1015,7 @@ static void handle_uart_flush(const ubcp_frame_t *req)
 static esp_err_t uart_module_init(void)
 {
     HEX_LOGI(TAG, "UART 扩展模块初始化 (UART%d, TX=GPIO%d, RX=GPIO%d)",
-             HEX_EXT_UART_NUM, HEX_EXT_UART_TX_PIN, HEX_EXT_UART_RX_PIN);
+             HEX_EXT_UART_NUM, profile_pin(SIG_UART_TX), profile_pin(SIG_UART_RX));
     topology_register(UBCP_CH_UART_EXT1, UBCP_DEV_TYPE_UART, &s_channel);
     return ESP_OK;
 }

@@ -8,6 +8,8 @@ HEX-Bridge 是运行于经典 ESP32 开发板上的固件，通过 UBCP v2.0 为
 
 ## 当前功能
 
+设备支持通过 UBCP 配置功能开关和业务引脚。UART1 电脑控制口（GPIO4/34）与 UART0 下载口（GPIO1/3）固定保留。上位机 CLI 支持配置导出、预检、保存及重启试用，操作命令和首次升级的分区要求见[设备配置扩展协议](files/design/protocol/17-Device-Profile.md)。
+
 | 功能 | 接口 | 状态 |
 |:---|:---|:---|
 | UBCP 控制 | UART1，或 Wi-Fi TCP `9500` 单客户端 | 已实现。TCP 客户端连接后接管 UBCP 会话；Wi-Fi 断开后恢复 UART1。 |

@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 /* Readiness is revoked before cleanup; generations invalidate in-flight sockets. */
+bool mod_network_has_saved_credentials(void);
 void mod_network_start(void);
 bool mod_network_is_ready(void);
 uint32_t mod_network_generation(void);

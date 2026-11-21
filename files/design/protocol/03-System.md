@@ -12,7 +12,8 @@
 | `0x05` | FLOW_CONTROL | 双向 | 流量控制 |
 | `0x06` | SYS_BOOT_EVENT | 设备 → 主机 | 系统启动与复位事件上报 |
 | `0x07` | GET_TOPOLOGY | 请求-响应 | 获取硬件拓扑 (通道列表) |
-| `0x08-0x0F` | — | — | 保留 |
+| `0x08` | DEVICE_PROFILE | 请求-响应 | [功能开关、固定引脚及配置事务](17-Device-Profile.md) |
+| `0x09-0x0F` | — | — | 保留 |
 
 ## 3.0 设备连接、识别与握手流程规范 (Handshake & Identification Flow)
 
@@ -117,8 +118,8 @@
 | 0x01 | DeviceName | str | "HXB-Device" | 设备显示名称 |
 | 0x02 | HeartbeatInterval | u16 | 5000 | 心跳上报间隔 (毫秒) |
 | 0x03 | FlowControlEnable | u8 | 0x01 | 0x00 = 禁用设备端主动背压上报，0x01 = 启用流控。如果设为 0x00，设备端在缓冲区接近满时不会发送 `FLOW_CONTROL (0x05)` 帧。 |
-| 0x10 | UartChannelCount | u8 | 1 | 设备物理支持的扩展 UART 通道数（只读，不允许写入） |
-| 0x11 | CanChannelCount | u8 | 2 | 设备物理支持的 CAN/CAN-FD 通道数（只读，不允许写入） |
+| 0x10 | UartChannelCount | u8 | 1 | 当前配置启用的扩展 UART 通道数，关闭时为 0（只读） |
+| 0x11 | CanChannelCount | u8 | 1 | 当前配置启用的 CAN/CAN-FD 通道数，关闭时为 0（只读） |
 | 0x12 | McpBaudRate | u32 | 921600 | MCP 通信端口波特率。写入后需通过 RESET(0x00) 软复位使新波特率生效。有效范围: 9600 ~ 5000000。 |
 
 > **注意**：修改 `McpBaudRate` 后设备会立即将新值写入 NVS 并返回 SUCCESS，但当前链路波特率不变。主机需在收到 SUCCESS 响应后发送 `RESET(0x00)` 软复位，设备重启后将使用新的波特率初始化 MCP 通信端口。

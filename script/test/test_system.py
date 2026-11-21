@@ -292,7 +292,7 @@ def test_sys11(transport):
     assert_bool('Value length is 1', value is not None and len(value) == 1,
                 f'len={len(value) if value else 0}')
     if value and len(value) >= 1:
-        assert_eq('CanChannelCount', value[0], 2)
+        assert_eq('CanChannelCount', value[0], 1)
 
 
 def test_sys12(transport):

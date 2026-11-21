@@ -35,6 +35,7 @@
 #include "transport/mcp_transport.h"
 #include "core/seq_num.h"
 #include "core/topology.h"
+#include "core/device_profile.h"
 #include "hex_config.h"
 #include "utils/hex_log.h"
 
@@ -529,7 +530,7 @@ static void can_gpio_isr(void *arg)
 static esp_err_t setup_gpio_isr(void)
 {
     gpio_config_t io = {
-        .pin_bit_mask = (1ULL << HEX_CAN_INT_PIN),
+        .pin_bit_mask = (1ULL << profile_pin(SIG_CAN_INT)),
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,   /* GPIO39 为 input-only，无内部上拉，外部已有 10kΩ 上拉 */
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -545,12 +546,13 @@ static esp_err_t setup_gpio_isr(void)
     if (!isr_installed) {
         err = gpio_install_isr_service(0);
         if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        profile_driver_failed();
             return err;
         }
         isr_installed = true;
     }
 
-    return gpio_isr_handler_add(HEX_CAN_INT_PIN, can_gpio_isr, NULL);
+    return gpio_isr_handler_add(profile_pin(SIG_CAN_INT), can_gpio_isr, NULL);
 }
 
 /* ========================================================================
@@ -853,7 +855,7 @@ static void handle_can_close(const ubcp_frame_t *req)
 
     /* 先停止接收任务与中断，避免配置模式误触发事件 */
     s_can.tasks_running = false;
-    gpio_isr_handler_remove(HEX_CAN_INT_PIN);
+    gpio_isr_handler_remove(profile_pin(SIG_CAN_INT));
     vTaskDelay(pdMS_TO_TICKS(200));
 
     /* 等待 TX 排空 (1s 超时) */
@@ -1305,7 +1307,7 @@ static void handle_can_sleep(const ubcp_frame_t *req)
     s_can.mode_snapshot = s_can.mode;
 
     /* 禁用 GPIO39 中断避免误唤醒 */
-    gpio_isr_handler_remove(HEX_CAN_INT_PIN);
+    gpio_isr_handler_remove(profile_pin(SIG_CAN_INT));
 
     send_status_resp(req, UBCP_ERR_SUCCESS);
     HEX_LOGI(TAG, "CAN 进入休眠");
@@ -1454,13 +1456,14 @@ static void handle_can_filter_batch(const ubcp_frame_t *req)
 static esp_err_t can_module_init(void)
 {
     HEX_LOGI(TAG, "CAN FD 模块初始化 (MCP2518FD, SCK=GPIO%d, CS=GPIO%d)",
-             HEX_CAN_SPI_SCK_PIN, HEX_CAN_SPI_CS_PIN);
+             profile_pin(SIG_CAN_SCK), profile_pin(SIG_CAN_CS));
 
     topology_register(CAN_CHANNEL_ID, UBCP_DEV_TYPE_CAN, &s_can);
 
     /* SPI 总线初始化 (仅一次) */
     esp_err_t err = mcp2518fd_init();
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        profile_driver_failed();
         HEX_LOGW(TAG, "SPI 初始化失败 (0x%x)，CAN 将在 OPEN 时重试", err);
     }
 
@@ -1519,7 +1522,7 @@ static void can_module_stop(void)
 {
     if (s_can.is_open) {
         s_can.tasks_running = false;
-        gpio_isr_handler_remove(HEX_CAN_INT_PIN);
+        gpio_isr_handler_remove(profile_pin(SIG_CAN_INT));
         if (s_can.event_queue) {
             vQueueDelete(s_can.event_queue);
             s_can.event_queue = NULL;

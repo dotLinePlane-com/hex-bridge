@@ -3,6 +3,7 @@ idf_component_register(
         "main.c"
         "protocol/ubcp_frame.c"
         "core/msg_bus.c"
+        "core/device_profile.c"
         "core/topology.c"
         "transport/mcp_transport.c"
         "dap/dap_engine.c"
