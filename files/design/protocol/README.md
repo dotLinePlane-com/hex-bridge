@@ -36,7 +36,7 @@
 | [02-Frame.md](02-Frame.md) | 帧结构、转义、CRC、流控 | — |
 | [03-System.md](03-System.md) | 系统管理命令 | 0x00-0x0F |
 | [04-CAN.md](04-CAN.md) | CAN / CAN FD 接口命令 | 0x10-0x1F |
-| [05-SPI.md](05-SPI.md) | SPI 接口命令 | 0x20-0x2F |
+| [05-SPI.md](05-SPI.md) | SPI2 外部扩展接口（单线 / Quad） | 0x20-0x2F |
 | [06-I2C.md](06-I2C.md) | I2C 接口命令 | 0x30-0x3F |
 | [07-UART.md](07-UART.md) | UART 接口命令 | 0xA0-0xAF |
 | [08-Network.md](08-Network.md) | 网络基础配置 | 0x40-0x4F |

@@ -67,6 +67,8 @@
 | `0x23` | ERR_SPI_CS_MODE | CS 模式错误（自动模式下调用手动控制） |
 | `0x24-0x2F` | — | 保留 |
 
+SPI 频率越界使用 `ERR_SPI_CLOCK`，其他无效参数使用通用 `ERR_PARAM`，SPI2 底层事务失败使用 `ERR_SPI_TRANSFER`。
+
 ---
 
 ## 14.5 I2C 错误码 (0x30-0x3F)

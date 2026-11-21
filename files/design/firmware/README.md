@@ -15,6 +15,7 @@
 | [05-Bridge-Design.md](05-Bridge-Design.md) | 网桥数据多路复用、流控、模块适配设计 |
 | [06-WiFi-STA.md](06-WiFi-STA.md) | Wi-Fi STA 接入、配网和网络恢复设计 |
 | [07-CAN-Module.md](07-CAN-Module.md) | CAN FD 模块（MCP2518FD）设计 |
+| [09-SPI-Module.md](09-SPI-Module.md) | 外部 SPI2 单线/Quad SPI 扩展模块设计 |
 
 ---
 
@@ -49,4 +50,4 @@
 4. **流式解析**：MCP 接收采用在线反转义 + CRC，不需要双倍缓冲区
 5. **可配置**：所有硬件参数在 `hex_config.h` 中集中定义
 
-- [DAPLink 网络调试探针规约（规划）](08-DAPLink.md)
+- [DAPLink 网络调试探针（实现与验证状态）](08-DAPLink.md)
