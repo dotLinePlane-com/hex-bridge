@@ -1,13 +1,13 @@
 # -*- coding: latin-1 -*-
 """
-HEX-Bridge Network Module Tests (DRV-01 ~ DRV-05, NET-01 ~ NET-16,
+HEX-Bridge Network Module Tests (NET-01 ~ NET-16,
 TCP-01 ~ TCP-35, UDP-01 ~ UDP-14, WS-01 ~ WS-21, STR-01 ~ STR-10)
 
-Total: 81 test cases (86 in full test document including NM-* MCP NM tests).
+Total: 76 test cases (81 in full test document including NM-* MCP NM tests).
 
 Usage:
     python test_network.py [--mcp COM4] [--mcp-baud 921600] [--helper-ip 192.168.1.x]
-                          [--tcp-port 9090] [--skip-drv] [--skip-ws] [--test NET-01]
+                          [--tcp-port 9090] [--skip-ws] [--test NET-01]
 
 Environment:
     - COM4: MCP communication port (UBCP v2.0, 115200 bps)
@@ -245,72 +245,6 @@ def get_link_status():
 # Test Cases
 # ============================================================================
 
-def test_drv_01():
-    """DRV-01: 验证 LAN8720 PHY 初始化成�? 网线插入后链�?UP"""
-    print('\n--- DRV-01: Physical Link UP detection ---')
-    # Device should already be sending NET_LINK_EVENT on boot
-    # We just check current status
-    f = send_cmd(CMD_NET_STATUS, b'\x00', 0)
-    if f is None:
-        fail_('DRV-01', 'no response to NET_STATUS')
-        return
-    pos = 2
-    link_up = (f.payload[pos + 1] == 0x01)
-    has_ip = (f.payload[pos + 2] >= 0x01)
-    ip_str = u32_to_ip(f.payload[pos + 3 : pos + 7])
-    if link_up and has_ip:
-        pass_(f'DRV-01: Link UP, IP={ip_str}')
-    elif link_up:
-        fail_(f'DRV-01: Link UP but no IP ({ip_str})')
-    else:
-        fail_(f'DRV-01: Link DOWN')
-
-
-def test_drv_02():
-    """DRV-02: 网线拔出检�?"""
-    print('\n--- DRV-02: Cable unplug detection ---')
-    f0 = send_cmd(CMD_NET_STATUS, b'\x00', 0)
-    if f0 is None or f0.payload[2 + 1] != 0x01:
-        skip_('DRV-02', 'Link not UP, skip unplug test')
-        return
-    print('  [INFO] Unplug the Ethernet cable now...')
-    # Wait for LINK_DOWN event
-    evt = wait_event(CMD_NET_LINK_EVENT, timeout=10.0)
-    if evt is not None:
-        event_type = evt.payload[1]
-        if event_type == 0x00:  # LINK_DOWN
-            pass_(f'DRV-02: LINK_DOWN event received (EventType={event_type})')
-        else:
-            pass_(f'DRV-02: Link event received (EventType={event_type})')
-    else:
-        # Fallback: check NET_STATUS
-        time.sleep(2)
-        f = send_cmd(CMD_NET_STATUS, b'\x00', 0)
-        if f is not None and f.payload[2 + 1] == 0x00:
-            pass_('DRV-02: Link DOWN via NET_STATUS')
-        else:
-            fail_('DRV-02: no LINK_DOWN detected')
-    print('  [INFO] Please reconnect the Ethernet cable for remaining tests.')
-
-
-def test_drv_03():
-    """DRV-03: 网线重新插入后的链路恢复"""
-    print('\n--- DRV-03: Cable reconnect recovery ---')
-    f0 = send_cmd(CMD_NET_STATUS, b'\x00', 0)
-    if f0 is not None and f0.payload[2 + 1] == 0x01 and f0.payload[2 + 2] >= 0x01:
-        pass_('DRV-03: Link already UP')
-        return
-    print('  [INFO] Waiting for link to come UP (30s)...')
-    for _ in range(60):
-        f = send_cmd(CMD_NET_STATUS, b'\x00', 0)
-        if f is not None and f.payload[2 + 1] == 0x01 and f.payload[2 + 2] >= 0x01:
-            ip_str = u32_to_ip(f.payload[2 + 3 : 2 + 7])
-            pass_(f'DRV-03: Link restored, IP={ip_str}')
-            return
-        time.sleep(0.5)
-    fail_('DRV-03: Link not restored within 30s')
-
-
 def test_net_01():
     """NET-01: NET_STATUS �?查询网络状�?(正常流程)"""
     print('\n--- NET-01: Network Status Query ---')
@@ -348,7 +282,7 @@ def test_net_02():
         return
     count = f.payload[1]
     assert_in_range('NET-02 IntfCount', count, 1, 4)
-    # Verify default STA/legacy Ethernet interface is present
+    # Verify default Wi-Fi STA interface is present
     assert_eq('NET-02 IntfIndex[0]', f.payload[2], 0x00)
 
 
@@ -439,24 +373,21 @@ def test_net_09():
 
 
 def test_net_10():
-    """NET-10: NET_STATUS �?网线拔出时查�?"""
-    print('\n--- NET-10: NET_STATUS when cable unplugged ---')
+    """NET-10: NET_STATUS reports current Wi-Fi interface state"""
+    print('\n--- NET-10: Wi-Fi interface status ---')
     f = send_cmd(CMD_NET_STATUS, b'\x00', 0)
     if f is None:
         skip_('NET-10', 'no response')
         return
     pos = 2
     link_state = f.payload[pos + 1]
+    conn_state = f.payload[pos + 2]
+    ip_val = struct.unpack('>I', f.payload[pos + 3 : pos + 7])[0]
     if link_state == 0x00:
-        # Link already down, verify ConnState and IP
-        conn_state = f.payload[pos + 2]
-        ip_val = struct.unpack('>I', f.payload[pos + 3 : pos + 7])[0]
-        if conn_state == 0x00 and ip_val == 0:
-            pass_('NET-10: Correct DOWN state (ConnState=0, IP=0)')
-        else:
-            pass_(f'NET-10: Link=DOWN (ConnState={conn_state}, IP={ip_val})')
+        assert_eq('NET-10 ConnState', conn_state, 0x00)
+        assert_eq('NET-10 IP', ip_val, 0)
     else:
-        pass_('NET-10: Link is UP (cable plugged, test passes with UP state)')
+        pass_('NET-10: Wi-Fi link is up')
 
 
 # ============================================================================
@@ -864,30 +795,6 @@ def test_stress_06():
 # ============================================================================
 # New Gap-Filling Test Cases
 # ============================================================================
-
-def test_drv_04():
-    """DRV-04: DHCP 服务器不可用"""
-    print('\n--- DRV-04: DHCP server unavailable ---')
-    # This requires manual setup to block DHCP
-    # Functional test: verify device does not crash when DHCP fails
-    _, has_ip, _ = get_link_status()
-    if has_ip:
-        pass_('DRV-04: Device has IP (DHCP working)')
-    else:
-        pass_('DRV-04: Device running without IP (DHCP failed/timeout), no crash')
-
-
-def test_drv_05():
-    """DRV-05: 网线快速插�?"""
-    print('\n--- DRV-05: Rapid cable plug/unplug ---')
-    # Observation test: requires manual cable cycling
-    # Just verify current state is stable
-    f = send_cmd(CMD_NET_STATUS, b'\x00', 0)
-    if f:
-        pass_('DRV-05: Device stable, NET_STATUS responds normally')
-    else:
-        fail_('DRV-05', 'NET_STATUS failed')
-
 
 def test_net_11():
     """NET-11: NET_DNS �?DNS 服务器不可达 (超时)"""
@@ -1370,13 +1277,6 @@ def test_ws_20():
 # ============================================================================
 
 ALL_TESTS = {
-    # Ethernet Driver
-    'DRV-01': test_drv_01,
-    'DRV-02': test_drv_02,
-    'DRV-03': test_drv_03,
-    'DRV-04': test_drv_04,
-    'DRV-05': test_drv_05,
-
     # Network Config
     'NET-01': test_net_01,
     'NET-02': test_net_02,
@@ -1451,7 +1351,6 @@ ALL_TESTS = {
 }
 
 TESTS_REQUIRE_HELPER = {
-    'DRV-02', 'DRV-03', 'DRV-04', 'DRV-05',
     'TCP-06', 'TCP-08',
     'TCP-25', 'TCP-26',
     'UDP-04', 'UDP-09',
@@ -1480,8 +1379,6 @@ def main():
                         help='Helper PC IP address for TCP/UDP/WS tests')
     parser.add_argument('--tcp-port', type=int, default=9090,
                         help='TCP port on helper PC (default: 9090)')
-    parser.add_argument('--skip-drv', action='store_true',
-                        help='Skip driver layer tests (DRV-01~03)')
     parser.add_argument('--skip-ws', action='store_true',
                         help='Skip WebSocket tests (WS-01~13)')
     parser.add_argument('--test', type=str,
@@ -1534,9 +1431,6 @@ def main():
     else:
         tests_to_run = dict(ALL_TESTS)
 
-    if _args_cache.skip_drv:
-        tests_to_run = {k: v for k, v in tests_to_run.items()
-                        if not k.startswith('DRV-')}
     if _args_cache.skip_ws:
         tests_to_run = {k: v for k, v in tests_to_run.items()
                         if not k.startswith('WS-')}

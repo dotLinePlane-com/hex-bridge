@@ -75,7 +75,7 @@
 | 2 | SPI | SPI 接口支持 |
 | 3 | I2C | I2C 接口支持 |
 | 4 | UART | UART 接口支持 |
-| 5 | ETH | 以太网支持（旧设备）；Wi-Fi 板此位为 0 |
+| 5 | Reserved | 保留 |
 | 6 | TCP | TCP 协议支持 |
 | 7 | UDP | UDP 协议支持 |
 | 8 | WebSocket | WebSocket 支持 |

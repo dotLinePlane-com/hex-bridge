@@ -102,8 +102,8 @@
 | SPI | 1-4 | 支持全双工、半双工、手动 CS 控制 |
 | I2C | 1-2 | 支持 7 位和 10 位地址模式 |
 | UART | 1-4 | 支持可配置波特率、数据位、校验、流控 |
-| 以太网 TCP | 多连接 | Server/Client 模式 |
-| 以太网 UDP | 多连接 | Server/Client 模式，支持广播/多播 |
+| TCP 网络 | 多连接 | Server/Client 模式；当前网络链路为 Wi-Fi STA |
+| UDP 网络 | 多连接 | Server/Client 模式，支持广播/多播；当前网络链路为 Wi-Fi STA |
 | WebSocket | 多连接 | Server/Client 模式 |
 | GPIO | 32 引脚 | 输入/输出、中断、批量操作 |
 | OTA | — | 固件升级、双分区切换、回滚、SHA-256 校验 |

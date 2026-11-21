@@ -99,7 +99,7 @@ TX 排空**不采用** `uart_wait_tx_done()` 纯阻塞等待，原因：MCP Seri
 
 为了在不增加 ESP32 固件复杂度、不破坏 `mod_uart.c` 对 `UART2` 唯一控制权的前提下，同时获得 **RFC 2217 的第三方串口工具链生态兼容性**（如 `pyserial`、`esptool.py`、PuTTY、虚拟串口驱动 `com0com` / `socat`）与 **UBCP 单链路全外设多路复用 / Wi-Fi 远程能力**，采用**上位机侧协议桥接方案**：
 
-- **固件侧零侵入**：ESP32 固件仅运行统一的 UBCP 协议栈（物理链路可为本地 `UART1` 串口，或 Wi-Fi / 以太网上的 `TCP Socket`）。
+- **固件侧零侵入**：ESP32 固件仅运行统一的 UBCP 协议栈（物理链路可为本地 `UART1` 串口，或 Wi-Fi STA 上的 `TCP Socket`）。
 - **上位机侧本地代理**：在 PC 上运行轻量级桥接服务（监听本地 `127.0.0.1:2217`），对外提供标准的 **RFC 2217 (Telnet Com Port Control Option)** 服务端，对内将控制选项和数据流实时翻译为 **UBCP UART 命令 (`0xA0-0xA7`)**。
 
 ### 4.7.2 端到端拓扑架构
@@ -190,7 +190,7 @@ RFC 2217 子协商帧格式为：`IAC (0xFF) SB (0xFA) 44 (0x2C) <Command> <Valu
 # 场景 1：本地 USB 串口连接 ESP32，暴露 RFC 2217 端口给本机第三方软件
 python script/cli/hex-bridge-rfc2217-bridge.py --mcp COM4 --mcp-baud 921600 --listen 127.0.0.1:2217 --channel 1
 
-# 场景 2：通过 Wi-Fi / 以太网远程连接 ESP32 UBCP TCP 端口，暴露本地 RFC 2217 端口
+# 场景 2：通过 Wi-Fi 远程连接 ESP32 UBCP TCP 端口，暴露本地 RFC 2217 端口
 python script/cli/hex-bridge-rfc2217-bridge.py --mcp socket://192.168.1.100:9500 --listen 127.0.0.1:2217 --channel 1
 ```
 

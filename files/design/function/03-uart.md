@@ -19,7 +19,7 @@
 | 参数配置 | `0xA2` (`UART_CONFIG`) | 波特率（9600~5000000）、数据位（5~8）、停止位（1/1.5/2）、校验位（None/Odd/Even）、流控 |
 | 数据收发 | `0xA3` (`UART_SEND`), `0xA4` (`UART_RECV`) | 批量数据发送与带 `RxFlags`（溢出/校验错/帧错/Break）的异步事件上报 |
 | 线路控制与状态 | `0xA5` (`UART_SET_BREAK`), `0xA6` (`UART_STATUS`), `0xA7` (`UART_FLUSH`) | 发送指定时长 Break 信号、查询收发计数与缓冲区用量、清空/排空（Drain）收发缓冲 |
-| **上位机 RFC 2217 桥** | `script/cli/hex-bridge-rfc2217-bridge.py` (规划) | 在 PC 本地监听 RFC 2217 端口（如 `127.0.0.1:2217`），对内转换为 UBCP `0xA0-0xA7` 帧（支持本地串口或 Wi-Fi/以太网远程 UBCP 链路） |
+| **上位机 RFC 2217 桥** | `script/cli/hex-bridge-rfc2217-bridge.py` (规划) | 在 PC 本地监听 RFC 2217 端口（如 `127.0.0.1:2217`），对内转换为 UBCP `0xA0-0xA7` 帧（支持本地串口或 Wi-Fi 远程 UBCP 链路） |
 
 ---
 

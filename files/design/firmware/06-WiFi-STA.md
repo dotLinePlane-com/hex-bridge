@@ -5,7 +5,7 @@ HEX-Bridge 通过 ESP32 内置 Wi-Fi 加入现有 2.4 GHz AP，PC 与设备在�
 ## 固件职责
 
 1. 启动时初始化 NVS、消息总线和 UART1。网络模块创建默认 STA netif，注册 Wi-Fi/IP 回调。网络初始化失败只影响网络模块，UART1 仍能查询失败原因，CAN 继续工作。
-2. 用 STA 初始化替换 core/eth_init，移除 EMAC、PHY 复位、RMII 时钟初始化以及 mod_tcp 对 eth_init.h 的依赖。主组件调整 esp_wifi 依赖。移除旧板专用的构建配置前核对 sdkconfig；保留 CAN、I²C、UART 和板级启动约束。
+2. 网络由 `mod_network` 通过 ESP32 内置 Wi-Fi STA 管理；TCP/UDP/WebSocket 模块使用 Wi-Fi STA 提供的 IPv4 网络。SPI、CAN、I²C、UART 的引脚仍按板级引脚表固定。
 3. 用单个网络任务串行处理命令、驱动事件和重试。Wi-Fi 驱动使用 RAM 配置；应用管理独立 NVS 记录，原子保存 SSID、认证类型与密钥。RAM 配网成功也不覆盖已有记录。下次启动仅尝试已保存配置。CLI 隐藏口令输入，串口帧跟踪对 JOIN 脱敏。
 4. 找不到 AP、链路丢失或 DHCP 超时（30 秒）时，按 1、2、4、8、16、30 秒退避，之后每 30 秒重试。认证失败停止重试；通过新的 JOIN 恢复。每次切换会话时撤销旧定时器并等待旧连接断开后再关联。
 5. 失去有效 IP 时通过各 socket 模块现有关闭流程回收监听和连接句柄、上报已有断开事件。主机在 IP_ACQUIRED 后重建所需服务；网络未就绪时新建连接返回 NET_NO_IP。UART1 和 CAN 继续服务。

@@ -1,77 +1,60 @@
-# 09. ÍøÂçÄ£¿é²âÊÔÓÃÀı
+# 09. ç½‘ç»œæ¨¡å—æµ‹è¯•ç”¨ä¾‹
 
-> ÃüÁîÂë·¶Î§£º`0x40-0x4F` (ÍøÂçÅäÖÃ), `0x50-0x5F` (TCP), `0x60-0x6F` (UDP), `0x70-0x7F` (WebSocket)
-> Ä£¿é£º`mod_network` + `mod_tcp` + `mod_udp` + `mod_ws`
-> **²âÊÔ½Å±¾**: `script/test/test_network.py`
-> **²âÊÔ¹¤¾ß**: MCP Network Monitor (Kilo Agent ¼¯³É, ³äµ±ÍøÂç¶Ô¶Ë)
+> å‘½ä»¤ç èŒƒå›´ï¼š`0x40-0x4F` (ç½‘ç»œé…ç½®), `0x50-0x5F` (TCP), `0x60-0x6F` (UDP), `0x70-0x7F` (WebSocket)
+> æ¨¡å—ï¼š`mod_network` + `mod_tcp` + `mod_udp` + `mod_ws`
+> **æµ‹è¯•è„šæœ¬**: `script/test/test_network.py`
+> **æµ‹è¯•å·¥å…·**: MCP Network Monitor (Kilo Agent é›†æˆ, å……å½“ç½‘ç»œå¯¹ç«¯)
 
-## ²âÊÔÍØÆË
+## æµ‹è¯•æ‹“æ‰‘
 
-```
-©°©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©´
-©¦                         Í¬Ò»Ì¨ PC                                          ©¦
-©¦                                                                            ©¦
-©¦  ©°©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©´          ©°©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©´         ©¦
-©¦  ©¦ Serial Monitor       ©¦  COM4   ©¦ Network Monitor               ©¦        ©¦
-©¦  ©¦ (MCP Í¨ĞÅ + ²âÊÔ)   ©¦¡û©¤©¤©¤©¤©¤©¤©¤©¤¡ú©¦ (TCP/UDP/WS Server/Client)   ©¦        ©¦
-©¦  ©¦ UBCP Ö¡ÊÕ·¢         ©¦  921600  ©¦ ³äµ±ÍøÂç¶Ô¶Ë                   ©¦        ©¦
-©¦  ©¦                      ©¦          ©¦                                ©¦        ©¦
-©¦  ©¸©¤©¤©¤©¤©¤©¤©¤©¤©¤©Ğ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¼          ©¸©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©Ğ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¼         ©¦
-©¦            ©¦                                      ©¦                        ©¦
-©¦            ©¦  UART1 (GPIO4/34)                    ©¦ Ethernet               ©¦
-©¦            ¨‹                                      ¨‹                        ©¦
-©¦       ©°©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©´       ©°©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©´                  ©¦
-©¦       ©¦   HEX-Bridge     ©¦¡û©¤©¤©¤©¤©¤©¤©¦  Â·ÓÉÆ÷ / DHCP        ©¦                  ©¦
-©¦       ©¦   ESP32+LAN8720  ©¦  100  ©¦                      ©¦                  ©¦
-©¦       ©¦                  ©¦  Mbps ©¦                      ©¦                  ©¦
-©¦       ©¦   UART0          ©¦¡û©¤©¤©¤©¤©¤©¤©¦ COM5 (µ÷ÊÔÈÕÖ¾, 115200 bps)            ©¦
-©¦       ©¸©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¼       ©¸©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¼                  ©¦
-©¸©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¼
+```text
+MCP host (Serial Monitor, COM4) <-> HEX-Bridge ESP32
+                                      | Wi-Fi STA
+                                      v
+                                2.4 GHz access point <-> Network Monitor (same PC)
+
+UART0 debug output: COM5
 ```
 
-> **¹Ø¼üÓÅÊÆ**: MCP Network Monitor Óë Serial Monitor ÔËĞĞÔÚÍ¬Ò»Ì¨ PC ÉÏ£¬ÎŞĞè¶îÍâµÄ"¸¨Öú PC"¡£Network Monitor ¿ÉÒÔÖ±½Ó´´½¨ TCP/UDP/WebSocket Server/Client£¬×÷Îª HEX-Bridge µÄÍøÂç¶Ô¶Ë£¬Í¬Ê±¿É¶ÁĞ´Êı¾İ»º³åÇøÑéÖ¤Í¨ĞÅÄÚÈİ¡£
+> **å…³é”®ä¼˜åŠ¿**: MCP Network Monitor ä¸ Serial Monitor è¿è¡Œåœ¨åŒä¸€å° PC ä¸Šï¼Œæ— éœ€é¢å¤–çš„"è¾…åŠ© PC"ã€‚Network Monitor å¯ä»¥ç›´æ¥åˆ›å»º TCP/UDP/WebSocket Server/Clientï¼Œä½œä¸º HEX-Bridge çš„ç½‘ç»œå¯¹ç«¯ï¼ŒåŒæ—¶å¯è¯»å†™æ•°æ®ç¼“å†²åŒºéªŒè¯é€šä¿¡å†…å®¹ã€‚
 
-**Êı¾İÁ÷ËµÃ÷**:
+**æ•°æ®æµè¯´æ˜**:
 
-| ·½Ïò | Â·¾¶ |
+| æ–¹å‘ | è·¯å¾„ |
 |:---|:---|
-| MCP ÃüÁî | Serial Monitor (COM4) ¡ú HEX-Bridge |
-| MCP ÏìÓ¦/ÊÂ¼ş | HEX-Bridge ¡ú Serial Monitor (COM4) |
-| HEX-Bridge TCP ·¢ËÍ | COM4 ¡ú MCP ÃüÁî ¡ú HEX-Bridge ¡ú Ethernet ¡ú Network Monitor (PC) |
-| HEX-Bridge TCP ½ÓÊÕ | Network Monitor (PC) ¡ú Ethernet ¡ú HEX-Bridge ¡ú MCP ÊÂ¼ş ¡ú COM4 |
-| HEX-Bridge TCP Server ½ÓÊÜ | Network Monitor Client ¡ú Ethernet ¡ú HEX-Bridge ¡ú TCP_ACCEPT ÊÂ¼ş ¡ú COM4 |
-| DNS ½âÎö | COM4 ¡ú MCP ¡ú HEX-Bridge ¡ú DNS ·şÎñÆ÷ ¡ú MCP ¡ú COM4 |
+| MCP å‘½ä»¤ | Serial Monitor (COM4) â†’ HEX-Bridge |
+| MCP å“åº”/äº‹ä»¶ | HEX-Bridge â†’ Serial Monitor (COM4) |
+| DNS è§£æ | COM4 â†’ MCP â†’ HEX-Bridge â†’ DNS æœåŠ¡å™¨ â†’ MCP â†’ COM4 |
 
 ---
 
-## ²âÊÔ»·¾³
+## æµ‹è¯•ç¯å¢ƒ
 
-| ÏîÄ¿ | ÒªÇó |
+| é¡¹ç›® | è¦æ±‚ |
 |:---|:---|
-| ±»²âÉè±¸ | HEX-Bridge (ESP32, ¹Ì¼şÖĞÒÑÊµÏÖÒÔÌ«ÍøÄ£¿é) |
-| MCP Í¨ĞÅ¿Ú | COM4, UART1, 921600 bps, 8N1 |
-| ÍøÂç»·¾³ | ¾ÖÓòÍø DHCP ·şÎñ¿ÉÓÃ, ÍøÏßÒÑÁ¬½Ó |
-| µ÷ÊÔÊä³ö | COM5, UART0, 115200 bps |
-| ÍøÂç¶Ô¶Ë¹¤¾ß | **MCP Network Monitor** (Í¬Ò» PC ÉÏÔËĞĞµÄÍøÂçµ÷ÊÔ¹¤¾ß) |
-| Ğ­Òé°æ±¾ | UBCP v2.0 (`0x02`) |
+| è¢«æµ‹è®¾å¤‡ | HEX-Bridge ESP32ï¼Œä½¿ç”¨ Wi-Fi STA |
+| MCP é€šä¿¡å£ | COM4, UART1, 921600 bps, 8N1 |
+| ç½‘ç»œç¯å¢ƒ | 2.4 GHz AP å¯ç”¨ï¼Œè®¾å¤‡å·²è¿æ¥å¹¶å–å¾— IPv4 åœ°å€ |
+| è°ƒè¯•è¾“å‡º | COM5, UART0, 115200 bps |
+| ç½‘ç»œå¯¹ç«¯å·¥å…· | **MCP Network Monitor** (åŒä¸€ PC ä¸Šè¿è¡Œçš„ç½‘ç»œè°ƒè¯•å·¥å…·) |
+| åè®®ç‰ˆæœ¬ | UBCP v2.0 (`0x02`) |
 
-## Ç°ÖÃÌõ¼ş
+## å‰ç½®æ¡ä»¶
 
-1. ¹Ì¼şÒÑÉÕÂ¼²¢ÔËĞĞ, LAN8720 Çı¶¯³õÊ¼»¯³É¹¦
-2. ÍøÏßÒÑ²åÈë, Á´Â· UP (¿ÉÍ¨¹ı COM5 ÈÕÖ¾È·ÈÏ `Ethernet Link Up`)
-3. DHCP ÒÑ»ñÈ¡µ½ IP µØÖ· (¿ÉÍ¨¹ı `NET_STATUS` ÃüÁîÈ·ÈÏ)
-4. Íê³ÉÎÕÊÖÁ÷³Ì£º`PING (0x00)` + `GET_INFO (0x01)`
-5. Kilo Agent ÒÑ¼ÓÔØ `serial-monitor-mcp` ºÍ `network-monitor-mcp` ¹¤¾ß
+1. ä½¿ç”¨ `WIFI_JOIN` è¿æ¥ 2.4 GHz APã€‚
+2. ä½¿ç”¨ `NET_STATUS` ç¡®è®¤è®¾å¤‡å·²è·å– IPv4 åœ°å€ã€‚
+3. å®Œæˆæ¡æ‰‹æµç¨‹ï¼š`PING (0x00)` + `GET_INFO (0x01)`ã€‚
+4. Kilo Agent å·²åŠ è½½ `serial-monitor-mcp` å’Œ `network-monitor-mcp` å·¥å…·ã€‚
 
 ---
 
-## Ê¹ÓÃ MCP Network Monitor ×÷Îª²âÊÔ¹¤¾ß
+## ä½¿ç”¨ MCP Network Monitor ä½œä¸ºæµ‹è¯•å·¥å…·
 
-MCP Network Monitor ÊÇÇ¶ÈëÔÚ Kilo Agent ÖĞµÄÍøÂçµ÷ÊÔ¹¤¾ß£¬Ö§³Ö´´½¨ TCP/UDP/WebSocket Server ºÍ Client¡£Ëü¿ÉÒÔ³äµ± HEX-Bridge µÄÍøÂç¶Ô¶Ë£¬Ìæ´ú´«Í³µÄ"¸¨Öú PC + nc/wscat"·½°¸¡£
+MCP Network Monitor æ˜¯åµŒå…¥åœ¨ Kilo Agent ä¸­çš„ç½‘ç»œè°ƒè¯•å·¥å…·ï¼Œæ”¯æŒåˆ›å»º TCP/UDP/WebSocket Server å’Œ Clientã€‚å®ƒå¯ä»¥å……å½“ HEX-Bridge çš„ç½‘ç»œå¯¹ç«¯ï¼Œæ›¿ä»£ä¼ ç»Ÿçš„"è¾…åŠ© PC + nc/wscat"æ–¹æ¡ˆã€‚
 
-### »ù±¾ÓÃ·¨
+### åŸºæœ¬ç”¨æ³•
 
-**×÷Îª TCP Server (½ÓÊÜ HEX-Bridge Á¬½Ó)**:
+**ä½œä¸º TCP Server (æ¥å— HEX-Bridge è¿æ¥)**:
 ```
 network-monitor-mcp_connect_network
   connId: "tcp-test-server"
@@ -80,17 +63,17 @@ network-monitor-mcp_connect_network
   listenPort: 9090
 ```
 
-**×÷Îª TCP Client (Á¬½Ó HEX-Bridge Server)**:
+**ä½œä¸º TCP Client (è¿æ¥ HEX-Bridge Server)**:
 ```
 network-monitor-mcp_connect_network
   connId: "tcp-test-client"
   protocol: "tcp"
   role: "client"
-  host: "192.168.x.x"   # HEX-Bridge µÄ IP
+  host: "192.168.x.x"   # HEX-Bridge çš„ IP
   port: 8080
 ```
 
-**×÷Îª UDP Server (¼àÌı)**:
+**ä½œä¸º UDP Server (ç›‘å¬)**:
 ```
 network-monitor-mcp_connect_network
   connId: "udp-test-server"
@@ -99,7 +82,7 @@ network-monitor-mcp_connect_network
   listenPort: 9091
 ```
 
-**×÷Îª UDP Client**:
+**ä½œä¸º UDP Client**:
 ```
 network-monitor-mcp_connect_network
   connId: "udp-test-client"
@@ -109,7 +92,7 @@ network-monitor-mcp_connect_network
   port: 9091
 ```
 
-**×÷Îª WebSocket Server**:
+**ä½œä¸º WebSocket Server**:
 ```
 network-monitor-mcp_connect_network
   connId: "ws-test-server"
@@ -119,7 +102,7 @@ network-monitor-mcp_connect_network
   path: "/ws"
 ```
 
-**×÷Îª WebSocket Client**:
+**ä½œä¸º WebSocket Client**:
 ```
 network-monitor-mcp_connect_network
   connId: "ws-test-client"
@@ -128,7 +111,7 @@ network-monitor-mcp_connect_network
   url: "ws://192.168.x.x:9092/ws"
 ```
 
-**·¢ËÍÊı¾İ**:
+**å‘é€æ•°æ®**:
 ```
 network-monitor-mcp_send_network_data
   connId: "tcp-test-server"
@@ -136,366 +119,366 @@ network-monitor-mcp_send_network_data
   format: "string"
 ```
 
-**¶ÁÈ¡½ÓÊÕ»º³åÇø**:
+**è¯»å–æ¥æ”¶ç¼“å†²åŒº**:
 ```
 network-monitor-mcp_read_network_buffer
   port: "tcp-test-server"
   display: "hex"
 ```
 
-### Óë²âÊÔ½Å±¾µÄ¹ØÏµ
+### ä¸æµ‹è¯•è„šæœ¬çš„å…³ç³»
 
-| ½×¶Î | ¹¤¾ß | ²Ù×÷ |
+| é˜¶æ®µ | å·¥å…· | æ“ä½œ |
 |:---|:---|:---|
-| 1. Æô¶¯ÍøÂç¶Ô¶Ë | **MCP Network Monitor** | ´´½¨ TCP/UDP/WS Server »ò Client |
-| 2. ·¢ËÍ MCP ÃüÁî | **Serial Monitor** (COM4) | Í¨¹ı UBCP ÃüÁî¿ØÖÆ HEX-Bridge Ö´ĞĞÍøÂç²Ù×÷ |
-| 3. ÑéÖ¤ MCP ÏìÓ¦ | **Serial Monitor** (COM4) | ¶ÁÈ¡ UBCP ÏìÓ¦/ÊÂ¼şÖ¡ |
-| 4. ÑéÖ¤ÍøÂçÊı¾İ | **MCP Network Monitor** | ¶ÁÈ¡ÊÕ·¢»º³åÇøÈ·ÈÏÊı¾İÒ»ÖÂĞÔ |
+| 1. å¯åŠ¨ç½‘ç»œå¯¹ç«¯ | **MCP Network Monitor** | åˆ›å»º TCP/UDP/WS Server æˆ– Client |
+| 2. å‘é€ MCP å‘½ä»¤ | **Serial Monitor** (COM4) | é€šè¿‡ UBCP å‘½ä»¤æ§åˆ¶ HEX-Bridge æ‰§è¡Œç½‘ç»œæ“ä½œ |
+| 3. éªŒè¯ MCP å“åº” | **Serial Monitor** (COM4) | è¯»å– UBCP å“åº”/äº‹ä»¶å¸§ |
+| 4. éªŒè¯ç½‘ç»œæ•°æ® | **MCP Network Monitor** | è¯»å–æ”¶å‘ç¼“å†²åŒºç¡®è®¤æ•°æ®ä¸€è‡´æ€§ |
 
-### ¶Ëµ½¶Ë²âÊÔÁ÷³ÌÊ¾Àı
+### ç«¯åˆ°ç«¯æµ‹è¯•æµç¨‹ç¤ºä¾‹
 
-²âÊÔ HEX-Bridge TCP_CLIENT_CONNECT + Êı¾İÊÕ·¢£º
+æµ‹è¯• HEX-Bridge TCP_CLIENT_CONNECT + æ•°æ®æ”¶å‘ï¼š
 
 ```
-1. [Network Monitor] Æô¶¯ TCP Server ¼àÌı 9090:
+1. [Network Monitor] å¯åŠ¨ TCP Server ç›‘å¬ 9090:
    connId="tcp-srv", protocol=tcp, role=server, listenPort=9090
 
-2. [Serial Monitor] »ñÈ¡ HEX-Bridge µÄ IP (NET_STATUS ¡ú IpAddr)
+2. [Serial Monitor] è·å– HEX-Bridge çš„ IP (NET_STATUS â†’ IpAddr)
 
-3. [Serial Monitor] ·¢ËÍ TCP_CLIENT_CONNECT(PC-IP, 9090):
-   ½ÓÊÕ UBCP Ö¡ ¡ú »ñÈ¡ ConnHandle
+3. [Serial Monitor] å‘é€ TCP_CLIENT_CONNECT(PC-IP, 9090):
+   æ¥æ”¶ UBCP å¸§ â†’ è·å– ConnHandle
 
-4. [Network Monitor] ¼ì²é TCP Server ÒÑ½ÓÊÜÁ¬½Ó:
+4. [Network Monitor] æ£€æŸ¥ TCP Server å·²æ¥å—è¿æ¥:
    network-monitor-mcp_get_network_clients(connId="tcp-srv")
 
 5. [Serial Monitor] TCP_SEND(ConnHandle, "Hello NM"):
-   ¡ú Status=0x00
+   â†’ Status=0x00
 
-6. [Network Monitor] ÑéÖ¤ÊÕµ½Êı¾İ:
+6. [Network Monitor] éªŒè¯æ”¶åˆ°æ•°æ®:
    network-monitor-mcp_read_network_buffer(port="tcp-srv", display="string")
-   ¡ú Ó¦°üº¬ "Hello NM"
+   â†’ åº”åŒ…å« "Hello NM"
 
-7. [Network Monitor] ·¢ËÍ»Ø°ü:
+7. [Network Monitor] å‘é€å›åŒ…:
    network-monitor-mcp_send_network_data(connId="tcp-srv", data="ACK", format="string")
 
-8. [Serial Monitor] µÈ´ı TCP_RECV ÊÂ¼ş:
-   ¡ú Data="ACK"
+8. [Serial Monitor] ç­‰å¾… TCP_RECV äº‹ä»¶:
+   â†’ Data="ACK"
 ```
 
-### MCP NM Óë´«Í³¹¤¾ß¶ÔÕÕ
+### MCP NM ä¸ä¼ ç»Ÿå·¥å…·å¯¹ç…§
 
-| MCP Network Monitor ²Ù×÷ | ´«Í³ nc/wscat µÈ¼ÛÃüÁî |
+| MCP Network Monitor æ“ä½œ | ä¼ ç»Ÿ nc/wscat ç­‰ä»·å‘½ä»¤ |
 |:---|:---|
 | `connect_network(tcp, server, port=9090)` | `nc -l -p 9090` |
 | `connect_network(tcp, client, host=X, port=Y)` | `nc X Y` |
-| `send_network_data(data="hello", format="string")` | ÔÚ nc ÖÕ¶ËÊäÈë `hello` |
-| `read_network_buffer(display="string")` | ²é¿´ nc ÖÕ¶ËÊä³ö |
+| `send_network_data(data="hello", format="string")` | åœ¨ nc ç»ˆç«¯è¾“å…¥ `hello` |
+| `read_network_buffer(display="string")` | æŸ¥çœ‹ nc ç»ˆç«¯è¾“å‡º |
 | `connect_network(websocket, server, listenPort=8080, path="/ws")` | `python -m websockets` |
 | `connect_network(websocket, client, url="ws://X:Y/path")` | `wscat -c ws://X:Y/path` |
 | `connect_network(udp, server, listenPort=8082)` | `nc -u -l 8082` |
-| `get_network_clients()` | `netstat -an` ¼ì²éÁ¬½Ó×´Ì¬ |
-| `get_network_status()` | `ss -tnp` ¼ì²éÁ¬½ÓÍ³¼Æ |
+| `get_network_clients()` | `netstat -an` æ£€æŸ¥è¿æ¥çŠ¶æ€ |
+| `get_network_status()` | `ss -tnp` æ£€æŸ¥è¿æ¥ç»Ÿè®¡ |
 
 ---
 
-# ¸½Â¼£ºMCP Network Monitor ¸¨Öú²âÊÔÓÃÀı (MCP-NM)
+# é™„å½•ï¼šMCP Network Monitor è¾…åŠ©æµ‹è¯•ç”¨ä¾‹ (MCP-NM)
 
-> ÒÔÏÂÓÃÀıÊ¹ÓÃ **MCP Network Monitor** ×÷ÎªÍøÂç¶Ô¶Ë£¬ÎŞĞèÍâ²¿¸¨Öú PC¡£
-> ²âÊÔ²½ÖèÖĞ±ê×¢ `[MCP NM]` µÄ²Ù×÷ÔÚ Kilo Agent ÖĞÖ´ĞĞ£¬`[COM4]` µÄ²Ù×÷Í¨¹ı Serial Monitor ·¢ËÍ UBCP ÃüÁî¡£
+> ä»¥ä¸‹ç”¨ä¾‹ä½¿ç”¨ **MCP Network Monitor** ä½œä¸ºç½‘ç»œå¯¹ç«¯ï¼Œæ— éœ€å¤–éƒ¨è¾…åŠ© PCã€‚
+> æµ‹è¯•æ­¥éª¤ä¸­æ ‡æ³¨ `[MCP NM]` çš„æ“ä½œåœ¨ Kilo Agent ä¸­æ‰§è¡Œï¼Œ`[COM4]` çš„æ“ä½œé€šè¿‡ Serial Monitor å‘é€ UBCP å‘½ä»¤ã€‚
 
 ---
 
-## NM-TCP-01: HEX-Bridge TCP Client ¡ú MCP NM TCP Server (¶Ëµ½¶ËÊÕ·¢)
+## NM-TCP-01: HEX-Bridge TCP Client â†’ MCP NM TCP Server (ç«¯åˆ°ç«¯æ”¶å‘)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ HEX-Bridge ×÷Îª TCP Client Á¬½Ó MCP NM Server£¬Ë«ÏòÊÕ·¢Êı¾İ |
-| **Éæ¼°¹¤¾ß** | Serial Monitor (COM4) + MCP Network Monitor |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ HEX-Bridge ä½œä¸º TCP Client è¿æ¥ MCP NM Serverï¼ŒåŒå‘æ”¶å‘æ•°æ® |
+| **æ¶‰åŠå·¥å…·** | Serial Monitor (COM4) + MCP Network Monitor |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
-1. **[MCP NM] Æô¶¯ TCP Server**
+1. **[MCP NM] å¯åŠ¨ TCP Server**
    ```
    connect_network: connId="nm-tcp-srv", protocol="tcp", role="server", listenPort=9191
    ```
 
-2. **[COM4] »ñÈ¡ HEX-Bridge IP**
+2. **[COM4] è·å– HEX-Bridge IP**
    ```
-   ·¢ËÍ NET_STATUS(0x00) ¡ú ¼ÇÂ¼ IpAddr
+   å‘é€ NET_STATUS(0x00) â†’ è®°å½• IpAddr
    ```
 
-3. **[COM4] »ñÈ¡ PC ±¾»ú IP (ÓÃÓÚ HEX-Bridge Á¬½Ó)**
+3. **[COM4] è·å– PC æœ¬æœº IP (ç”¨äº HEX-Bridge è¿æ¥)**
    ```bash
-   ipconfig ¡ú ¼ÇÂ¼ PC IP
+   ipconfig â†’ è®°å½• PC IP
    ```
 
-4. **[COM4] TCP_CLIENT_CONNECT µ½ PC**
+4. **[COM4] TCP_CLIENT_CONNECT åˆ° PC**
    ```
    CmdCode=0x52, DestIP=PC_IP, DestPort=9191, TimeoutSec=5
-   ¡ú Ô¤ÆÚ: Status=0x00, ConnHandle=CH ºÏ·¨
+   â†’ é¢„æœŸ: Status=0x00, ConnHandle=CH åˆæ³•
    ```
 
-5. **[MCP NM] ÑéÖ¤ Client ÒÑÁ¬½Ó**
+5. **[MCP NM] éªŒè¯ Client å·²è¿æ¥**
    ```
    get_network_clients(connId="nm-tcp-srv")
-   ¡ú Ô¤ÆÚ: ÓĞ 1 ¸ö client, IP=HEX-Bridge IP
+   â†’ é¢„æœŸ: æœ‰ 1 ä¸ª client, IP=HEX-Bridge IP
    ```
 
-6. **[COM4] TCP_SEND ·¢ËÍÊı¾İ**
+6. **[COM4] TCP_SEND å‘é€æ•°æ®**
    ```
    CmdCode=0x54, ConnHandle=CH, Data="Hello from HEX-Bridge"
-   ¡ú Ô¤ÆÚ: Status=0x00, ActualLen=24
+   â†’ é¢„æœŸ: Status=0x00, ActualLen=24
    ```
 
-7. **[MCP NM] ÑéÖ¤ÊÕµ½Êı¾İ**
+7. **[MCP NM] éªŒè¯æ”¶åˆ°æ•°æ®**
    ```
    read_network_buffer(port="nm-tcp-srv", direction="rx", display="string")
-   ¡ú Ô¤ÆÚ: °üº¬ "Hello from HEX-Bridge"
+   â†’ é¢„æœŸ: åŒ…å« "Hello from HEX-Bridge"
    ```
 
-8. **[MCP NM] ·¢ËÍ»Ø°ü**
+8. **[MCP NM] å‘é€å›åŒ…**
    ```
    send_network_data(connId="nm-tcp-srv", data="Hello from MCP NM", format="string")
    ```
 
-9. **[COM4] µÈ´ı TCP_RECV ÊÂ¼ş**
+9. **[COM4] ç­‰å¾… TCP_RECV äº‹ä»¶**
    ```
-   ¡ú Ô¤ÆÚ: ÊÕµ½ TCP_RECV(ConnHandle=CH, Data="Hello from MCP NM")
+   â†’ é¢„æœŸ: æ”¶åˆ° TCP_RECV(ConnHandle=CH, Data="Hello from MCP NM")
    ```
 
 10. **[COM4] TCP_CLIENT_DISCONNECT**
     ```
     CmdCode=0x53, Method=0x00
-    ¡ú Ô¤ÆÚ: Status=0x00
+    â†’ é¢„æœŸ: Status=0x00
     ```
 
-**ÅĞ¶¨**: PASS ¡ª È«²¿ 10 ²½Í¨¹ı
+**åˆ¤å®š**: PASS â€” å…¨éƒ¨ 10 æ­¥é€šè¿‡
 
 ---
 
-## NM-TCP-02: MCP NM TCP Client ¡ú HEX-Bridge TCP Server (¶Ëµ½¶ËÊÕ·¢)
+## NM-TCP-02: MCP NM TCP Client â†’ HEX-Bridge TCP Server (ç«¯åˆ°ç«¯æ”¶å‘)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ HEX-Bridge ×÷Îª TCP Server ½ÓÊÜ MCP NM Client Á¬½Ó£¬Ë«ÏòÊÕ·¢ |
-| **Éæ¼°¹¤¾ß** | Serial Monitor (COM4) + MCP Network Monitor |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ HEX-Bridge ä½œä¸º TCP Server æ¥å— MCP NM Client è¿æ¥ï¼ŒåŒå‘æ”¶å‘ |
+| **æ¶‰åŠå·¥å…·** | Serial Monitor (COM4) + MCP Network Monitor |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
 1. **[COM4] TCP_SERVER_OPEN**
    ```
    CmdCode=0x50, Port=9192, MaxConn=3, AcceptMode=0x01
-   ¡ú Ô¤ÆÚ: Status=0x00, ServerHandle=SH, ActualPort=9192
+   â†’ é¢„æœŸ: Status=0x00, ServerHandle=SH, ActualPort=9192
    ```
 
-2. **[MCP NM] ×÷Îª Client Á¬½Ó HEX-Bridge**
+2. **[MCP NM] ä½œä¸º Client è¿æ¥ HEX-Bridge**
    ```
    connect_network: connId="nm-tcp-cli", protocol="tcp", role="client",
                     host="<HEX-Bridge IP>", port=9192
    ```
 
-3. **[COM4] µÈ´ı TCP_ACCEPT ÊÂ¼ş**
+3. **[COM4] ç­‰å¾… TCP_ACCEPT äº‹ä»¶**
    ```
-   ¡ú Ô¤ÆÚ: ClientHandle=CH, ClientIP=PC IP
+   â†’ é¢„æœŸ: ClientHandle=CH, ClientIP=PC IP
    ```
 
-4. **[MCP NM] ·¢ËÍÊı¾İ**
+4. **[MCP NM] å‘é€æ•°æ®**
    ```
    send_network_data(connId="nm-tcp-cli", data="Client says Hi", format="string")
    ```
 
-5. **[COM4] µÈ´ı TCP_RECV ÊÂ¼ş**
+5. **[COM4] ç­‰å¾… TCP_RECV äº‹ä»¶**
    ```
-   ¡ú Ô¤ÆÚ: TCP_RECV(ConnHandle=CH, Data="Client says Hi")
+   â†’ é¢„æœŸ: TCP_RECV(ConnHandle=CH, Data="Client says Hi")
    ```
 
-6. **[COM4] TCP_SEND »Ø¸´**
+6. **[COM4] TCP_SEND å›å¤**
    ```
    CmdCode=0x54, ConnHandle=CH, Data="Server says Hi"
-   ¡ú Ô¤ÆÚ: Status=0x00
+   â†’ é¢„æœŸ: Status=0x00
    ```
 
-7. **[MCP NM] ÑéÖ¤ÊÕµ½»Ø¸´**
+7. **[MCP NM] éªŒè¯æ”¶åˆ°å›å¤**
    ```
    read_network_buffer(port="nm-tcp-cli", direction="rx", display="string")
-   ¡ú Ô¤ÆÚ: °üº¬ "Server says Hi"
+   â†’ é¢„æœŸ: åŒ…å« "Server says Hi"
    ```
 
-8. **[MCP NM] ¶Ï¿ªÁ¬½Ó**
+8. **[MCP NM] æ–­å¼€è¿æ¥**
    ```
    disconnect_network(connId="nm-tcp-cli")
    ```
 
-9. **[COM4] µÈ´ı TCP_DISCONNECT_EVENT**
+9. **[COM4] ç­‰å¾… TCP_DISCONNECT_EVENT**
    ```
-   ¡ú Ô¤ÆÚ: ConnHandle=CH, Reason=0x00
+   â†’ é¢„æœŸ: ConnHandle=CH, Reason=0x00
    ```
 
 10. **[COM4] TCP_SERVER_CLOSE**
     ```
     CmdCode=0x51, ForceClose=0x01
-    ¡ú Ô¤ÆÚ: Status=0x00
+    â†’ é¢„æœŸ: Status=0x00
     ```
 
-**ÅĞ¶¨**: PASS ¡ª È«²¿ 10 ²½Í¨¹ı
+**åˆ¤å®š**: PASS â€” å…¨éƒ¨ 10 æ­¥é€šè¿‡
 
 ---
 
-## NM-TCP-03: HEX-Bridge TCP Server ¡ª ¹ã²¥·¢ËÍµ½¶à¸ö Client
+## NM-TCP-03: HEX-Bridge TCP Server â€” å¹¿æ’­å‘é€åˆ°å¤šä¸ª Client
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ TCP_SEND Ê¹ÓÃ 0x8000 ¹ã²¥¾ä±ú·¢ËÍµ½ËùÓĞÒÑÁ¬½Ó Client |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ TCP_SEND ä½¿ç”¨ 0x8000 å¹¿æ’­å¥æŸ„å‘é€åˆ°æ‰€æœ‰å·²è¿æ¥ Client |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
 1. **[COM4] TCP_SERVER_OPEN**
    ```
    Port=9193, MaxConn=5, AcceptMode=0x01
-   ¡ú ServerHandle=SH
+   â†’ ServerHandle=SH
    ```
 
-2. **[MCP NM] ´´½¨ 2 ¸ö TCP Client Á¬½Ó**
+2. **[MCP NM] åˆ›å»º 2 ä¸ª TCP Client è¿æ¥**
    ```
    connId="nm-cli-A", protocol=tcp, role=client, host=<HEX IP>, port=9193
    connId="nm-cli-B", protocol=tcp, role=client, host=<HEX IP>, port=9193
    ```
 
-3. **[COM4] µÈ´ı 2 ´Î TCP_ACCEPT ÊÂ¼ş** ¡ú ¼ÇÂ¼ C1, C2
+3. **[COM4] ç­‰å¾… 2 æ¬¡ TCP_ACCEPT äº‹ä»¶** â†’ è®°å½• C1, C2
 
-4. **[COM4] TCP_SEND ¹ã²¥**
+4. **[COM4] TCP_SEND å¹¿æ’­**
    ```
    ConnHandle=0x8000 (BROADCAST), Data="BROADCAST MSG"
-   ¡ú Ô¤ÆÚ: Status=0x00
+   â†’ é¢„æœŸ: Status=0x00
    ```
 
-5. **[MCP NM] ÑéÖ¤Á½¸ö Client ¶¼ÊÕµ½**
+5. **[MCP NM] éªŒè¯ä¸¤ä¸ª Client éƒ½æ”¶åˆ°**
    ```
-   read_network_buffer(port="nm-cli-A") ¡ú °üº¬ "BROADCAST MSG"
-   read_network_buffer(port="nm-cli-B") ¡ú °üº¬ "BROADCAST MSG"
+   read_network_buffer(port="nm-cli-A") â†’ åŒ…å« "BROADCAST MSG"
+   read_network_buffer(port="nm-cli-B") â†’ åŒ…å« "BROADCAST MSG"
    ```
 
-6. **ÇåÀí**: ¶Ï¿ª MCP NM Clients, TCP_SERVER_CLOSE
+6. **æ¸…ç†**: æ–­å¼€ MCP NM Clients, TCP_SERVER_CLOSE
 
-**ÅĞ¶¨**: PASS ¡ª Á½¸ö Client ¾ùÊÕµ½¹ã²¥Êı¾İ
+**åˆ¤å®š**: PASS â€” ä¸¤ä¸ª Client å‡æ”¶åˆ°å¹¿æ’­æ•°æ®
 
 ---
 
-## NM-TCP-04: TCP_SERVER_OPEN ¡ª ÊÖ¶¯½ÓÊÜÄ£Ê½ (AcceptMode=0x00)
+## NM-TCP-04: TCP_SERVER_OPEN â€” æ‰‹åŠ¨æ¥å—æ¨¡å¼ (AcceptMode=0x00)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ÊÖ¶¯½ÓÊÜÄ£Ê½ÖĞ, Host ±ØĞëÍ¨¹ı TCP_ACCEPT È·ÈÏ²ÅÄÜ½¨Á¢Á¬½Ó |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯æ‰‹åŠ¨æ¥å—æ¨¡å¼ä¸­, Host å¿…é¡»é€šè¿‡ TCP_ACCEPT ç¡®è®¤æ‰èƒ½å»ºç«‹è¿æ¥ |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
 1. **[COM4] TCP_SERVER_OPEN**
    ```
-   Port=9194, MaxConn=3, AcceptMode=0x00 (ÊÖ¶¯)
-   ¡ú ServerHandle=SH
+   Port=9194, MaxConn=3, AcceptMode=0x00 (æ‰‹åŠ¨)
+   â†’ ServerHandle=SH
    ```
 
-2. **[MCP NM] Client ³¢ÊÔÁ¬½Ó**
+2. **[MCP NM] Client å°è¯•è¿æ¥**
    ```
    connId="nm-manual", protocol=tcp, role=client, host=<HEX IP>, port=9194
    ```
 
-3. **[COM4] µÈ´ı TCP_ACCEPT ÊÂ¼ş**
+3. **[COM4] ç­‰å¾… TCP_ACCEPT äº‹ä»¶**
    ```
-   ¡ú ÊÂ¼şÖ¡ÉÏ±¨ ClientHandle=CH, ClientIP=PC IP
-   ```
-
-4. **ÑÓ³Ù 3 Ãë²»È·ÈÏ** ¡ú ÑéÖ¤ MCP NM Client ÈÔ´¦ÓÚ TCP SYN_SENT / µÈ´ı×´Ì¬ (Á¬½ÓÎ´½¨Á¢)
-
-5. **[COM4] ·¢ËÍ TCP_ACCEPT È·ÈÏ**
-   ```
-   CmdCode=0x56, ClientHandle=CH, Decision=0x00 (½ÓÊÜ)
-   ¡ú Ô¤ÆÚ: Status=0x00
+   â†’ äº‹ä»¶å¸§ä¸ŠæŠ¥ ClientHandle=CH, ClientIP=PC IP
    ```
 
-6. **[MCP NM] ÑéÖ¤ Client ÒÑÁ¬½Ó**
+4. **å»¶è¿Ÿ 3 ç§’ä¸ç¡®è®¤** â†’ éªŒè¯ MCP NM Client ä»å¤„äº TCP SYN_SENT / ç­‰å¾…çŠ¶æ€ (è¿æ¥æœªå»ºç«‹)
+
+5. **[COM4] å‘é€ TCP_ACCEPT ç¡®è®¤**
    ```
-   get_network_status(connId="nm-manual") ¡ú connected
+   CmdCode=0x56, ClientHandle=CH, Decision=0x00 (æ¥å—)
+   â†’ é¢„æœŸ: Status=0x00
    ```
 
-7. **ÇåÀí**
+6. **[MCP NM] éªŒè¯ Client å·²è¿æ¥**
+   ```
+   get_network_status(connId="nm-manual") â†’ connected
+   ```
 
-**ÅĞ¶¨**: PASS ¡ª È·ÈÏºóÁ¬½Ó½¨Á¢
+7. **æ¸…ç†**
+
+**åˆ¤å®š**: PASS â€” ç¡®è®¤åè¿æ¥å»ºç«‹
 
 ---
 
-## NM-TCP-05: TCP_ACCEPT ¡ª ÊÖ¶¯¾Ü¾ø
+## NM-TCP-05: TCP_ACCEPT â€” æ‰‹åŠ¨æ‹’ç»
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ÊÖ¶¯¾Ü¾øºó Client ±»¶Ï¿ª |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯æ‰‹åŠ¨æ‹’ç»å Client è¢«æ–­å¼€ |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
-1. ´´½¨ TCP Server (Port=9195, AcceptMode=0x00)
-2. MCP NM Client Á¬½Ó ¡ú ÊÕµ½ TCP_ACCEPT ÊÂ¼ş (CH)
-3. **[COM4] TCP_ACCEPT ¾Ü¾ø** (Decision=0x01)
-4. **MCP NM**: Client Á¬½Ó±» RST/¾Ü¾ø
+1. åˆ›å»º TCP Server (Port=9195, AcceptMode=0x00)
+2. MCP NM Client è¿æ¥ â†’ æ”¶åˆ° TCP_ACCEPT äº‹ä»¶ (CH)
+3. **[COM4] TCP_ACCEPT æ‹’ç»** (Decision=0x01)
+4. **MCP NM**: Client è¿æ¥è¢« RST/æ‹’ç»
 
-**ÅĞ¶¨**: PASS ¡ª Client ±»¾Ü¾ø
+**åˆ¤å®š**: PASS â€” Client è¢«æ‹’ç»
 
 ---
 
-## NM-UDP-01: HEX-Bridge UDP Server ¡ú MCP NM UDP Client (ÊÕ·¢)
+## NM-UDP-01: HEX-Bridge UDP Server â†’ MCP NM UDP Client (æ”¶å‘)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ HEX-Bridge UDP Server ÊÕ·¢, ²¢Ê¹ÓÃ UDP_RECV ÉÏ±¨Ô´µØÖ· |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ HEX-Bridge UDP Server æ”¶å‘, å¹¶ä½¿ç”¨ UDP_RECV ä¸ŠæŠ¥æºåœ°å€ |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
 1. **[COM4] UDP_SERVER_OPEN**
    ```
    Port=9196, BroadcastMode=0x00, MulticastAddr=0
-   ¡ú ServerHandle=SH
+   â†’ ServerHandle=SH
    ```
 
-2. **[MCP NM] ´´½¨ UDP Client (²»°ó¶¨ listen)**
+2. **[MCP NM] åˆ›å»º UDP Client (ä¸ç»‘å®š listen)**
    ```
    connId="nm-udp-cli", protocol=udp, role=client, host=<HEX IP>, port=9196
    ```
 
-3. **[MCP NM] ·¢ËÍ UDP Êı¾İ**
+3. **[MCP NM] å‘é€ UDP æ•°æ®**
    ```
    send_network_data(connId="nm-udp-cli", data="UDP HELLO", format="string")
    ```
 
-4. **[COM4] µÈ´ı UDP_RECV ÊÂ¼ş**
+4. **[COM4] ç­‰å¾… UDP_RECV äº‹ä»¶**
    ```
-   ¡ú Ô¤ÆÚ: Handle=SH, SrcIP=PC IP, SrcPort=ÒÑ·ÖÅä, Data="UDP HELLO"
+   â†’ é¢„æœŸ: Handle=SH, SrcIP=PC IP, SrcPort=å·²åˆ†é…, Data="UDP HELLO"
    ```
 
-5. **[COM4] UDP_SERVER_SEND »Ø¸´µ½ MCP NM**
+5. **[COM4] UDP_SERVER_SEND å›å¤åˆ° MCP NM**
    ```
    CmdCode=0x64, DestIP=PC IP, DestPort=<SrcPort>, Data="UDP ACK"
-   ¡ú Ô¤ÆÚ: Status=0x00
+   â†’ é¢„æœŸ: Status=0x00
    ```
 
-6. **[MCP NM] ÑéÖ¤ÊÕµ½»Ø¸´**
+6. **[MCP NM] éªŒè¯æ”¶åˆ°å›å¤**
    ```
-   read_network_buffer(port="nm-udp-cli") ¡ú °üº¬ "UDP ACK"
+   read_network_buffer(port="nm-udp-cli") â†’ åŒ…å« "UDP ACK"
    ```
 
-7. **ÇåÀí**
+7. **æ¸…ç†**
 
-**ÅĞ¶¨**: PASS ¡ª UDP Ë«ÏòÊÕ·¢, Ô´µØÖ·ÕıÈ·ÉÏ±¨
+**åˆ¤å®š**: PASS â€” UDP åŒå‘æ”¶å‘, æºåœ°å€æ­£ç¡®ä¸ŠæŠ¥
 
 ---
 
-## NM-UDP-02: HEX-Bridge UDP Client ¡ú MCP NM UDP Server
+## NM-UDP-02: HEX-Bridge UDP Client â†’ MCP NM UDP Server
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ HEX-Bridge UDP Client µÄ Create + Send + Delete ÉúÃüÖÜÆÚ |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ HEX-Bridge UDP Client çš„ Create + Send + Delete ç”Ÿå‘½å‘¨æœŸ |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
-1. **[MCP NM] Æô¶¯ UDP Server ¼àÌı**
+1. **[MCP NM] å¯åŠ¨ UDP Server ç›‘å¬**
    ```
    connId="nm-udp-srv", protocol=udp, role=server, listenPort=9197
    ```
@@ -503,133 +486,133 @@ network-monitor-mcp_read_network_buffer
 2. **[COM4] UDP_CLIENT_CREATE**
    ```
    DefaultDestIP=PC IP, DefaultDestPort=9197, LocalPort=0
-   ¡ú ClientHandle=CH, ActualPort ·ÇÁã
+   â†’ ClientHandle=CH, ActualPort éé›¶
    ```
 
-3. **[COM4] UDP_CLIENT_SEND (Ê¹ÓÃÄ¬ÈÏµØÖ·)**
+3. **[COM4] UDP_CLIENT_SEND (ä½¿ç”¨é»˜è®¤åœ°å€)**
    ```
    AddrMode=0x00, Data="UDP FROM HEX"
-   ¡ú Ô¤ÆÚ: Status=0x00
+   â†’ é¢„æœŸ: Status=0x00
    ```
 
-4. **[MCP NM] ÑéÖ¤ÊÕµ½Êı¾İ**
+4. **[MCP NM] éªŒè¯æ”¶åˆ°æ•°æ®**
    ```
-   read_network_buffer(port="nm-udp-srv") ¡ú °üº¬ "UDP FROM HEX"
+   read_network_buffer(port="nm-udp-srv") â†’ åŒ…å« "UDP FROM HEX"
    ```
 
 5. **[COM4] UDP_CLIENT_DELETE**
    ```
-   ¡ú Ô¤ÆÚ: Status=0x00
+   â†’ é¢„æœŸ: Status=0x00
    ```
 
-6. **[COM4] UDP_CLIENT_SEND (É¾³ıºó)**
+6. **[COM4] UDP_CLIENT_SEND (åˆ é™¤å)**
    ```
-   ¡ú Ô¤ÆÚ: Status=ERR_NET_HANDLE_INVALID
+   â†’ é¢„æœŸ: Status=ERR_NET_HANDLE_INVALID
    ```
 
-**ÅĞ¶¨**: PASS ¡ª ÉúÃüÖÜÆÚÍêÕû, É¾³ıºó¾ä±úÊ§Ğ§
+**åˆ¤å®š**: PASS â€” ç”Ÿå‘½å‘¨æœŸå®Œæ•´, åˆ é™¤åå¥æŸ„å¤±æ•ˆ
 
 ---
 
-## NM-UDP-03: UDP_SERVER_OPEN ¡ª ¹ã²¥Ä£Ê½
+## NM-UDP-03: UDP_SERVER_OPEN â€” å¹¿æ’­æ¨¡å¼
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ UDP ¹ã²¥·¢ËÍ |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ UDP å¹¿æ’­å‘é€ |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
 1. **[COM4] UDP_SERVER_OPEN**
    ```
    Port=9198, BroadcastMode=0x01
    ```
 
-2. **[MCP NM] UDP ¼àÌı 9198**
+2. **[MCP NM] UDP ç›‘å¬ 9198**
    ```
    connId="nm-bc", protocol=udp, role=server, listenPort=9198
    ```
 
-3. **[COM4] UDP_SERVER_SEND ¹ã²¥**
+3. **[COM4] UDP_SERVER_SEND å¹¿æ’­**
    ```
    DestIP=255.255.255.255, DestPort=9198, Data="BROADCAST"
    ```
 
-4. **[MCP NM] ÑéÖ¤ÊÕµ½¹ã²¥**
+4. **[MCP NM] éªŒè¯æ”¶åˆ°å¹¿æ’­**
    ```
-   read_network_buffer(port="nm-bc") ¡ú °üº¬ "BROADCAST"
+   read_network_buffer(port="nm-bc") â†’ åŒ…å« "BROADCAST"
    ```
 
-**ÅĞ¶¨**: PASS ¡ª ¹ã²¥Êı¾İµ½´ï
+**åˆ¤å®š**: PASS â€” å¹¿æ’­æ•°æ®åˆ°è¾¾
 
 ---
 
-## NM-WS-01: HEX-Bridge WebSocket Server ¡ú MCP NM WS Client (Text ÊÕ·¢)
+## NM-WS-01: HEX-Bridge WebSocket Server â†’ MCP NM WS Client (Text æ”¶å‘)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ HEX-Bridge WebSocket Server µÄÎÕÊÖ + Text ÊÕ·¢ + Close Âë |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ HEX-Bridge WebSocket Server çš„æ¡æ‰‹ + Text æ”¶å‘ + Close ç  |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
 1. **[COM4] WS_SERVER_OPEN**
    ```
    Port=9199, MaxConn=3, Path="/test", SubProtoLen=0
-   ¡ú ServerHandle=SH
+   â†’ ServerHandle=SH
    ```
 
-2. **[MCP NM] WebSocket Client Á¬½Ó**
+2. **[MCP NM] WebSocket Client è¿æ¥**
    ```
    connect_network: connId="nm-ws-cli", protocol=websocket, role=client,
                     url="ws://<HEX IP>:9199/test"
    ```
 
-3. **[COM4] µÈ´ı WS_ACCEPT ÊÂ¼ş**
+3. **[COM4] ç­‰å¾… WS_ACCEPT äº‹ä»¶**
    ```
-   ¡ú ServerHandle=SH, ClientHandle=CH, ClientIP=PC IP, Path="/test"
+   â†’ ServerHandle=SH, ClientHandle=CH, ClientIP=PC IP, Path="/test"
    ```
 
-4. **[MCP NM] ·¢ËÍ WebSocket Text**
+4. **[MCP NM] å‘é€ WebSocket Text**
    ```
    send_network_data(connId="nm-ws-cli", data="Hello WebSocket", format="string")
    ```
 
-5. **[COM4] µÈ´ı WS_RECV ÊÂ¼ş**
+5. **[COM4] ç­‰å¾… WS_RECV äº‹ä»¶**
    ```
-   ¡ú Ô¤ÆÚ: ConnHandle=CH, MsgType=0x01 (Text), Data="Hello WebSocket"
+   â†’ é¢„æœŸ: ConnHandle=CH, MsgType=0x01 (Text), Data="Hello WebSocket"
    ```
 
-6. **[COM4] WS_SEND Text »Ø¸´**
+6. **[COM4] WS_SEND Text å›å¤**
    ```
    CmdCode=0x74, MsgType=0x01, Data="WS ACK"
-   ¡ú Ô¤ÆÚ: Status=0x00
+   â†’ é¢„æœŸ: Status=0x00
    ```
 
-7. **[MCP NM] ÑéÖ¤ÊÕµ½**
+7. **[MCP NM] éªŒè¯æ”¶åˆ°**
    ```
-   read_network_buffer(port="nm-ws-cli") ¡ú °üº¬ "WS ACK"
+   read_network_buffer(port="nm-ws-cli") â†’ åŒ…å« "WS ACK"
    ```
 
 8. **[COM4] WS_CLIENT_DISCONNECT**
    ```
    CmdCode=0x73, CloseCode=1000
-   ¡ú Ô¤ÆÚ: Status=0x00, ÊÕµ½ WS_DISCONNECT_EVENT
+   â†’ é¢„æœŸ: Status=0x00, æ”¶åˆ° WS_DISCONNECT_EVENT
    ```
 
 9. **[COM4] WS_SERVER_CLOSE**
 
-**ÅĞ¶¨**: PASS ¡ª È«²¿²½ÖèÍ¨¹ı
+**åˆ¤å®š**: PASS â€” å…¨éƒ¨æ­¥éª¤é€šè¿‡
 
 ---
 
-## NM-WS-02: HEX-Bridge WS Client ¡ú MCP NM WS Server
+## NM-WS-02: HEX-Bridge WS Client â†’ MCP NM WS Server
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ HEX-Bridge ×÷Îª WebSocket Client Á¬½ÓÔ¶¶Ë WS Server |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ HEX-Bridge ä½œä¸º WebSocket Client è¿æ¥è¿œç«¯ WS Server |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
-1. **[MCP NM] Æô¶¯ WebSocket Server**
+1. **[MCP NM] å¯åŠ¨ WebSocket Server**
    ```
    connect_network: connId="nm-ws-srv", protocol=websocket, role=server,
                     listenPort=9200, path="/echo"
@@ -638,1496 +621,1383 @@ network-monitor-mcp_read_network_buffer
 2. **[COM4] WS_CLIENT_CONNECT**
    ```
    ServerIP=PC IP, ServerPort=9200, Path="/echo"
-   ¡ú Ô¤ÆÚ: Status=0x00, ClientHandle=CH, ConnResult=0x01
+   â†’ é¢„æœŸ: Status=0x00, ClientHandle=CH, ConnResult=0x01
    ```
 
-3. **[COM4] WS_SEND ·¢ËÍÊı¾İ**
+3. **[COM4] WS_SEND å‘é€æ•°æ®**
    ```
    MsgType=0x01, Data="Hello from HEX"
-   ¡ú Ô¤ÆÚ: Status=0x00
+   â†’ é¢„æœŸ: Status=0x00
    ```
 
-4. **[MCP NM] ÑéÖ¤½ÓÊÕ**
+4. **[MCP NM] éªŒè¯æ¥æ”¶**
    ```
-   read_network_buffer(port="nm-ws-srv") ¡ú °üº¬ "Hello from HEX"
-   get_network_clients(connId="nm-ws-srv") ¡ú ÓĞ 1 ¸ö client
+   read_network_buffer(port="nm-ws-srv") â†’ åŒ…å« "Hello from HEX"
+   get_network_clients(connId="nm-ws-srv") â†’ æœ‰ 1 ä¸ª client
    ```
 
-5. **[MCP NM] ·¢ËÍ WebSocket Pong**
+5. **[MCP NM] å‘é€ WebSocket Pong**
    ```
    send_network_data(connId="nm-ws-srv", data="PONG_FRAME", format="string")
    ```
 
-6. **[COM4] µÈ´ı WS_RECV ÊÂ¼ş**
+6. **[COM4] ç­‰å¾… WS_RECV äº‹ä»¶**
 
 7. **[COM4] WS_CLIENT_DISCONNECT**
 
-**ÅĞ¶¨**: PASS ¡ª HEX-Bridge ³É¹¦×÷Îª WS Client ¹¤×÷
+**åˆ¤å®š**: PASS â€” HEX-Bridge æˆåŠŸä½œä¸º WS Client å·¥ä½œ
 
 ---
 
-## NM-WS-03: WebSocket Binary ÏûÏ¢ÊÕ·¢
+## NM-WS-03: WebSocket Binary æ¶ˆæ¯æ”¶å‘
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ WebSocket Binary Ö¡µÄ±àÂë/½âÂëÕıÈ·ĞÔ (ÌØÊâ×Ö½Ú 0x7E/0x7D) |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ WebSocket Binary å¸§çš„ç¼–ç /è§£ç æ­£ç¡®æ€§ (ç‰¹æ®Šå­—èŠ‚ 0x7E/0x7D) |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
 1. WS_SERVER_OPEN (Port=9201, Path="/bin")
-2. MCP NM WS Client Á¬½Ó
+2. MCP NM WS Client è¿æ¥
 3. **[COM4] WS_SEND Binary**
    ```
    MsgType=0x02 (Binary), Data=0x00 0xFF 0x7E 0x7D 0x42
-   ¡ú °üº¬ UBCP ×ªÒåÌØÊâ×Ö½Ú, ÑéÖ¤ WS Ö¡±àÂë²»ÊÜÓ°Ïì
+   â†’ åŒ…å« UBCP è½¬ä¹‰ç‰¹æ®Šå­—èŠ‚, éªŒè¯ WS å¸§ç¼–ç ä¸å—å½±å“
    ```
-4. **[MCP NM] ÑéÖ¤¶ş½øÖÆÊı¾İÍêÕûĞÔ**
+4. **[MCP NM] éªŒè¯äºŒè¿›åˆ¶æ•°æ®å®Œæ•´æ€§**
    ```
    read_network_buffer(port="nm-bin-cli", display="hex")
-   ¡ú Ô¤ÆÚ: ÊÕµ½ 00 FF 7E 7D 42, ÎŞ½Ø¶ÏÎŞ×ªÒå
+   â†’ é¢„æœŸ: æ”¶åˆ° 00 FF 7E 7D 42, æ— æˆªæ–­æ— è½¬ä¹‰
    ```
-5. ÇåÀí
+5. æ¸…ç†
 
-**ÅĞ¶¨**: PASS ¡ª º¬ÌØÊâ×Ö½ÚµÄ Binary Ö¡ÊÕ·¢ÍêÕû
+**åˆ¤å®š**: PASS â€” å«ç‰¹æ®Šå­—èŠ‚çš„ Binary å¸§æ”¶å‘å®Œæ•´
 
 ---
 
-## NM-WS-04: WebSocket Ping/Pong ĞÄÌø
+## NM-WS-04: WebSocket Ping/Pong å¿ƒè·³
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ WS_SEND Ping ºóÉè±¸¶ËÁ´Â·±£³Ö |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ WS_SEND Ping åè®¾å¤‡ç«¯é“¾è·¯ä¿æŒ |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
-1. WS_SERVER_OPEN + MCP NM Á¬½Ó ¡ú ClientHandle=CH
+1. WS_SERVER_OPEN + MCP NM è¿æ¥ â†’ ClientHandle=CH
 2. **[COM4] WS_SEND Ping**
    ```
-   MsgType=0x09, Data="" (¿Õ)
-   ¡ú Ô¤ÆÚ: Status=0x00
+   MsgType=0x09, Data="" (ç©º)
+   â†’ é¢„æœŸ: Status=0x00
    ```
-3. **[COM4] WS_SEND Ping ´ø Payload**
+3. **[COM4] WS_SEND Ping å¸¦ Payload**
    ```
    MsgType=0x09, Data="HEARTBEAT"
-   ¡ú Ô¤ÆÚ: Status=0x00
+   â†’ é¢„æœŸ: Status=0x00
    ```
-4. Á´Â·ÈÔ´¦ÓÚ ESTABLISHED ×´Ì¬, ¿É¼ÌĞøÊÕ·¢
-5. ÇåÀí
+4. é“¾è·¯ä»å¤„äº ESTABLISHED çŠ¶æ€, å¯ç»§ç»­æ”¶å‘
+5. æ¸…ç†
 
-**ÅĞ¶¨**: PASS ¡ª Ping Ö¡²»Ó°ÏìÁ¬½Ó
+**åˆ¤å®š**: PASS â€” Ping å¸§ä¸å½±å“è¿æ¥
 
 ---
 
-## NM-INT-01: ÍøÂçÄ£¿é¼¯³É²âÊÔ (TCP + UDP + WS ²¢·¢)
+## NM-INT-01: ç½‘ç»œæ¨¡å—é›†æˆæµ‹è¯• (TCP + UDP + WS å¹¶å‘)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ TCP Server, UDP Server, WS Server Í¬Ê±ÔËĞĞ, »¥²»¸ÉÈÅ |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ TCP Server, UDP Server, WS Server åŒæ—¶è¿è¡Œ, äº’ä¸å¹²æ‰° |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
-1. **Í¬Ê±´´½¨ 3 ¸ö Server**:
+1. **åŒæ—¶åˆ›å»º 3 ä¸ª Server**:
    - TCP Server (Port=9300)
    - UDP Server (Port=9301)
    - WS Server (Port=9302, Path="/srv")
 
-2. **[MCP NM] Í¬Ê±Á¬½Ó 3 ¸ö Server**
-   - `nm-tcp-srv-client` ¡ú TCP 9300
-   - `nm-udp-srv-client` ¡ú UDP 9301
-   - `nm-ws-srv-client` ¡ú WS 9302
+2. **[MCP NM] åŒæ—¶è¿æ¥ 3 ä¸ª Server**
+   - `nm-tcp-srv-client` â†’ TCP 9300
+   - `nm-udp-srv-client` â†’ UDP 9301
+   - `nm-ws-srv-client` â†’ WS 9302
 
-3. **½»´íÊÕ·¢**:
+3. **äº¤é”™æ”¶å‘**:
    ```
    TCP_SEND("TCP-DATA-1")  UDP_SERVER_SEND("UDP-DATA-1")  WS_SEND("WS-DATA-1")
    TCP_SEND("TCP-DATA-2")  UDP_SERVER_SEND("UDP-DATA-2")  WS_SEND("WS-DATA-2")
    ```
 
-4. **[MCP NM] ÑéÖ¤ 3 ¸öÍ¨µÀµÄÊÕ·¢»º³åÇø¸÷º¬ 2 ÌõÏûÏ¢**
+4. **[MCP NM] éªŒè¯ 3 ä¸ªé€šé“çš„æ”¶å‘ç¼“å†²åŒºå„å« 2 æ¡æ¶ˆæ¯**
 
-5. **¹Ø±ÕËùÓĞ Server**
+5. **å…³é—­æ‰€æœ‰ Server**
 
-**ÅĞ¶¨**: PASS ¡ª 3 Ğ­Òé²¢·¢¹¤×÷, ÎŞ´®ÈÅ
+**åˆ¤å®š**: PASS â€” 3 åè®®å¹¶å‘å·¥ä½œ, æ— ä¸²æ‰°
 
 ---
 
-## NM-INT-02: HEX-Bridge ×÷Îª Client ²¢·¢Á¬½Ó¶à¸ö MCP NM Server
+## NM-INT-02: HEX-Bridge ä½œä¸º Client å¹¶å‘è¿æ¥å¤šä¸ª MCP NM Server
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ HEX-Bridge Í¬Ê±×÷Îª¶à¸öĞ­ÒéµÄ Client |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ HEX-Bridge åŒæ—¶ä½œä¸ºå¤šä¸ªåè®®çš„ Client |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
-1. **[MCP NM] Í¬Ê±Æô¶¯ 3 ¸ö Server**:
+1. **[MCP NM] åŒæ—¶å¯åŠ¨ 3 ä¸ª Server**:
    - TCP Server (9310), UDP Server (9311), WS Server (9312, "/echo")
 
-2. **[COM4] ÒÀ´Î´´½¨ 3 ¸ö Client Á¬½Ó**:
+2. **[COM4] ä¾æ¬¡åˆ›å»º 3 ä¸ª Client è¿æ¥**:
    - TCP_CLIENT_CONNECT(PC_IP, 9310)
    - UDP_CLIENT_CREATE(PC_IP, 9311)
    - WS_CLIENT_CONNECT(PC_IP, 9312, "/echo")
 
-3. **[COM4] 3 ¸ö Client Í¬Ê±·¢ËÍÊı¾İ**
+3. **[COM4] 3 ä¸ª Client åŒæ—¶å‘é€æ•°æ®**
 
-4. **[MCP NM] ÑéÖ¤ 3 ¸ö Server ¶¼ÊÕµ½Êı¾İ**
+4. **[MCP NM] éªŒè¯ 3 ä¸ª Server éƒ½æ”¶åˆ°æ•°æ®**
 
-5. **ÇåÀí**
+5. **æ¸…ç†**
 
-**ÅĞ¶¨**: PASS ¡ª HEX-Bridge ¶à Client ²¢·¢Õı³£
+**åˆ¤å®š**: PASS â€” HEX-Bridge å¤š Client å¹¶å‘æ­£å¸¸
 
 ---
 
-## NM-STR-01: ´óÊı¾İÁ¿ TCP ÊÕ·¢²âÊÔ
+## NM-STR-01: å¤§æ•°æ®é‡ TCP æ”¶å‘æµ‹è¯•
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ TCP ´óÊı¾İÁ¿·¢ËÍ²»¶ª°ü |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ TCP å¤§æ•°æ®é‡å‘é€ä¸ä¸¢åŒ… |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
 1. TCP_SERVER_OPEN(Port=9320)
-2. MCP NM Client Á¬½Ó
-3. **[COM4] TCP_SEND 1024 ×Ö½ÚµİÔöĞòÁĞ**
+2. MCP NM Client è¿æ¥
+3. **[COM4] TCP_SEND 1024 å­—èŠ‚é€’å¢åºåˆ—**
    ```
    DataLen=0x0400, Data=0x00 0x01 0x02 ... 0xFF 0x00 0x01 ...
    ```
-4. **[MCP NM] ÑéÖ¤**
+4. **[MCP NM] éªŒè¯**
    ```
-   read_network_buffer ¡ú 1024 ×Ö½ÚÍêÕû, ĞòÁĞÁ¬ĞøÎŞ¶Ïµã
+   read_network_buffer â†’ 1024 å­—èŠ‚å®Œæ•´, åºåˆ—è¿ç»­æ— æ–­ç‚¹
    ```
-5. **½»»»·½Ïò**: MCP NM ·¢ËÍ 1024 ×Ö½Ú, COM4 µÈ´ı TCP_RECV ÑéÖ¤ÍêÕû
-6. ÇåÀí
+5. **äº¤æ¢æ–¹å‘**: MCP NM å‘é€ 1024 å­—èŠ‚, COM4 ç­‰å¾… TCP_RECV éªŒè¯å®Œæ•´
+6. æ¸…ç†
 
-**ÅĞ¶¨**: PASS ¡ª 1024 ×Ö½ÚÎŞ¶ª°ü
+**åˆ¤å®š**: PASS â€” 1024 å­—èŠ‚æ— ä¸¢åŒ…
 
 ---
 
-## NM-TCP-06: TCP_LIST_CLIENTS + KICK ¶Ëµ½¶Ë
+## NM-TCP-06: TCP_LIST_CLIENTS + KICK ç«¯åˆ°ç«¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ HEX-Bridge TCP Server ¿Í»§¶ËÁĞ±í²éÑ¯ºÍÌß³ö¹¦ÄÜ |
-| **Éæ¼°¹¤¾ß** | Serial Monitor (COM4) + MCP Network Monitor |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ HEX-Bridge TCP Server å®¢æˆ·ç«¯åˆ—è¡¨æŸ¥è¯¢å’Œè¸¢å‡ºåŠŸèƒ½ |
+| **æ¶‰åŠå·¥å…·** | Serial Monitor (COM4) + MCP Network Monitor |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
 1. **[COM4] TCP_SERVER_OPEN**
    ```
    Port=9198, MaxConn=3, AcceptMode=0x01
-   ¡ú ServerHandle=SH
+   â†’ ServerHandle=SH
    ```
 
-2. **[MCP NM] ´´½¨ 2 ¸ö TCP Client Á¬½Ó**
+2. **[MCP NM] åˆ›å»º 2 ä¸ª TCP Client è¿æ¥**
    ```
    connId="nm-kick-A", protocol=tcp, role=client, host=<HEX IP>, port=9198
    connId="nm-kick-B", protocol=tcp, role=client, host=<HEX IP>, port=9198
    ```
 
-3. **[COM4] µÈ´ı 2 ´Î TCP_ACCEPT ÊÂ¼ş** ¡ú ¼ÇÂ¼ CH_A, CH_B
+3. **[COM4] ç­‰å¾… 2 æ¬¡ TCP_ACCEPT äº‹ä»¶** â†’ è®°å½• CH_A, CH_B
 
 4. **[COM4] TCP_LIST_CLIENTS(SH)**
    ```
-   ¡ú ClientCount=2, Á½¸öÌõÄ¿·Ö±ğ°üº¬ CH_A ºÍ CH_B
+   â†’ ClientCount=2, ä¸¤ä¸ªæ¡ç›®åˆ†åˆ«åŒ…å« CH_A å’Œ CH_B
    ```
 
 5. **[COM4] TCP_KICK_CLIENT(CH_A, ForceFlag=0x01)**
    ```
-   ¡ú Status=0x00
+   â†’ Status=0x00
    ```
 
-6. **[COM4] µÈ´ı TCP_DISCONNECT_EVENT(CH_A)** ¡ú ÊÕµ½
+6. **[COM4] ç­‰å¾… TCP_DISCONNECT_EVENT(CH_A)** â†’ æ”¶åˆ°
 
-7. **[MCP NM] ÑéÖ¤ nm-kick-A ÒÑ¶Ï¿ª**
+7. **[MCP NM] éªŒè¯ nm-kick-A å·²æ–­å¼€**
    ```
-   ¡ú get_network_status(connId="nm-kick-A") ¡ú disconnected
+   â†’ get_network_status(connId="nm-kick-A") â†’ disconnected
    ```
 
 8. **[COM4] TCP_LIST_CLIENTS(SH)**
    ```
-   ¡ú ClientCount=1, ½ö°üº¬ CH_B
+   â†’ ClientCount=1, ä»…åŒ…å« CH_B
    ```
 
-9. **[MCP NM] nm-kick-B ÈÔ¿ÉÕı³£ÊÕ·¢**
+9. **[MCP NM] nm-kick-B ä»å¯æ­£å¸¸æ”¶å‘**
 
-10. **ÇåÀí**
+10. **æ¸…ç†**
 
-**ÅĞ¶¨**: PASS ¡ª KICK ºóÄ¿±ê¿Í»§¶Ë¶Ï¿ª, ÆäËû¿Í»§¶Ë²»ÊÜÓ°Ïì
+**åˆ¤å®š**: PASS â€” KICK åç›®æ ‡å®¢æˆ·ç«¯æ–­å¼€, å…¶ä»–å®¢æˆ·ç«¯ä¸å—å½±å“
 
 ---
 
-## NM-TCP-07: TCP_LIST_CLIENTS ¡ª ¿Õ Server ²éÑ¯
+## NM-TCP-07: TCP_LIST_CLIENTS â€” ç©º Server æŸ¥è¯¢
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ÎŞ¿Í»§¶ËÊ± TCP_LIST_CLIENTS Õı³£¹¤×÷ |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯æ— å®¢æˆ·ç«¯æ—¶ TCP_LIST_CLIENTS æ­£å¸¸å·¥ä½œ |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
 1. **[COM4] TCP_SERVER_OPEN(Port=9199)**
    ```
-   ¡ú ServerHandle=SH_EMPTY
+   â†’ ServerHandle=SH_EMPTY
    ```
 
 2. **[COM4] TCP_LIST_CLIENTS(SH_EMPTY)**
    ```
-   ¡ú Status=0x00, ClientCount=0
+   â†’ Status=0x00, ClientCount=0
    ```
 
-3. **ÇåÀí**
+3. **æ¸…ç†**
 
-**ÅĞ¶¨**: PASS ¡ª ¿Õ Server ÕıÈ··µ»Ø ClientCount=0
+**åˆ¤å®š**: PASS â€” ç©º Server æ­£ç¡®è¿”å› ClientCount=0
 
 ---
 
-## NM-WS-05: WS_LIST_CLIENTS + KICK ¶Ëµ½¶Ë
+## NM-WS-05: WS_LIST_CLIENTS + KICK ç«¯åˆ°ç«¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ HEX-Bridge WS Server ¿Í»§¶ËÁĞ±í²éÑ¯ºÍÌß³ö¹¦ÄÜ |
-| **Éæ¼°¹¤¾ß** | Serial Monitor (COM4) + MCP Network Monitor |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ HEX-Bridge WS Server å®¢æˆ·ç«¯åˆ—è¡¨æŸ¥è¯¢å’Œè¸¢å‡ºåŠŸèƒ½ |
+| **æ¶‰åŠå·¥å…·** | Serial Monitor (COM4) + MCP Network Monitor |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
 1. **[COM4] WS_SERVER_OPEN**
    ```
    Port=9200, MaxConn=3, Path="/ws-test"
-   ¡ú ServerHandle=SH
+   â†’ ServerHandle=SH
    ```
 
-2. **[MCP NM] ´´½¨ 2 ¸ö WS Client Á¬½Ó**
+2. **[MCP NM] åˆ›å»º 2 ä¸ª WS Client è¿æ¥**
    ```
    connId="nm-ws-A", protocol=websocket, role=client, url="ws://<HEX IP>:9200/ws-test"
    connId="nm-ws-B", protocol=websocket, role=client, url="ws://<HEX IP>:9200/ws-test"
    ```
 
-3. **[COM4] µÈ´ı 2 ´Î WS_ACCEPT ÊÂ¼ş** ¡ú ¼ÇÂ¼ CH_A, CH_B
+3. **[COM4] ç­‰å¾… 2 æ¬¡ WS_ACCEPT äº‹ä»¶** â†’ è®°å½• CH_A, CH_B
 
 4. **[COM4] WS_LIST_CLIENTS(SH)**
    ```
-   ¡ú ClientCount=2, Path="/ws-test"
+   â†’ ClientCount=2, Path="/ws-test"
    ```
 
 5. **[COM4] WS_KICK_CLIENT(CH_A, ForceFlag=0x01)**
    ```
-   ¡ú Status=0x00
+   â†’ Status=0x00
    ```
 
-6. **[COM4] µÈ´ı WS_DISCONNECT_EVENT(CH_A)** ¡ú ÊÕµ½
+6. **[COM4] ç­‰å¾… WS_DISCONNECT_EVENT(CH_A)** â†’ æ”¶åˆ°
 
 7. **[COM4] WS_LIST_CLIENTS(SH)**
    ```
-   ¡ú ClientCount=1, ½ö°üº¬ CH_B
+   â†’ ClientCount=1, ä»…åŒ…å« CH_B
    ```
 
-8. **[MCP NM] nm-ws-B ÈÔ¿ÉÕı³£ÊÕ·¢**
+8. **[MCP NM] nm-ws-B ä»å¯æ­£å¸¸æ”¶å‘**
 
-9. **ÇåÀí**
+9. **æ¸…ç†**
 
-**ÅĞ¶¨**: PASS ¡ª WS KICK ¹¦ÄÜÕı³£
+**åˆ¤å®š**: PASS â€” WS KICK åŠŸèƒ½æ­£å¸¸
 
 ---
 
-## NM-INT-03: NET_LIST_CONNS È«¾Ö¸ÅÀÀ
+## NM-INT-03: NET_LIST_CONNS å…¨å±€æ¦‚è§ˆ
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ NET_LIST_CONNS ÄÜÒ»Õ¾Ê½»ã×ÜËùÓĞÍøÂçÁ¬½Ó |
-| **Éæ¼°¹¤¾ß** | Serial Monitor (COM4) + MCP Network Monitor |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ NET_LIST_CONNS èƒ½ä¸€ç«™å¼æ±‡æ€»æ‰€æœ‰ç½‘ç»œè¿æ¥ |
+| **æ¶‰åŠå·¥å…·** | Serial Monitor (COM4) + MCP Network Monitor |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 
-1. **[COM4] ´´½¨»ìºÏÁ¬½Ó**
+1. **[COM4] åˆ›å»ºæ··åˆè¿æ¥**
    ```
-   TCP_SERVER_OPEN(Port=9201) ¡ú SH_TCP
-   UDP_CLIENT_CREATE(DestIP=<PC IP>, DestPort=9202) ¡ú CH_UDP
+   TCP_SERVER_OPEN(Port=9201) â†’ SH_TCP
+   UDP_CLIENT_CREATE(DestIP=<PC IP>, DestPort=9202) â†’ CH_UDP
    ```
 
-2. **[MCP NM] ´´½¨¶Ô¶Ë**
+2. **[MCP NM] åˆ›å»ºå¯¹ç«¯**
    ```
    connect_network: connId="nm-tcp-cli", protocol=tcp, role=client, host=<HEX IP>, port=9201
    connect_network: connId="nm-udp-srv", protocol=udp, role=server, listenPort=9202
    ```
 
-3. **[COM4] NET_LIST_CONNS (¿ÕÔØºÉ)**
+3. **[COM4] NET_LIST_CONNS (ç©ºè½½è·)**
    ```
-   ¡ú Status=0x00, ConnCount¡İ3
-     ÌõÄ¿1: ConnType=TCP_SERVER(0x00), Handle=SH_TCP, ParentHandle=0x0000
-     ÌõÄ¿2: ConnType=TCP_CONN(0x01), Handle=<CH>, ParentHandle=SH_TCP
-     ÌõÄ¿3: ConnType=UDP_CLIENT(0x03), Handle=CH_UDP, ParentHandle=0x0000
+   â†’ Status=0x00, ConnCountâ‰¥3
+     æ¡ç›®1: ConnType=TCP_SERVER(0x00), Handle=SH_TCP, ParentHandle=0x0000
+     æ¡ç›®2: ConnType=TCP_CONN(0x01), Handle=<CH>, ParentHandle=SH_TCP
+     æ¡ç›®3: ConnType=UDP_CLIENT(0x03), Handle=CH_UDP, ParentHandle=0x0000
    ```
 
-4. **ÑéÖ¤** ConnType ºÍ ParentHandle ¹ØÏµÕıÈ·
+4. **éªŒè¯** ConnType å’Œ ParentHandle å…³ç³»æ­£ç¡®
 
-5. **ÇåÀí**
+5. **æ¸…ç†**
 
-**ÅĞ¶¨**: PASS ¡ª NET_LIST_CONNS ÕıÈ·»ã×Ü TCP Server/Conn ºÍ UDP Client
-
----
-
-# µÚÒ»²¿·Ö£ºÒÔÌ«ÍøÇı¶¯²ã²âÊÔ (DRV)
+**åˆ¤å®š**: PASS â€” NET_LIST_CONNS æ­£ç¡®æ±‡æ€» TCP Server/Conn å’Œ UDP Client
 
 ---
 
-## DRV-01: ÎïÀíÁ´Â· UP ¼ì²â (NET_LINK_EVENT)
 
-| ÏîÄ¿ | Öµ |
-|:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ LAN8720 PHY ³õÊ¼»¯³É¹¦, ÍøÏß²åÈëºóÁ´Â· UP |
-| **CmdCode** | `0x43` (NET_LINK_EVENT, ÊÂ¼ş) |
-| **²âÊÔ·½·¨** | Éè±¸ÉÏµçºó¼àÌı COM4, µÈ´ı DEV ²àÖ÷¶¯ÉÏ±¨µÄÊÂ¼şÖ¡ |
-
-**Ô¤ÆÚÊÂ¼şÖ¡**:
-
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
-|:---|:---|:---|
-| 0 | IntfIndex | `0x00` (ETH0) |
-| 1 | EventType | `0x02` (IP_ACQUIRED) ¡ª DHCP »ñÈ¡µ½ IP ºó |
-
-Èç¹û DHCP ÏìÓ¦½ÏÂı, ¿ÉÄÜÏÈÊÕµ½ LINK_UP (`0x01`) ÔÙÊÕµ½ IP_ACQUIRED (`0x02`)¡£
-
-**ÅĞ¶¨**: PASS ¡ª ÉÏµçºó 30s ÄÚÊÕµ½ LAN8720 ÉÏ±¨µÄ LINK_UP ºÍ IP_ACQUIRED ÊÂ¼ş
+# ç¬¬äºŒéƒ¨åˆ†ï¼šç½‘ç»œé…ç½®æ¨¡å—æµ‹è¯• (NET, 0x40-0x4F)
 
 ---
 
-## DRV-02: ÍøÏß°Î³ö¼ì²â (NET_LINK_EVENT)
+## NET-01: NET_STATUS â€” æŸ¥è¯¢ç½‘ç»œçŠ¶æ€ (æ­£å¸¸æµç¨‹)
 
-| ÏîÄ¿ | Öµ |
-|:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ÍøÏß°Î³öºó PHY ÕıÈ·¼ì²âÁ´Â·¶Ï¿ª |
-| **CmdCode** | `0x43` (NET_LINK_EVENT, ÊÂ¼ş) |
-
-**²âÊÔ²½Öè**:
-1. È·ÈÏÉè±¸ÔÚÏß, ÍøÏßÒÑÁ¬½Ó
-2. °Î³öÍøÏß
-3. ¼àÌı COM4, µÈ´ı LINK_DOWN ÊÂ¼ş
-
-**Ô¤ÆÚÊÂ¼şÖ¡**:
-
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
-|:---|:---|:---|
-| 0 | IntfIndex | `0x00` |
-| 1 | EventType | `0x00` (LINK_DOWN) |
-| 2-5 | IpAddr | `0x00000000` |
-
-**ÅĞ¶¨**: PASS ¡ª °Î³öÍøÏßºó 2s ÄÚÊÕµ½ LINK_DOWN ÊÂ¼ş
-
----
-
-## DRV-03: ÍøÏßÖØĞÂ²åÈëºóµÄÁ´Â·»Ö¸´
-
-| ÏîÄ¿ | Öµ |
-|:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ÈÈ²å°Î»Ö¸´ |
-| **CmdCode** | `0x43` (NET_LINK_EVENT) |
-
-**²âÊÔ²½Öè**:
-1. ´Ó DRV-02 µÄ LINK_DOWN ×´Ì¬³ö·¢
-2. ÖØĞÂ²åÈëÍøÏß
-3. ¼àÌı LINK_UP ¡ú IP_ACQUIRED ÊÂ¼şĞòÁĞ
-
-**Ô¤ÆÚ**: Ë³ĞòÊÕµ½ `EventType=0x01 (LINK_UP)` ºÍ `EventType=0x02 (IP_ACQUIRED)`, IpAddr ÓëÖ®Ç°¿ÉÄÜÏàÍ¬»ò²»Í¬
-
-**ÅĞ¶¨**: PASS ¡ª ÍøÏß²åÈëºó 30s ÄÚÁ´Â·»Ö¸´
-
----
-
-## DRV-04: DHCP ·şÎñÆ÷²»¿ÉÓÃ
-
-| ÏîÄ¿ | Öµ |
-|:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ DHCP ·şÎñÆ÷²»¿ÉÓÃÊ±Éè±¸²»±ÀÀ£, Õı³£ÉÏ±¨ ConnState=0x02 |
-| **CmdCode** | `0x41` (NET_STATUS), `0x43` (NET_LINK_EVENT) |
-
-**²âÊÔ²½Öè**:
-1. ¶Ï¿ªÂ·ÓÉÆ÷ DHCP ·şÎñ (»ò°ÎµôÂ·ÓÉÆ÷ WAN ¿Ú, ½ö±£Áô LAN ½»»»»ú¹¦ÄÜ)
-2. HEX-Bridge ¶ÏµçÖØÆô
-3. ¼àÌı COM4 - Ô¤ÆÚÊÕµ½ LINK_UP ÊÂ¼ş (EventType=0x01)
-4. ·¢ËÍ NET_STATUS(0x00) ²éÑ¯
-
-**Ô¤ÆÚ NET_STATUS ÏìÓ¦**:
-
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
-|:---|:---|:---|
-| 3 | LinkState | `0x01` (Up) |
-| 4 | ConnState | `0x02` (»ñÈ¡IPÖĞ) |
-| 5-8 | IpAddr | `0x00000000` |
-
-**Ô¤ÆÚ**: Éè±¸²»±ÀÀ£, ConnState=0x02 ³ÖĞø, IpAddr Îª 0, ²»²úÉú IP_ACQUIRED ÊÂ¼ş
-
-**ÅĞ¶¨**: PASS ¡ª Éè±¸²»±ÀÀ£, ConnState=0x02, IpAddr=0x00000000
-
----
-
-## DRV-05: ÍøÏß¿ìËÙ²å°Î
-
-| ÏîÄ¿ | Öµ |
-|:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤¿ìËÙ²å°ÎÊ±ÊÂ¼ş²»¶ªÊ§ |
-| **CmdCode** | `0x43` (NET_LINK_EVENT) |
-
-**²âÊÔ²½Öè**:
-1. ÔÚ 5 ÃëÄÚ¿ìËÙ²å°ÎÍøÏß 10 ´Î (Ê¹ÓÃÎïÀí²Ù×÷)
-2. ¼àÌı COM4 ¼ÇÂ¼ËùÓĞ NET_LINK_EVENT ÊÂ¼ş
-
-**Ô¤ÆÚ**:
-- Ã¿¸ö²å°ÎÖÜÆÚ²úÉúÕıÈ·µÄ LINK_DOWN / LINK_UP ÊÂ¼ş¶Ô
-- ÊÂ¼şÎŞ¶ªÊ§, ÎŞÖØ¸´
-- ×Ü¹² 20 ¸öÊÂ¼ş (10 ¡Á DOWN + 10 ¡Á UP)
-
-**ÅĞ¶¨**: PASS ¡ª 10 ¶Ô LINK_DOWN/LINK_UP ÊÂ¼ş, ÎŞ¶ªÊ§
-
----
-
-# µÚ¶ş²¿·Ö£ºÍøÂçÅäÖÃÄ£¿é²âÊÔ (NET, 0x40-0x4F)
-
----
-
-## NET-01: NET_STATUS ¡ª ²éÑ¯ÍøÂç×´Ì¬ (Õı³£Á÷³Ì)
-
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x41` |
 | **PayloadLen** | `0x0001` |
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0 | InterfaceIndex | `0x00` (ETH0) |
+| 0 | InterfaceIndex | `0x00` (STA0) |
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0 | Status | `0x00` |
 | 1 | IntfCount | `0x01` |
 | 2 | IntfIndex | `0x00` |
 | 3 | LinkState | `0x01` (Up) |
-| 4 | ConnState | `0x01` (ÒÑÁ¬½Ó) |
-| 5-8 | IpAddr | ÓĞĞ§µÄ·ÇÁã IP (DHCP ·ÖÅä»ò¾²Ì¬ÅäÖÃ) |
-| 9-12 | SubnetMask | ÓĞĞ§µÄ×ÓÍøÑÚÂë |
-| 13-18 | MacAddr | 6 ×Ö½Ú MAC µØÖ· |
+| 4 | ConnState | `0x01` (å·²è¿æ¥) |
+| 5-8 | IpAddr | æœ‰æ•ˆçš„éé›¶ IP (DHCP åˆ†é…æˆ–é™æ€é…ç½®) |
+| 9-12 | SubnetMask | æœ‰æ•ˆçš„å­ç½‘æ©ç  |
+| 13-18 | MacAddr | 6 å­—èŠ‚ MAC åœ°å€ |
 
-**ÅĞ¶¨**: PASS ¡ª Status=0x00, LinkState=0x01, IpAddr ·ÇÁã
+**åˆ¤å®š**: PASS â€” Status=0x00, LinkState=0x01, IpAddr éé›¶
 
 ---
 
-## NET-02: NET_STATUS ¡ª ²éÑ¯ËùÓĞ½Ó¿Ú (InterfaceIndex=0xFF)
+## NET-02: NET_STATUS â€” æŸ¥è¯¢æ‰€æœ‰æ¥å£ (InterfaceIndex=0xFF)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x41` |
 | **PayloadLen** | `0x0001` |
 
-**ÇëÇóÔØºÉ**: InterfaceIndex=`0xFF`
+**è¯·æ±‚è½½è·**: InterfaceIndex=`0xFF`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, IntfCount=`0x01`, °üº¬ ETH0 µÄ×´Ì¬
+**é¢„æœŸå“åº”**: Status=`0x00`, IntfCount=`0x01`, åŒ…å« STA0 çš„çŠ¶æ€
 
-**ÅĞ¶¨**: PASS ¡ª Óë NET-01 ½á¹ûÒ»ÖÂ
+**åˆ¤å®š**: PASS â€” ä¸ NET-01 ç»“æœä¸€è‡´
 
 ---
 
-## NET-03: NET_DNS ¡ª ÓòÃû½âÎö³É¹¦
+## NET-03: NET_DNS â€” åŸŸåè§£ææˆåŠŸ
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x42` |
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
 | 0 | NameLen | `0x0B` (11) |
 | 1-11 | Hostname | `"example.com"` (ASCII) |
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0 | Status | `0x00` |
 | 1 | AddrCount | `>= 1` |
-| 2-5 | IP[0] | ÓĞĞ§µÄ IPv4 µØÖ· |
+| 2-5 | IP[0] | æœ‰æ•ˆçš„ IPv4 åœ°å€ |
 
-**ÅĞ¶¨**: PASS ¡ª Status=0x00, AddrCount>=1
+**åˆ¤å®š**: PASS â€” Status=0x00, AddrCount>=1
 
 ---
 
-## NET-04: NET_DNS ¡ª ÓòÃû½âÎöÊ§°Ü (²»´æÔÚµÄÓòÃû)
+## NET-04: NET_DNS â€” åŸŸåè§£æå¤±è´¥ (ä¸å­˜åœ¨çš„åŸŸå)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x42` |
 
-**ÇëÇóÔØºÉ**: NameLen=`0x17` (23), Hostname=`"nonexistent-domain.invalid"`
+**è¯·æ±‚è½½è·**: NameLen=`0x17` (23), Hostname=`"nonexistent-domain.invalid"`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x46` (ERR_NET_DNS_FAIL)
+**é¢„æœŸå“åº”**: Status=`0x46` (ERR_NET_DNS_FAIL)
 
-**ÅĞ¶¨**: PASS ¡ª ·µ»Ø DNS_FAIL ´íÎóÂë
+**åˆ¤å®š**: PASS â€” è¿”å› DNS_FAIL é”™è¯¯ç 
 
 ---
 
-## NET-05: NET_DNS ¡ª ÓòÃû×Ö·û´®³¬³¤ (´íÎóÓÃÀı)
+## NET-05: NET_DNS â€” åŸŸåå­—ç¬¦ä¸²è¶…é•¿ (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x42` |
 
-**ÇëÇóÔØºÉ**: NameLen=`0xFF` (255), Hostname=254 ×Ö½ÚÌî³äÊı¾İ (³¬¹ı lwIP DNS 253 ×Ö½ÚÏŞÖÆ)
+**è¯·æ±‚è½½è·**: NameLen=`0xFF` (255), Hostname=254 å­—èŠ‚å¡«å……æ•°æ® (è¶…è¿‡ lwIP DNS 253 å­—èŠ‚é™åˆ¶)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x02` (ERR_PARAM) ¡ª Éè±¸Ó¦¾Ü¾ø³¬³¤ÓòÃû
+**é¢„æœŸå“åº”**: Status=`0x02` (ERR_PARAM) â€” è®¾å¤‡åº”æ‹’ç»è¶…é•¿åŸŸå
 
 ---
 
-## NET-06: NET_CONFIG ¡ª ÉèÖÃ¾²Ì¬ IP
+## NET-06: NET_CONFIG â€” è®¾ç½®é™æ€ IP
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x40` |
-| **PayloadLen** | `0x0016` (22 ×Ö½Ú) |
+| **PayloadLen** | `0x0016` (22 å­—èŠ‚) |
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ (Ê¾Àı) |
+| åç§» | å­—æ®µ | å€¼ (ç¤ºä¾‹) |
 |:---|:---|:---|
-| 0 | InterfaceIndex | `0x00` (ETH0) |
-| 1 | ConfigType | `0x01` (¾²Ì¬ IP) |
+| 0 | InterfaceIndex | `0x00` (STA0) |
+| 1 | ConfigType | `0x01` (é™æ€ IP) |
 | 2-5 | IpAddr | `0xC0A80164` (192.168.1.100) |
 | 6-9 | SubnetMask | `0xFFFFFF00` (255.255.255.0) |
 | 10-13 | Gateway | `0xC0A80101` (192.168.1.1) |
 | 14-17 | DNS1 | `0x08080808` (8.8.8.8) |
-| 18-21 | DNS2 | `0x00000000` (ÎŞ) |
+| 18-21 | DNS2 | `0x00000000` (æ— ) |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ActualIP/ActualMask/ActualGW/ActualDNS ÓëÇëÇóÒ»ÖÂ
+**é¢„æœŸå“åº”**: Status=`0x00`, ActualIP/ActualMask/ActualGW/ActualDNS ä¸è¯·æ±‚ä¸€è‡´
 
-**ÑéÖ¤**: ·¢ËÍ NET_STATUS ²éÑ¯, È·ÈÏ IpAddr=192.168.1.100
+**éªŒè¯**: å‘é€ NET_STATUS æŸ¥è¯¢, ç¡®è®¤ IpAddr=192.168.1.100
 
 ---
 
-## NET-07: NET_CONFIG ¡ª »Ö¸´ DHCP Ä£Ê½
+## NET-07: NET_CONFIG â€” æ¢å¤ DHCP æ¨¡å¼
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x40` |
 | **PayloadLen** | `0x0002` |
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
 | 0 | InterfaceIndex | `0x00` |
 | 1 | ConfigType | `0x00` (DHCP) |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
-**ÑéÖ¤**: µÈ´ı IP_ACQUIRED ÊÂ¼ş, ·¢ËÍ NET_STATUS È·ÈÏ IP ÓÉ DHCP ·ÖÅä
+**éªŒè¯**: ç­‰å¾… IP_ACQUIRED äº‹ä»¶, å‘é€ NET_STATUS ç¡®è®¤ IP ç”± DHCP åˆ†é…
 
 ---
 
-## NET-08: NET_CONFIG ¡ª ÎŞĞ§ InterfaceIndex (´íÎóÓÃÀı)
+## NET-08: NET_CONFIG â€” æ— æ•ˆ InterfaceIndex (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x40` |
 | **PayloadLen** | `0x0002` |
 
-**ÇëÇóÔØºÉ**: InterfaceIndex=`0x02` (²»´æÔÚ), ConfigType=`0x00` (DHCP)
+**è¯·æ±‚è½½è·**: InterfaceIndex=`0x02` (ä¸å­˜åœ¨), ConfigType=`0x00` (DHCP)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x0A` (ERR_CHANNEL_INVALID)
+**é¢„æœŸå“åº”**: Status=`0x0A` (ERR_CHANNEL_INVALID)
 
 ---
 
-## NET-09: NET_CONFIG ¡ª ÎŞĞ§ ConfigType (´íÎóÓÃÀı)
+## NET-09: NET_CONFIG â€” æ— æ•ˆ ConfigType (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x40` |
 | **PayloadLen** | `0x0002` |
 
-**ÇëÇóÔØºÉ**: InterfaceIndex=`0x00`, ConfigType=`0x02` (Î´¶¨Òå)
+**è¯·æ±‚è½½è·**: InterfaceIndex=`0x00`, ConfigType=`0x02` (æœªå®šä¹‰)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x02` (ERR_PARAM)
+**é¢„æœŸå“åº”**: Status=`0x02` (ERR_PARAM)
 
 ---
 
-## NET-10: NET_STATUS ¡ª ÍøÏß°Î³öÊ±²éÑ¯
+## NET-10: NET_STATUS â€” ç½‘çº¿æ‹”å‡ºæ—¶æŸ¥è¯¢
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x41` |
 
-**Ç°ÖÃ**: °Î³öÍøÏß, È·ÈÏÒÑÊÕµ½ LINK_DOWN ÊÂ¼ş
+**å‰ç½®**: æ‹”å‡ºç½‘çº¿, ç¡®è®¤å·²æ”¶åˆ° LINK_DOWN äº‹ä»¶
 
-**ÇëÇóÔØºÉ**: InterfaceIndex=`0x00`
+**è¯·æ±‚è½½è·**: InterfaceIndex=`0x00`
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 3 | LinkState | `0x00` (Down) |
-| 4 | ConnState | `0x00` (Î´Á¬½Ó) |
+| 4 | ConnState | `0x00` (æœªè¿æ¥) |
 | 5-8 | IpAddr | `0x00000000` |
 
-**ÅĞ¶¨**: PASS ¡ª ÕıÈ··´Ó³¶ÏÏß×´Ì¬
+**åˆ¤å®š**: PASS â€” æ­£ç¡®åæ˜ æ–­çº¿çŠ¶æ€
 
 ---
 
-## NET-11: NET_DNS ¡ª DNS ·şÎñÆ÷²»¿É´ï (´íÎóÓÃÀı)
+## NET-11: NET_DNS â€” DNS æœåŠ¡å™¨ä¸å¯è¾¾ (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x42` |
 
-**Ç°ÖÃ**: Í¨¹ı NET_CONFIG ¾²Ì¬ IP ½« DNS1 ÉèÎª²»¿É´ïµØÖ· (Èç `192.168.1.254`)
+**å‰ç½®**: é€šè¿‡ NET_CONFIG é™æ€ IP å°† DNS1 è®¾ä¸ºä¸å¯è¾¾åœ°å€ (å¦‚ `192.168.1.254`)
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
 | 0 | NameLen | `0x0B` (11) |
 | 1-11 | Hostname | `"example.com"` |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x46` (ERR_NET_DNS_FAIL), DNS ÇëÇó³¬Ê±Ô¼ 5s ºó·µ»Ø
-> **·Ç×èÈûÑéÖ¤**: ÔÚ DNS µÈ´ıÆÚ¼ä·¢ËÍ PING ÃüÁî, PING Ó¦ÔÚ <100ms ÄÚÏìÓ¦ (NET-17), ²»ÊÜ DNS ³¬Ê±Ó°Ïì¡£
+**é¢„æœŸå“åº”**: Status=`0x46` (ERR_NET_DNS_FAIL), DNS è¯·æ±‚è¶…æ—¶çº¦ 5s åè¿”å›
+> **éé˜»å¡éªŒè¯**: åœ¨ DNS ç­‰å¾…æœŸé—´å‘é€ PING å‘½ä»¤, PING åº”åœ¨ <100ms å†…å“åº” (NET-17), ä¸å— DNS è¶…æ—¶å½±å“ã€‚
 
-**ÅĞ¶¨**: PASS ¡ª ³¬Ê±ºó·µ»Ø DNS_FAIL
+**åˆ¤å®š**: PASS â€” è¶…æ—¶åè¿”å› DNS_FAIL
 
 ---
 
-## NET-12: NET_STATUS ¡ª DHCP »ñÈ¡ÖĞ (ConnState=0x02)
+## NET-12: NET_STATUS â€” DHCP è·å–ä¸­ (ConnState=0x02)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x41` |
 
-**Ç°ÖÃ**: Í¨¹ı NET_CONFIG ÇĞ»»µ½ DHCP Ä£Ê½ºóÁ¢¼´²éÑ¯, »òÖØÆôÉè±¸ºóÁ¢¼´²éÑ¯
+**å‰ç½®**: é€šè¿‡ NET_CONFIG åˆ‡æ¢åˆ° DHCP æ¨¡å¼åç«‹å³æŸ¥è¯¢, æˆ–é‡å¯è®¾å¤‡åç«‹å³æŸ¥è¯¢
 
-**ÇëÇóÔØºÉ**: InterfaceIndex=`0x00`
+**è¯·æ±‚è½½è·**: InterfaceIndex=`0x00`
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
-| 4 | ConnState | `0x02` (»ñÈ¡IPÖĞ) |
+| 4 | ConnState | `0x02` (è·å–IPä¸­) |
 | 5-8 | IpAddr | `0x00000000` |
 
-**ÅĞ¶¨**: PASS ¡ª ConnState=0x02, IpAddr=0x00000000
+**åˆ¤å®š**: PASS â€” ConnState=0x02, IpAddr=0x00000000
 
 ---
 
-## NET-13: NET_DNS ¡ª ÎŞ IP Ê±µ÷ÓÃ (´íÎóÓÃÀı)
+## NET-13: NET_DNS â€” æ—  IP æ—¶è°ƒç”¨ (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x42` |
 
-**Ç°ÖÃ**: °Î³öÍøÏß, Éè±¸ÎŞ IP µØÖ· (NET_STATUS ÏÔÊ¾ IpAddr=0x00000000)
+**å‰ç½®**: æ‹”å‡ºç½‘çº¿, è®¾å¤‡æ—  IP åœ°å€ (NET_STATUS æ˜¾ç¤º IpAddr=0x00000000)
 
-**ÇëÇóÔØºÉ**: NameLen=`0x0B` (11), Hostname=`"example.com"`
+**è¯·æ±‚è½½è·**: NameLen=`0x0B` (11), Hostname=`"example.com"`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x47` (ERR_NET_NO_IP)
+**é¢„æœŸå“åº”**: Status=`0x47` (ERR_NET_NO_IP)
 
-**ÅĞ¶¨**: PASS ¡ª ÎŞ IP Ê±¾Ü¾ø DNS ½âÎö
+**åˆ¤å®š**: PASS â€” æ—  IP æ—¶æ‹’ç» DNS è§£æ
 
 ---
 
-## NET-14: NET_CONFIG ¡ª NVS ³Ö¾Ã»¯ÑéÖ¤
+## NET-14: NET_CONFIG â€” NVS æŒä¹…åŒ–éªŒè¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x40`, `0x41` |
 
-**²âÊÔ²½Öè**:
-1. NET_CONFIG: ÉèÖÃ¾²Ì¬ IP (192.168.1.100, Gateway 192.168.1.1, DNS 8.8.8.8)
-2. µÈ´ı NET_STATUS È·ÈÏ IP Îª 192.168.1.100
-3. Éè±¸¶ÏµçÖØÆô
-4. ÉÏµçÎÕÊÖÍê³ÉºóÖ±½Ó·¢ËÍ NET_STATUS(0x00)
+**æµ‹è¯•æ­¥éª¤**:
+1. NET_CONFIG: è®¾ç½®é™æ€ IP (192.168.1.100, Gateway 192.168.1.1, DNS 8.8.8.8)
+2. ç­‰å¾… NET_STATUS ç¡®è®¤ IP ä¸º 192.168.1.100
+3. è®¾å¤‡æ–­ç”µé‡å¯
+4. ä¸Šç”µæ¡æ‰‹å®Œæˆåç›´æ¥å‘é€ NET_STATUS(0x00)
 
-**Ô¤ÆÚ**: ÖØÆôºóÎŞĞèÖØĞÂÅäÖÃ, NET_STATUS Ö±½Ó±¨¸æ¾²Ì¬ IP (192.168.1.100), Gateway ºÍ DNS ÓëÅäÖÃÒ»ÖÂ
+**é¢„æœŸ**: é‡å¯åæ— éœ€é‡æ–°é…ç½®, NET_STATUS ç›´æ¥æŠ¥å‘Šé™æ€ IP (192.168.1.100), Gateway å’Œ DNS ä¸é…ç½®ä¸€è‡´
 
-**ÅĞ¶¨**: PASS ¡ª NVS ³Ö¾Ã»¯ÉúĞ§
+**åˆ¤å®š**: PASS â€” NVS æŒä¹…åŒ–ç”Ÿæ•ˆ
 
 ---
 
-## NET-15: NET_LINK_EVENT ¡ª IP_CHANGED ÊÂ¼ş
+## NET-15: NET_LINK_EVENT â€” IP_CHANGED äº‹ä»¶
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **CmdCode** | `0x43` (ÊÂ¼ş) |
+| **CmdCode** | `0x43` (äº‹ä»¶) |
 
-**Ç°ÖÃ**: DHCP Ä£Ê½ÏÂ, ÅäÖÃÂ·ÓÉÆ÷ DHCP ×âÔ¼½Ï¶Ì (Èç 60s), »òÔÚÂ·ÓÉÆ÷²àÇ¿ÖÆ±ä¸ü·ÖÅä¸øÉè±¸µÄ IP
+**å‰ç½®**: DHCP æ¨¡å¼ä¸‹, é…ç½®è·¯ç”±å™¨ DHCP ç§Ÿçº¦è¾ƒçŸ­ (å¦‚ 60s), æˆ–åœ¨è·¯ç”±å™¨ä¾§å¼ºåˆ¶å˜æ›´åˆ†é…ç»™è®¾å¤‡çš„ IP
 
-**²âÊÔ²½Öè**:
-1. µÈ´ıµ±Ç° DHCP ×âÔ¼µ½ÆÚ
-2. Â·ÓÉÆ÷·ÖÅä²»Í¬ IP
-3. ¼àÌı COM4
+**æµ‹è¯•æ­¥éª¤**:
+1. ç­‰å¾…å½“å‰ DHCP ç§Ÿçº¦åˆ°æœŸ
+2. è·¯ç”±å™¨åˆ†é…ä¸åŒ IP
+3. ç›‘å¬ COM4
 
-**Ô¤ÆÚÊÂ¼şÖ¡**:
+**é¢„æœŸäº‹ä»¶å¸§**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0 | IntfIndex | `0x00` |
 | 1 | EventType | `0x04` (IP_CHANGED) |
-| 2-5 | IpAddr | ĞÂ IP µØÖ· |
+| 2-5 | IpAddr | æ–° IP åœ°å€ |
 
-**ÅĞ¶¨**: PASS ¡ª ÊÕµ½ IP_CHANGED ÊÂ¼ş, °üº¬ĞÂ IP
+**åˆ¤å®š**: PASS â€” æ”¶åˆ° IP_CHANGED äº‹ä»¶, åŒ…å«æ–° IP
 
 ---
 
-## NET-16: NET_LIST_CONNS ¡ª È«¾ÖÁ¬½Ó²éÑ¯
+## NET-16: NET_LIST_CONNS â€” å…¨å±€è¿æ¥æŸ¥è¯¢
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x44` |
 
-**Ç°ÖÃ**: ÖÁÉÙ´´½¨ÁË 1 ¸ö TCP Server ºÍ 1 ¸ö UDP Client
+**å‰ç½®**: è‡³å°‘åˆ›å»ºäº† 1 ä¸ª TCP Server å’Œ 1 ä¸ª UDP Client
 
-**ÇëÇóÔØºÉ**: ¿Õ (ÎŞÔØºÉ)
+**è¯·æ±‚è½½è·**: ç©º (æ— è½½è·)
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0 | Status | `0x00` |
-| 1 | ConnCount | ·ÇÁãÖµ (µÈÓÚµ±Ç°»îÔ¾Á¬½ÓÊı) |
+| 1 | ConnCount | éé›¶å€¼ (ç­‰äºå½“å‰æ´»è·ƒè¿æ¥æ•°) |
 
-±éÀúÃ¿¸öÁ¬½ÓÌõÄ¿:
-| Æ«ÒÆ | ×Ö¶Î | ÑéÖ¤ |
+éå†æ¯ä¸ªè¿æ¥æ¡ç›®:
+| åç§» | å­—æ®µ | éªŒè¯ |
 |:---|:---|:---|
-| 0 | ConnType | ÖµÔÚ 0x00-0x05 ·¶Î§ÄÚ |
-| 1-2 | Handle | ·ÇÁãºÏ·¨¾ä±ú |
-| 3-4 | ParentHandle | Server ×ÓÁ¬½ÓÊ±·ÇÁã, ·ñÔò 0x0000 |
-| 5-6 | LocalPort | ·ÇÁãºÏ·¨¶Ë¿ÚºÅ |
-| 7-10 | RemoteIP | Server Ä£Ê½Îª 0x00000000, ·ñÔòÎª¶Ô¶Ë IP |
+| 0 | ConnType | å€¼åœ¨ 0x00-0x05 èŒƒå›´å†… |
+| 1-2 | Handle | éé›¶åˆæ³•å¥æŸ„ |
+| 3-4 | ParentHandle | Server å­è¿æ¥æ—¶éé›¶, å¦åˆ™ 0x0000 |
+| 5-6 | LocalPort | éé›¶åˆæ³•ç«¯å£å· |
+| 7-10 | RemoteIP | Server æ¨¡å¼ä¸º 0x00000000, å¦åˆ™ä¸ºå¯¹ç«¯ IP |
 
-**ÅĞ¶¨**: PASS ¡ª ConnCount ÓëÔ¤ÆÚÒ»ÖÂ, ÌõÄ¿×Ö¶ÎºÏ·¨
+**åˆ¤å®š**: PASS â€” ConnCount ä¸é¢„æœŸä¸€è‡´, æ¡ç›®å­—æ®µåˆæ³•
 
 ---
 
-## NET-17: NET_DNS ¡ª DNS ½âÎö²»×èÈûÏûÏ¢×ÜÏß (Bug#5 fix)
+## NET-17: NET_DNS â€” DNS è§£æä¸é˜»å¡æ¶ˆæ¯æ€»çº¿ (Bug#5 fix)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x42`, `0x00` |
-| **Bug#5** | Ô­ `handle_net_dns()` ÔÚÏûÏ¢×ÜÏßÏß³ÌÄÚÍ¬²½µÈ´ı DNS »Øµ÷ (`xSemaphoreTake(5000ms)`), DNS ³¬Ê±Ê±ËùÓĞ UBCP ÃüÁîÍ£ÖÍ 5 Ãë |
+| **Bug#5** | åŸ `handle_net_dns()` åœ¨æ¶ˆæ¯æ€»çº¿çº¿ç¨‹å†…åŒæ­¥ç­‰å¾… DNS å›è°ƒ (`xSemaphoreTake(5000ms)`), DNS è¶…æ—¶æ—¶æ‰€æœ‰ UBCP å‘½ä»¤åœæ» 5 ç§’ |
 
-**ĞŞ¸´·½Ê½**: DNS ÒÆÈë¶ÀÁ¢ FreeRTOS task (`dns_deferred_task`, Õ» 3072, prio 1)¡£`handle_net_dns()` »º´æÃüÖĞÊ±Í¬²½·µ»Ø, ĞèÒªµÈ´ıÊ±½« context ÍÆÈë `xQueue`, Á¢¼´·µ»Ø²»×èÈû¡£DNS task ×èÈûÔÚ¶ÓÁĞÉÏ½ÓÊÕ¹¤×÷Ïî¡¢µÈ´ı»Øµ÷ĞÅºÅÁ¿, ×èÈû½ö·¢ÉúÔÚ¶ÀÁ¢ task ÉÏÏÂÎÄÖĞ¡£
+**ä¿®å¤æ–¹å¼**: DNS ç§»å…¥ç‹¬ç«‹ FreeRTOS task (`dns_deferred_task`, æ ˆ 3072, prio 1)ã€‚`handle_net_dns()` ç¼“å­˜å‘½ä¸­æ—¶åŒæ­¥è¿”å›, éœ€è¦ç­‰å¾…æ—¶å°† context æ¨å…¥ `xQueue`, ç«‹å³è¿”å›ä¸é˜»å¡ã€‚DNS task é˜»å¡åœ¨é˜Ÿåˆ—ä¸Šæ¥æ”¶å·¥ä½œé¡¹ã€ç­‰å¾…å›è°ƒä¿¡å·é‡, é˜»å¡ä»…å‘ç”Ÿåœ¨ç‹¬ç«‹ task ä¸Šä¸‹æ–‡ä¸­ã€‚
 
-**²âÊÔ²½Öè**:
-1. ·¢ËÍ NET_DNS (²»´æÔÚÓòÃû `"nonexistent-host-12345678.test"`)
-2. ÑÓ³Ù 20ms ºóÁ¢¼´·¢ËÍ PING (`0x00`)
-3. ¼ÇÂ¼ PING ÏìÓ¦Ê±¼ä
+**æµ‹è¯•æ­¥éª¤**:
+1. å‘é€ NET_DNS (ä¸å­˜åœ¨åŸŸå `"nonexistent-host-12345678.test"`)
+2. å»¶è¿Ÿ 20ms åç«‹å³å‘é€ PING (`0x00`)
+3. è®°å½• PING å“åº”æ—¶é—´
 
-**ÑéÖ¤±ê×¼**: PING ÏìÓ¦Ê±¼ä < 100ms (²»ÊÜ DNS 5s ³¬Ê±Ó°Ïì)
+**éªŒè¯æ ‡å‡†**: PING å“åº”æ—¶é—´ < 100ms (ä¸å— DNS 5s è¶…æ—¶å½±å“)
 
-**²âÊÔ½Å±¾**: `script/test/test_network.py` (NET-17)
+**æµ‹è¯•è„šæœ¬**: `script/test/test_network.py` (NET-17)
 
-**ÅĞ¶¨**: PASS ¡ª PING 93.9ms ·µ»Ø, DNS Î´×èÈûÏûÏ¢×ÜÏß
+**åˆ¤å®š**: PASS â€” PING 93.9ms è¿”å›, DNS æœªé˜»å¡æ¶ˆæ¯æ€»çº¿
 
 ---
 
-## NET-18: NET_CLOSE_ALL ¡ª Ò»¼ü¹Ø±ÕËùÓĞÍøÂçÁ¬½Ó
+## NET-18: NET_CLOSE_ALL â€” ä¸€é”®å…³é—­æ‰€æœ‰ç½‘ç»œè¿æ¥
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x45` |
-| **PayloadLen** | `0x0000` (ÎŞÔØºÉ) |
+| **PayloadLen** | `0x0000` (æ— è½½è·) |
 
-**²âÊÔ²½Öè**:
-1. ´´½¨ TCP Server (Port=9500), UDP Server (Port=9501), WS Server (Port=9502)
-2. NET_LIST_CONNS ¡ú ConnCount=3
-3. ·¢ËÍ NET_CLOSE_ALL(¿ÕÔØºÉ) ¡ú Status=0x00
-4. NET_LIST_CONNS ¡ú ConnCount=0
-5. ÖØĞÂ´´½¨ TCP Server ¡ú Status=0x00 (ÑéÖ¤Ä£¿éÎ´±»ÆÆ»µ)
+**æµ‹è¯•æ­¥éª¤**:
+1. åˆ›å»º TCP Server (Port=9500), UDP Server (Port=9501), WS Server (Port=9502)
+2. NET_LIST_CONNS â†’ ConnCount=3
+3. å‘é€ NET_CLOSE_ALL(ç©ºè½½è·) â†’ Status=0x00
+4. NET_LIST_CONNS â†’ ConnCount=0
+5. é‡æ–°åˆ›å»º TCP Server â†’ Status=0x00 (éªŒè¯æ¨¡å—æœªè¢«ç ´å)
 
-**ÅĞ¶¨**: PASS ¡ª 3 ¸ö Server ±»±Õ, ConnCount=0, ¿ÉÖØĞÂ´´½¨
-
----
-
-# µÚÈı²¿·Ö£ºTCP Ä£¿é²âÊÔ (TCP, 0x50-0x5F)
+**åˆ¤å®š**: PASS â€” 3 ä¸ª Server è¢«é—­, ConnCount=0, å¯é‡æ–°åˆ›å»º
 
 ---
 
-## TCP-01: TCP_SERVER_OPEN ¡ª ´´½¨ TCP Server (Õı³£)
+# ç¬¬ä¸‰éƒ¨åˆ†ï¼šTCP æ¨¡å—æµ‹è¯• (TCP, 0x50-0x5F)
 
-| ÏîÄ¿ | Öµ |
+---
+
+## TCP-01: TCP_SERVER_OPEN â€” åˆ›å»º TCP Server (æ­£å¸¸)
+
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x50` |
 | **PayloadLen** | `0x0005` |
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
 | 0-1 | Port | `0x1F90` (8080) |
-| 2 | MaxConn | `0x03` (×î´ó 3 ¸öÁ¬½Ó) |
-| 3 | AcceptMode | `0x01` (×Ô¶¯½ÓÊÜ) |
-| 4 | KeepAlive | `0x3C` (60 Ãë±£»î) |
+| 2 | MaxConn | `0x03` (æœ€å¤§ 3 ä¸ªè¿æ¥) |
+| 3 | AcceptMode | `0x01` (è‡ªåŠ¨æ¥å—) |
+| 4 | KeepAlive | `0x3C` (60 ç§’ä¿æ´») |
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0 | Status | `0x00` |
-| 1-2 | ServerHandle | ·ÇÁãÖµ (0x0001-0x7FFF) |
+| 1-2 | ServerHandle | éé›¶å€¼ (0x0001-0x7FFF) |
 | 3-4 | ActualPort | `0x1F90` (8080) |
 
-**ÑéÖ¤**: MCP NM Client »ò `nc 192.168.x.x 8080` Á¬½ÓÈ·ÈÏ (ÍÆ¼ö MCP NM, ¼û NM-TCP-02)
+**éªŒè¯**: MCP NM Client æˆ– `nc 192.168.x.x 8080` è¿æ¥ç¡®è®¤ (æ¨è MCP NM, è§ NM-TCP-02)
 
-**ÅĞ¶¨**: PASS ¡ª Status=0x00, ServerHandle ºÏ·¨, Êµ¼Ê¶Ë¿ÚÎŞÎó
+**åˆ¤å®š**: PASS â€” Status=0x00, ServerHandle åˆæ³•, å®é™…ç«¯å£æ— è¯¯
 
 ---
 
-## TCP-02: TCP_SERVER_OPEN ¡ª ÏµÍ³×Ô¶¯·ÖÅä¶Ë¿Ú
+## TCP-02: TCP_SERVER_OPEN â€” ç³»ç»Ÿè‡ªåŠ¨åˆ†é…ç«¯å£
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x50` |
 
-**ÇëÇóÔØºÉ**: Port=`0x0000` (0=×Ô¶¯), MaxConn=2, AcceptMode=0x01, KeepAlive=0
+**è¯·æ±‚è½½è·**: Port=`0x0000` (0=è‡ªåŠ¨), MaxConn=2, AcceptMode=0x01, KeepAlive=0
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ActualPort ·ÇÁã (ÏµÍ³Ëæ»ú·ÖÅä)
+**é¢„æœŸå“åº”**: Status=`0x00`, ActualPort éé›¶ (ç³»ç»Ÿéšæœºåˆ†é…)
 
 ---
 
-## TCP-03: TCP_SERVER_OPEN ¡ª ¶Ë¿ÚÒÑ±»Õ¼ÓÃ (´íÎóÓÃÀı)
+## TCP-03: TCP_SERVER_OPEN â€” ç«¯å£å·²è¢«å ç”¨ (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x50` |
 
-**Ç°ÖÃ**: ÒÑ³É¹¦Ö´ĞĞ TCP-01 (8080 ¶Ë¿ÚÒÑÕ¼ÓÃ)
+**å‰ç½®**: å·²æˆåŠŸæ‰§è¡Œ TCP-01 (8080 ç«¯å£å·²å ç”¨)
 
-**ÇëÇóÔØºÉ**: Port=`0x1F90` (8080), ÆäËû²ÎÊıÍ¬ TCP-01
+**è¯·æ±‚è½½è·**: Port=`0x1F90` (8080), å…¶ä»–å‚æ•°åŒ TCP-01
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x45` (ERR_NET_PORT_IN_USE)
+**é¢„æœŸå“åº”**: Status=`0x45` (ERR_NET_PORT_IN_USE)
 
 ---
 
-## TCP-04: TCP_SERVER_OPEN ¡ª ³¬¹ı×î´ó Server Êı (´íÎóÓÃÀı)
+## TCP-04: TCP_SERVER_OPEN â€” è¶…è¿‡æœ€å¤§ Server æ•° (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x50` |
 
-**Ç°ÖÃ**: ÒÑ´´½¨ 4 ¸ö Server (´ïµ½ TCP_MAX_SERVERS=4 ÉÏÏŞ)
+**å‰ç½®**: å·²åˆ›å»º 4 ä¸ª Server (è¾¾åˆ° TCP_MAX_SERVERS=4 ä¸Šé™)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x48` (ERR_NET_MAX_CONN)
+**é¢„æœŸå“åº”**: Status=`0x48` (ERR_NET_MAX_CONN)
 
 ---
 
-## TCP-05: TCP_ACCEPT ¡ª ¿Í»§¶ËÁ¬½ÓÊÂ¼ş (Server ¶Ë)
+## TCP-05: TCP_ACCEPT â€” å®¢æˆ·ç«¯è¿æ¥äº‹ä»¶ (Server ç«¯)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **CmdCode** | `0x56` (ÊÂ¼ş) |
+| **CmdCode** | `0x56` (äº‹ä»¶) |
 
-**Ç°ÖÃ**: ÒÑ´´½¨ TCP Server (AcceptMode=0x01, ×Ô¶¯½ÓÊÜ)
+**å‰ç½®**: å·²åˆ›å»º TCP Server (AcceptMode=0x01, è‡ªåŠ¨æ¥å—)
 
-**²âÊÔ²½Öè**:
-1. ÔÚ¸¨Öú PC ÉÏÖ´ĞĞ `nc 192.168.x.x 8080`
-2. ¼àÌı COM4, µÈ´ı TCP_ACCEPT ÊÂ¼ş
+**æµ‹è¯•æ­¥éª¤**:
+1. åœ¨è¾…åŠ© PC ä¸Šæ‰§è¡Œ `nc 192.168.x.x 8080`
+2. ç›‘å¬ COM4, ç­‰å¾… TCP_ACCEPT äº‹ä»¶
 
-**Ô¤ÆÚÊÂ¼şÖ¡**:
+**é¢„æœŸäº‹ä»¶å¸§**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
-| 0-1 | ServerHandle | Óë TCP-01 ·µ»ØµÄÒ»ÖÂ |
-| 2-3 | ClientHandle | 0x8001-0xFFFE ·¶Î§ |
-| 4-7 | ClientIP | ¸¨Öú PC µÄ IP µØÖ· |
-| 8-9 | ClientPort | ¸¨Öú PC µÄÔ´¶Ë¿Ú |
+| 0-1 | ServerHandle | ä¸ TCP-01 è¿”å›çš„ä¸€è‡´ |
+| 2-3 | ClientHandle | 0x8001-0xFFFE èŒƒå›´ |
+| 4-7 | ClientIP | è¾…åŠ© PC çš„ IP åœ°å€ |
+| 8-9 | ClientPort | è¾…åŠ© PC çš„æºç«¯å£ |
 
-**ÅĞ¶¨**: PASS ¡ª ÊÕµ½ TCP_ACCEPT ÊÂ¼ş, ¸÷×Ö¶ÎÕıÈ·
+**åˆ¤å®š**: PASS â€” æ”¶åˆ° TCP_ACCEPT äº‹ä»¶, å„å­—æ®µæ­£ç¡®
 
 ---
 
-## TCP-06: TCP_SEND ¡ª Server ¶Ë·¢ËÍÊı¾İµ½¿Í»§¶Ë
+## TCP-06: TCP_SEND â€” Server ç«¯å‘é€æ•°æ®åˆ°å®¢æˆ·ç«¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x54` |
 
-**Ç°ÖÃ**: ÒÑÓĞ¿Í»§¶ËÁ¬½Óµ½ TCP Server (´Ó TCP-05 »ñµÃ ClientHandle)
+**å‰ç½®**: å·²æœ‰å®¢æˆ·ç«¯è¿æ¥åˆ° TCP Server (ä» TCP-05 è·å¾— ClientHandle)
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-1 | ConnHandle | ClientHandle (À´×Ô TCP_ACCEPT ÊÂ¼ş) |
+| 0-1 | ConnHandle | ClientHandle (æ¥è‡ª TCP_ACCEPT äº‹ä»¶) |
 | 2-3 | DataLen | `0x000C` (12) |
 | 4-15 | Data | `"Hello Client"` (ASCII) |
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0 | Status | `0x00` |
 | 1-2 | ActualLen | `0x000C` (12) |
 
-**ÑéÖ¤ (¸¨Öú PC)**: `nc` ÖÕ¶ËÊÕµ½ `"Hello Client"`
+**éªŒè¯ (è¾…åŠ© PC)**: `nc` ç»ˆç«¯æ”¶åˆ° `"Hello Client"`
 
-**ÅĞ¶¨**: PASS ¡ª Status=0x00, ActualLen=12, ¸¨Öú PC ÊÕµ½Êı¾İ
+**åˆ¤å®š**: PASS â€” Status=0x00, ActualLen=12, è¾…åŠ© PC æ”¶åˆ°æ•°æ®
 
 ---
 
-## TCP-07: TCP_RECV ¡ª ½ÓÊÕ¿Í»§¶Ë·¢À´µÄÊı¾İ (ÊÂ¼ş)
+## TCP-07: TCP_RECV â€” æ¥æ”¶å®¢æˆ·ç«¯å‘æ¥çš„æ•°æ® (äº‹ä»¶)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **CmdCode** | `0x55` (ÊÂ¼ş) |
+| **CmdCode** | `0x55` (äº‹ä»¶) |
 
-**Ç°ÖÃ**: ÒÑÓĞ¿Í»§¶ËÁ¬½Óµ½ TCP Server
+**å‰ç½®**: å·²æœ‰å®¢æˆ·ç«¯è¿æ¥åˆ° TCP Server
 
-**²âÊÔ²½Öè**:
-1. ÔÚ¸¨Öú PC µÄ `nc` ÖÕ¶ËÖĞÊäÈë `"Hello Server"` ²¢»Ø³µ
-2. ¼àÌı COM4, µÈ´ı TCP_RECV ÊÂ¼ş
+**æµ‹è¯•æ­¥éª¤**:
+1. åœ¨è¾…åŠ© PC çš„ `nc` ç»ˆç«¯ä¸­è¾“å…¥ `"Hello Server"` å¹¶å›è½¦
+2. ç›‘å¬ COM4, ç­‰å¾… TCP_RECV äº‹ä»¶
 
-**Ô¤ÆÚÊÂ¼şÖ¡**:
+**é¢„æœŸäº‹ä»¶å¸§**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0-1 | ConnHandle | ClientHandle |
-| 2-3 | DataLen | `0x000D` (13, º¬ `\r\n`) |
+| 2-3 | DataLen | `0x000D` (13, å« `\r\n`) |
 | 4-16 | Data | `"Hello Server\r\n"` |
 
-**ÅĞ¶¨**: PASS ¡ª ÊÕµ½ TCP_RECV ÊÂ¼ş, Êı¾İÓë·¢³öµÄÍêÈ«Ò»ÖÂ
+**åˆ¤å®š**: PASS â€” æ”¶åˆ° TCP_RECV äº‹ä»¶, æ•°æ®ä¸å‘å‡ºçš„å®Œå…¨ä¸€è‡´
 
 ---
 
-## TCP-08: TCP_CLIENT_CONNECT ¡ª ×÷Îª¿Í»§¶ËÁ¬½ÓÔ¶¶Ë TCP Server
+## TCP-08: TCP_CLIENT_CONNECT â€” ä½œä¸ºå®¢æˆ·ç«¯è¿æ¥è¿œç«¯ TCP Server
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x52` |
 | **PayloadLen** | `0x0008` |
 
-**Ç°ÖÃ**: ¸¨Öú PC ÉÏÒÑÆô¶¯ TCP Server (Èç `nc -l 9090`)
+**å‰ç½®**: è¾…åŠ© PC ä¸Šå·²å¯åŠ¨ TCP Server (å¦‚ `nc -l 9090`)
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-3 | DestIP | ¸¨Öú PC µÄ IP (big-endian) |
+| 0-3 | DestIP | è¾…åŠ© PC çš„ IP (big-endian) |
 | 4-5 | DestPort | `0x2382` (9090) |
-| 6 | TimeoutSec | `0x05` (5 Ãë) |
-| 7 | KeepAlive | `0x00` (½ûÓÃ) |
+| 6 | TimeoutSec | `0x05` (5 ç§’) |
+| 7 | KeepAlive | `0x00` (ç¦ç”¨) |
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0 | Status | `0x00` |
-| 1-2 | ConnHandle | 0x8001-0xFFFE ·¶Î§ |
-| 3-6 | LocalIP | ESP32 µÄ IP µØÖ· |
-| 7-8 | LocalPort | ESP32 µÄÁÙÊ±¶Ë¿Ú |
+| 1-2 | ConnHandle | 0x8001-0xFFFE èŒƒå›´ |
+| 3-6 | LocalIP | ESP32 çš„ IP åœ°å€ |
+| 7-8 | LocalPort | ESP32 çš„ä¸´æ—¶ç«¯å£ |
 
-**ÑéÖ¤ (¸¨Öú PC)**: `nc` Server ÏÔÊ¾ĞÂ¿Í»§¶ËÁ¬½Ó½øÈë
+**éªŒè¯ (è¾…åŠ© PC)**: `nc` Server æ˜¾ç¤ºæ–°å®¢æˆ·ç«¯è¿æ¥è¿›å…¥
 
-**ÅĞ¶¨**: PASS ¡ª Status=0x00, ConnHandle ºÏ·¨
+**åˆ¤å®š**: PASS â€” Status=0x00, ConnHandle åˆæ³•
 
 ---
 
-## TCP-09: TCP_CLIENT_CONNECT ¡ª Á¬½Ó³¬Ê± (´íÎóÓÃÀı)
+## TCP-09: TCP_CLIENT_CONNECT â€” è¿æ¥è¶…æ—¶ (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x52` |
 
-**ÇëÇóÔØºÉ**: DestIP=¸¨Öú PC IP, DestPort=`0x2383` (9091, ÎŞ·şÎñ¼àÌı), TimeoutSec=`0x02`
+**è¯·æ±‚è½½è·**: DestIP=è¾…åŠ© PC IP, DestPort=`0x2383` (9091, æ— æœåŠ¡ç›‘å¬), TimeoutSec=`0x02`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x42` (ERR_NET_TIMEOUT)
+**é¢„æœŸå“åº”**: Status=`0x42` (ERR_NET_TIMEOUT)
 
 ---
 
-## TCP-10: TCP_CLIENT_CONNECT ¡ª Á¬½Ó±»¾Ü¾ø (´íÎóÓÃÀı)
+## TCP-10: TCP_CLIENT_CONNECT â€” è¿æ¥è¢«æ‹’ç» (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x52` |
 
-**ÇëÇóÔØºÉ**: DestIP=¸¨Öú PC IP, DestPort=`0x2383` (9091), TimeoutSec=`0x05`
+**è¯·æ±‚è½½è·**: DestIP=è¾…åŠ© PC IP, DestPort=`0x2383` (9091), TimeoutSec=`0x05`
 
-> ¸¨Öú PC ·À»ğÇ½Ö÷¶¯¾Ü¾ø 9091 ¶Ë¿ÚµÄ SYN °ü (»òÊ¹ÓÃ iptables REJECT)
+> è¾…åŠ© PC é˜²ç«å¢™ä¸»åŠ¨æ‹’ç» 9091 ç«¯å£çš„ SYN åŒ… (æˆ–ä½¿ç”¨ iptables REJECT)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x41` (ERR_NET_CONN_REFUSED)
+**é¢„æœŸå“åº”**: Status=`0x41` (ERR_NET_CONN_REFUSED)
 
 ---
 
-## TCP-11: TCP_CLIENT_DISCONNECT ¡ª Õı³£¶Ï¿ª
+## TCP-11: TCP_CLIENT_DISCONNECT â€” æ­£å¸¸æ–­å¼€
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x53` |
 | **PayloadLen** | `0x0003` |
 
-**Ç°ÖÃ**: ÒÑ½¨Á¢ TCP ¿Í»§¶ËÁ¬½Ó (TCP-08)
+**å‰ç½®**: å·²å»ºç«‹ TCP å®¢æˆ·ç«¯è¿æ¥ (TCP-08)
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-1 | ConnHandle | TCP-08 ·µ»ØµÄÁ¬½Ó¾ä±ú |
-| 2 | Method | `0x00` (Õı³£ FIN) |
+| 0-1 | ConnHandle | TCP-08 è¿”å›çš„è¿æ¥å¥æŸ„ |
+| 2 | Method | `0x00` (æ­£å¸¸ FIN) |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
-- ·¢ËÍ TCP_DISCONNECT_EVENT(Reason=0x00 Õı³£¹Ø±Õ)
+**é¢„æœŸå“åº”**: Status=`0x00`
+- å‘é€ TCP_DISCONNECT_EVENT(Reason=0x00 æ­£å¸¸å…³é—­)
 
-**ÑéÖ¤ (¸¨Öú PC)**: `nc` Server ÏÔÊ¾¿Í»§¶Ë¶Ï¿ª
+**éªŒè¯ (è¾…åŠ© PC)**: `nc` Server æ˜¾ç¤ºå®¢æˆ·ç«¯æ–­å¼€
 
 ---
 
-## TCP-12: TCP_CLIENT_DISCONNECT ¡ª Ç¿ÖÆ RST ¶Ï¿ª
+## TCP-12: TCP_CLIENT_DISCONNECT â€” å¼ºåˆ¶ RST æ–­å¼€
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x53` |
 
-**ÇëÇóÔØºÉ**: Method=`0x01` (Ç¿ÖÆ RST)
-- ÉèÖÃ SO_LINGER {l_onoff=1, l_linger=0} ºó close()
-- ·¢ËÍ TCP_DISCONNECT_EVENT(Reason=0x01 Á¬½ÓÖØÖÃ)
+**è¯·æ±‚è½½è·**: Method=`0x01` (å¼ºåˆ¶ RST)
+- è®¾ç½® SO_LINGER {l_onoff=1, l_linger=0} å close()
+- å‘é€ TCP_DISCONNECT_EVENT(Reason=0x01 è¿æ¥é‡ç½®)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
-**ÑéÖ¤**: ¸¨Öú PC ¶Ë¼ì²âµ½Á¬½Ó±»ÖØÖÃ (RST)
+**éªŒè¯**: è¾…åŠ© PC ç«¯æ£€æµ‹åˆ°è¿æ¥è¢«é‡ç½® (RST)
 
 ---
 
-## TCP-13: TCP_DISCONNECT_EVENT ¡ª Ô¶¶Ë¶Ï¿ªÊ±µÄÊÂ¼şÉÏ±¨
+## TCP-13: TCP_DISCONNECT_EVENT â€” è¿œç«¯æ–­å¼€æ—¶çš„äº‹ä»¶ä¸ŠæŠ¥
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **CmdCode** | `0x58` (ÊÂ¼ş) |
+| **CmdCode** | `0x58` (äº‹ä»¶) |
 
-**Ç°ÖÃ**: ÒÑÓĞ¿Í»§¶ËÁ¬½Óµ½ TCP Server (TCP-05)
+**å‰ç½®**: å·²æœ‰å®¢æˆ·ç«¯è¿æ¥åˆ° TCP Server (TCP-05)
 
-**²âÊÔ²½Öè**:
-1. ÔÚ¸¨Öú PC µÄ `nc` ÖÕ¶Ë°´ `Ctrl+C` ¶Ï¿ªÁ¬½Ó
-2. ¼àÌı COM4, µÈ´ı TCP_DISCONNECT_EVENT
+**æµ‹è¯•æ­¥éª¤**:
+1. åœ¨è¾…åŠ© PC çš„ `nc` ç»ˆç«¯æŒ‰ `Ctrl+C` æ–­å¼€è¿æ¥
+2. ç›‘å¬ COM4, ç­‰å¾… TCP_DISCONNECT_EVENT
 
-**Ô¤ÆÚÊÂ¼şÖ¡**:
+**é¢„æœŸäº‹ä»¶å¸§**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
-| 0-1 | ConnHandle | ¶Ï¿ªµÄÁ¬½Ó¾ä±ú |
-| 2 | Reason | `0x00` (Õı³£¹Ø±Õ) |
-| 3-6 | RemoteIP | ¸¨Öú PC µÄ IP |
-| 7-8 | RemotePort | ¸¨Öú PC µÄ¶Ë¿Ú |
+| 0-1 | ConnHandle | æ–­å¼€çš„è¿æ¥å¥æŸ„ |
+| 2 | Reason | `0x00` (æ­£å¸¸å…³é—­) |
+| 3-6 | RemoteIP | è¾…åŠ© PC çš„ IP |
+| 7-8 | RemotePort | è¾…åŠ© PC çš„ç«¯å£ |
 
-**ÅĞ¶¨**: PASS ¡ª ÊÕµ½¶Ï¿ªÊÂ¼ş, Reason ÕıÈ·
+**åˆ¤å®š**: PASS â€” æ”¶åˆ°æ–­å¼€äº‹ä»¶, Reason æ­£ç¡®
 
 ---
 
-## TCP-14: TCP_SEND ¡ª Ê¹ÓÃ¹ã²¥¾ä±ú·¢ËÍµ½ËùÓĞ¿Í»§¶Ë
+## TCP-14: TCP_SEND â€” ä½¿ç”¨å¹¿æ’­å¥æŸ„å‘é€åˆ°æ‰€æœ‰å®¢æˆ·ç«¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x54` |
 
-**Ç°ÖÃ**: TCP Server ÉÏÓĞ 2 ¸ö¿Í»§¶ËÁ¬½Ó
+**å‰ç½®**: TCP Server ä¸Šæœ‰ 2 ä¸ªå®¢æˆ·ç«¯è¿æ¥
 
-**ÇëÇóÔØºÉ**: ConnHandle=`0x8000` (¹ã²¥¾ä±ú), DataLen=5, Data=`"ALL\r\n"`
+**è¯·æ±‚è½½è·**: ConnHandle=`0x8000` (å¹¿æ’­å¥æŸ„), DataLen=5, Data=`"ALL\r\n"`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
-**ÑéÖ¤**: Á½¸ö¿Í»§¶Ë¶¼ÊÕµ½ `"ALL\r\n"`
+**éªŒè¯**: ä¸¤ä¸ªå®¢æˆ·ç«¯éƒ½æ”¶åˆ° `"ALL\r\n"`
 
 ---
 
-## TCP-15: TCP_SEND ¡ª ÎŞĞ§¾ä±ú (´íÎóÓÃÀı)
+## TCP-15: TCP_SEND â€” æ— æ•ˆå¥æŸ„ (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x54` |
 
-**ÇëÇóÔØºÉ**: ConnHandle=`0x1234` (²»´æÔÚ), DataLen=3, Data=`"ABC"`
+**è¯·æ±‚è½½è·**: ConnHandle=`0x1234` (ä¸å­˜åœ¨), DataLen=3, Data=`"ABC"`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x43` (ERR_NET_HANDLE_INVALID)
+**é¢„æœŸå“åº”**: Status=`0x43` (ERR_NET_HANDLE_INVALID)
 
 ---
 
-## TCP-16: TCP_SEND ¡ª ÏòÒÑ¶Ï¿ªµÄÁ¬½Ó·¢ËÍÊı¾İ
+## TCP-16: TCP_SEND â€” å‘å·²æ–­å¼€çš„è¿æ¥å‘é€æ•°æ®
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x54` |
 
-**Ç°ÖÃ**: Ô¶¶ËÒÑ¶Ï¿ª (´Ó TCP-13 µÄ DISCONNECT_EVENT ÄÃµ½ ConnHandle), µ«¾ä±úÉĞÎ´±»Éè±¸»ØÊÕ
+**å‰ç½®**: è¿œç«¯å·²æ–­å¼€ (ä» TCP-13 çš„ DISCONNECT_EVENT æ‹¿åˆ° ConnHandle), ä½†å¥æŸ„å°šæœªè¢«è®¾å¤‡å›æ”¶
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x40` (ERR_NET_DISCONNECTED)
+**é¢„æœŸå“åº”**: Status=`0x40` (ERR_NET_DISCONNECTED)
 
 ---
 
-## TCP-17: TCP_SERVER_CLOSE ¡ª ¹Ø±Õ Server (Õı³£)
+## TCP-17: TCP_SERVER_CLOSE â€” å…³é—­ Server (æ­£å¸¸)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x51` |
 | **PayloadLen** | `0x0003` |
 
-**Ç°ÖÃ**: TCP Server ÒÑÓĞ 1 ¸ö¿Í»§¶ËÁ¬½Ó
+**å‰ç½®**: TCP Server å·²æœ‰ 1 ä¸ªå®¢æˆ·ç«¯è¿æ¥
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-1 | ServerHandle | TCP-01 ·µ»ØµÄ¾ä±ú |
-| 2 | ForceClose | `0x01` (Á¢¼´¹Ø±Õ) |
+| 0-1 | ServerHandle | TCP-01 è¿”å›çš„å¥æŸ„ |
+| 2 | ForceClose | `0x01` (ç«‹å³å…³é—­) |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
-**ÑéÖ¤**:
-- ¸¨Öú PC ¼ì²âµ½Á¬½Ó¶Ï¿ª
-- Éè±¸ÊÕµ½ TCP_DISCONNECT_EVENT (Èç¹ûÓĞ×ÓÁ¬½Ó)
-- ¸Ã Server ¾ä±úÊÍ·Å, ¿ÉÖØĞÂ´´½¨
+**éªŒè¯**:
+- è¾…åŠ© PC æ£€æµ‹åˆ°è¿æ¥æ–­å¼€
+- è®¾å¤‡æ”¶åˆ° TCP_DISCONNECT_EVENT (å¦‚æœæœ‰å­è¿æ¥)
+- è¯¥ Server å¥æŸ„é‡Šæ”¾, å¯é‡æ–°åˆ›å»º
 
 ---
 
-## TCP-18: TCP_SERVER_CLOSE ¡ª ÎŞĞ§¾ä±ú (´íÎóÓÃÀı)
+## TCP-18: TCP_SERVER_CLOSE â€” æ— æ•ˆå¥æŸ„ (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x51` |
 
-**ÇëÇóÔØºÉ**: ServerHandle=`0x0000` (ÎŞĞ§), ForceClose=`0x01`
+**è¯·æ±‚è½½è·**: ServerHandle=`0x0000` (æ— æ•ˆ), ForceClose=`0x01`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x43` (ERR_NET_HANDLE_INVALID)
+**é¢„æœŸå“åº”**: Status=`0x43` (ERR_NET_HANDLE_INVALID)
 
 ---
 
-## TCP-19: TCP_CLOSE ¡ª Í¨ÓÃ¹Ø±Õ (HandleType=0, Á¬½Ó)
+## TCP-19: TCP_CLOSE â€” é€šç”¨å…³é—­ (HandleType=0, è¿æ¥)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x57` |
 | **PayloadLen** | `0x0004` |
 
-**ÇëÇóÔØºÉ**: Handle=ClientHandle, HandleType=`0x00`, ForceFlag=`0x00`
-- ForceFlag=0: ÓÅÑÅ¹Ø±Õ (FIN) + ·¢ËÍ TCP_DISCONNECT_EVENT(Reason=0x00)
-- ForceFlag=1: Ç¿ÖÆ RST (SO_LINGER) + ·¢ËÍ TCP_DISCONNECT_EVENT(Reason=0x01)
+**è¯·æ±‚è½½è·**: Handle=ClientHandle, HandleType=`0x00`, ForceFlag=`0x00`
+- ForceFlag=0: ä¼˜é›…å…³é—­ (FIN) + å‘é€ TCP_DISCONNECT_EVENT(Reason=0x00)
+- ForceFlag=1: å¼ºåˆ¶ RST (SO_LINGER) + å‘é€ TCP_DISCONNECT_EVENT(Reason=0x01)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, Óë TCP_CLIENT_DISCONNECT(Method=0x00) ĞĞÎªÒ»ÖÂ
+**é¢„æœŸå“åº”**: Status=`0x00`, ä¸ TCP_CLIENT_DISCONNECT(Method=0x00) è¡Œä¸ºä¸€è‡´
 
 ---
 
-## TCP-20: TCP_CLOSE ¡ª Í¨ÓÃ¹Ø±Õ (HandleType=1, Server)
+## TCP-20: TCP_CLOSE â€” é€šç”¨å…³é—­ (HandleType=1, Server)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x57` |
 
-**ÇëÇóÔØºÉ**: Handle=ServerHandle, HandleType=`0x01`, ForceFlag=`0x01`
-- ForceFlag=0: ÓÅÑÅ¹Ø±Õ, Ã¿¸ö×ÓÁ¬½Ó·¢ TCP_DISCONNECT_EVENT(Reason=0x00)
-- ForceFlag=1: Á¢¼´¹Ø±Õ, Ã¿¸ö×ÓÁ¬½Ó·¢ TCP_DISCONNECT_EVENT(Reason=0x01)
+**è¯·æ±‚è½½è·**: Handle=ServerHandle, HandleType=`0x01`, ForceFlag=`0x01`
+- ForceFlag=0: ä¼˜é›…å…³é—­, æ¯ä¸ªå­è¿æ¥å‘ TCP_DISCONNECT_EVENT(Reason=0x00)
+- ForceFlag=1: ç«‹å³å…³é—­, æ¯ä¸ªå­è¿æ¥å‘ TCP_DISCONNECT_EVENT(Reason=0x01)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ËùÓĞ×ÓÁ¬½ÓµÄ DISCONNECT_EVENT ¾ùÒÑ·¢³ö, Server ¾ä±úÊÍ·Å
+**é¢„æœŸå“åº”**: Status=`0x00`, æ‰€æœ‰å­è¿æ¥çš„ DISCONNECT_EVENT å‡å·²å‘å‡º, Server å¥æŸ„é‡Šæ”¾
 
 ---
 
-## TCP-21: TCP_SEND ¡ª ´óÊı¾İÁ¿·¢ËÍ
+## TCP-21: TCP_SEND â€” å¤§æ•°æ®é‡å‘é€
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x54` |
 
-**Ç°ÖÃ**: ÒÑ½¨Á¢Á¬½Ó
+**å‰ç½®**: å·²å»ºç«‹è¿æ¥
 
-**ÇëÇóÔØºÉ**: DataLen=`0x0400` (1024), Data=1024 ×Ö½ÚµİÔöĞòÁĞ
+**è¯·æ±‚è½½è·**: DataLen=`0x0400` (1024), Data=1024 å­—èŠ‚é€’å¢åºåˆ—
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ActualLen=`0x0400`
+**é¢„æœŸå“åº”**: Status=`0x00`, ActualLen=`0x0400`
 
-**ÑéÖ¤**: ¸¨Öú PC ÊÕµ½ÍêÕû 1024 ×Ö½ÚÊı¾İ, ÎŞ½Ø¶Ï
+**éªŒè¯**: è¾…åŠ© PC æ”¶åˆ°å®Œæ•´ 1024 å­—èŠ‚æ•°æ®, æ— æˆªæ–­
 
 ---
 
-## TCP-22: TCP_ACCEPT ¡ª ÊÖ¶¯½ÓÊÜÄ£Ê½
+## TCP-22: TCP_ACCEPT â€” æ‰‹åŠ¨æ¥å—æ¨¡å¼
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **CmdCode** | `0x56` (ÊÂ¼ş + ÃüÁî) |
+| **CmdCode** | `0x56` (äº‹ä»¶ + å‘½ä»¤) |
 
-**Ç°ÖÃ**: ´´½¨ TCP Server (AcceptMode=`0x00`)
+**å‰ç½®**: åˆ›å»º TCP Server (AcceptMode=`0x00`)
 
-**²âÊÔ²½Öè**:
-1. ¸¨Öú PC Á¬½Ó TCP Server
-2. ÊÕµ½ TCP_ACCEPT ÊÂ¼ş (ÉÏ±¨, DIR=1, EVT=1)
-3. ²âÊÔ½Å±¾Í¨¹ı COM4 ·¢ËÍ TCP_ACCEPT **ÃüÁî** (DIR=0) È·ÈÏ
+**æµ‹è¯•æ­¥éª¤**:
+1. è¾…åŠ© PC è¿æ¥ TCP Server
+2. æ”¶åˆ° TCP_ACCEPT äº‹ä»¶ (ä¸ŠæŠ¥, DIR=1, EVT=1)
+3. æµ‹è¯•è„šæœ¬é€šè¿‡ COM4 å‘é€ TCP_ACCEPT **å‘½ä»¤** (DIR=0) ç¡®è®¤
 
-**ÇëÇóÔØºÉ (È·ÈÏÃüÁî)**:
+**è¯·æ±‚è½½è· (ç¡®è®¤å‘½ä»¤)**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-1 | ClientHandle | ÊÂ¼şÖ¡ÖĞµÄ¾ä±ú |
-| 2 | Decision | `0x00` (½ÓÊÜ) |
+| 0-1 | ClientHandle | äº‹ä»¶å¸§ä¸­çš„å¥æŸ„ |
+| 2 | Decision | `0x00` (æ¥å—) |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
-**ÑéÖ¤**: ¸¨Öú PC Á¬½Ó×´Ì¬±äÎª ESTABLISHED (Èç¹û²»È·ÈÏ, Á¬½ÓÓ¦³¬Ê±)
+**éªŒè¯**: è¾…åŠ© PC è¿æ¥çŠ¶æ€å˜ä¸º ESTABLISHED (å¦‚æœä¸ç¡®è®¤, è¿æ¥åº”è¶…æ—¶)
 
 ---
 
-## TCP-23: TCP_ACCEPT ¡ª ÊÖ¶¯¾Ü¾ø
+## TCP-23: TCP_ACCEPT â€” æ‰‹åŠ¨æ‹’ç»
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x56` |
 
-**Ç°ÖÃ**: ´´½¨ TCP Server (AcceptMode=`0x00`), ¸¨Öú PC ·¢ÆğÁ¬½Ó
+**å‰ç½®**: åˆ›å»º TCP Server (AcceptMode=`0x00`), è¾…åŠ© PC å‘èµ·è¿æ¥
 
-**È·ÈÏÔØºÉ**: Decision=`0x01` (¾Ü¾ø)
+**ç¡®è®¤è½½è·**: Decision=`0x01` (æ‹’ç»)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
-**ÑéÖ¤**: ¸¨Öú PC Á¬½Ó±»¾Ü¾ø, Éè±¸²»·ÖÅäÓĞĞ§Í¨ĞÅ¾ä±ú
+**éªŒè¯**: è¾…åŠ© PC è¿æ¥è¢«æ‹’ç», è®¾å¤‡ä¸åˆ†é…æœ‰æ•ˆé€šä¿¡å¥æŸ„
 
 ---
 
-## TCP-24: TCP_SERVER_OPEN ¡ª ÍøÏß°Î³öÊ±´´½¨
+## TCP-24: TCP_SERVER_OPEN â€” ç½‘çº¿æ‹”å‡ºæ—¶åˆ›å»º
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x50` |
 
-**Ç°ÖÃ**: ÍøÏßÒÑ°Î³ö, NET_STATUS ÏÔÊ¾ LinkState=Down
+**å‰ç½®**: ç½‘çº¿å·²æ‹”å‡º, NET_STATUS æ˜¾ç¤º LinkState=Down
 
-> **¹Ì¼ş±ê×¼ĞĞÎª**: `bind(INADDR_ANY)` ²»ÒÀÀµ½Ó¿Ú IP ÊÇ·ñÒÑ·ÖÅä£¬Òò´Ë Server Open ÔÚÎŞ IP Ê±Ò²ÄÜ³É¹¦£¨socket ÒÑ°ó¶¨£¬´ıÁ´Â·»Ö¸´ºó×Ô¶¯ÉúĞ§£©¡£
-> µ«´ËÊ±ÎŞ·¨½ÓÊÜÈÎºÎ¿Í»§¶ËÁ¬½Ó£¬Êµ¼ÊÁ¬½Ó³¢ÊÔ»áÒòÁ´Â·²»¿É´ï¶øÊ§°Ü¡£
+> **å›ºä»¶æ ‡å‡†è¡Œä¸º**: `bind(INADDR_ANY)` ä¸ä¾èµ–æ¥å£ IP æ˜¯å¦å·²åˆ†é…ï¼Œå› æ­¤ Server Open åœ¨æ—  IP æ—¶ä¹Ÿèƒ½æˆåŠŸï¼ˆsocket å·²ç»‘å®šï¼Œå¾…é“¾è·¯æ¢å¤åè‡ªåŠ¨ç”Ÿæ•ˆï¼‰ã€‚
+> ä½†æ­¤æ—¶æ— æ³•æ¥å—ä»»ä½•å®¢æˆ·ç«¯è¿æ¥ï¼Œå®é™…è¿æ¥å°è¯•ä¼šå› é“¾è·¯ä¸å¯è¾¾è€Œå¤±è´¥ã€‚
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00` (OK, Server ´´½¨³É¹¦µ«Á´Â· DOWN)
+**é¢„æœŸå“åº”**: Status=`0x00` (OK, Server åˆ›å»ºæˆåŠŸä½†é“¾è·¯ DOWN)
 
 ---
 
-## TCP-25: TCP ÍêÕûÉúÃüÖÜÆÚ (¼¯³É)
+## TCP-25: TCP å®Œæ•´ç”Ÿå‘½å‘¨æœŸ (é›†æˆ)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **Éæ¼°µÄ CmdCode** | `0x50` ¡ú `0x56` ¡ú `0x54` ¡ú `0x55` ¡ú `0x53` ¡ú `0x58` ¡ú `0x51` |
+| **æ¶‰åŠçš„ CmdCode** | `0x50` â†’ `0x56` â†’ `0x54` â†’ `0x55` â†’ `0x53` â†’ `0x58` â†’ `0x51` |
 
-**²âÊÔ²½Öè**:
-1. **SERVER_OPEN**: ´´½¨ Server (Port=0, AcceptMode=0x01) ¡ú Status=0x00
-2. **ACCEPT**: ¸¨Öú PC Á¬½Ó ¡ú ÊÕµ½ TCP_ACCEPT (ClientHandle=C1)
-3. **SEND**: TCP_SEND(C1, "Hello Client") ¡ú Status=0x00, ActualLen=12
-4. **RECV**: ¸¨Öú PC ·¢ËÍ "ACK" ¡ú ÊÕµ½ TCP_RECV(C1, "ACK\r\n")
-5. **STATUS**: NET_STATUS ¡ú È·ÈÏÁ´Â·Õı³£
-6. **DISCONNECT**: TCP_CLIENT_DISCONNECT(C1) ¡ú Status=0x00 ¡ú ÊÕµ½ TCP_DISCONNECT_EVENT
-7. **SERVER_CLOSE**: TCP_SERVER_CLOSE ¡ú Status=0x00
+**æµ‹è¯•æ­¥éª¤**:
+1. **SERVER_OPEN**: åˆ›å»º Server (Port=0, AcceptMode=0x01) â†’ Status=0x00
+2. **ACCEPT**: è¾…åŠ© PC è¿æ¥ â†’ æ”¶åˆ° TCP_ACCEPT (ClientHandle=C1)
+3. **SEND**: TCP_SEND(C1, "Hello Client") â†’ Status=0x00, ActualLen=12
+4. **RECV**: è¾…åŠ© PC å‘é€ "ACK" â†’ æ”¶åˆ° TCP_RECV(C1, "ACK\r\n")
+5. **STATUS**: NET_STATUS â†’ ç¡®è®¤é“¾è·¯æ­£å¸¸
+6. **DISCONNECT**: TCP_CLIENT_DISCONNECT(C1) â†’ Status=0x00 â†’ æ”¶åˆ° TCP_DISCONNECT_EVENT
+7. **SERVER_CLOSE**: TCP_SERVER_CLOSE â†’ Status=0x00
 
-**Ô¤ÆÚ**: È«²¿ 7 ²½ÒÀ´Î³É¹¦
+**é¢„æœŸ**: å…¨éƒ¨ 7 æ­¥ä¾æ¬¡æˆåŠŸ
 
 ---
 
-## TCP-26: TCP_SEND ¡ª ·¢ËÍ»º³åÇøÂú (ERR_NET_BUFFER_FULL)
+## TCP-26: TCP_SEND â€” å‘é€ç¼“å†²åŒºæ»¡ (ERR_NET_BUFFER_FULL)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x54` |
 
-**²âÊÔ²½Öè**:
-1. ´´½¨ TCP Server (Port=9500, MaxConn=2)
-2. ´´½¨ TCP Client (Connect µ½Í¬Ò» PC ÉÏµÄÁíÒ»¸ö¼àÌı¶Ë¿Ú, »òÊ¹ÓÃ MCP NM)
-3. MCP NM Client Á¬½Ó Server, µ«Í£Ö¹¶ÁÈ¡Êı¾İ (ÈÃ TCP ½ÓÊÕ´°¿Ú¹Ø±Õ)
-4. Í¨¹ı COM4 ¿ìËÙÁ¬Ğø TCP_SEND ´óÊı¾İ, Ö±µ½·¢ËÍ»º³åÇøÂú
+**æµ‹è¯•æ­¥éª¤**:
+1. åˆ›å»º TCP Server (Port=9500, MaxConn=2)
+2. åˆ›å»º TCP Client (Connect åˆ°åŒä¸€ PC ä¸Šçš„å¦ä¸€ä¸ªç›‘å¬ç«¯å£, æˆ–ä½¿ç”¨ MCP NM)
+3. MCP NM Client è¿æ¥ Server, ä½†åœæ­¢è¯»å–æ•°æ® (è®© TCP æ¥æ”¶çª—å£å…³é—­)
+4. é€šè¿‡ COM4 å¿«é€Ÿè¿ç»­ TCP_SEND å¤§æ•°æ®, ç›´åˆ°å‘é€ç¼“å†²åŒºæ»¡
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x44` (ERR_NET_BUFFER_FULL)
+**é¢„æœŸå“åº”**: Status=`0x44` (ERR_NET_BUFFER_FULL)
 
-**ÅĞ¶¨**: PASS ¡ª »º³åÇøÂúÊ±ÕıÈ··µ»Ø´íÎóÂë
+**åˆ¤å®š**: PASS â€” ç¼“å†²åŒºæ»¡æ—¶æ­£ç¡®è¿”å›é”™è¯¯ç 
 
 ---
 
-## TCP-27: TCP_CLIENT_CONNECT ¡ª ³¬¹ı×î´óÁ¬½ÓÊı (ERR_NET_MAX_CONN)
+## TCP-27: TCP_CLIENT_CONNECT â€” è¶…è¿‡æœ€å¤§è¿æ¥æ•° (ERR_NET_MAX_CONN)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x52` |
 
-**Ç°ÖÃ**: ´´½¨ TCP_MAX_CONNS=16 ¸ö¿Í»§¶ËÁ¬½Ó (ÌîÂúÁ¬½Ó±í)
+**å‰ç½®**: åˆ›å»º TCP_MAX_CONNS=16 ä¸ªå®¢æˆ·ç«¯è¿æ¥ (å¡«æ»¡è¿æ¥è¡¨)
 
-**Ô¤ÆÚ**: µÚ 17 ¸ö TCP_CLIENT_CONNECT ÇëÇó·µ»Ø Status=`0x48` (ERR_NET_MAX_CONN)
+**é¢„æœŸ**: ç¬¬ 17 ä¸ª TCP_CLIENT_CONNECT è¯·æ±‚è¿”å› Status=`0x48` (ERR_NET_MAX_CONN)
 
-**ÅĞ¶¨**: PASS ¡ª ×î´óÁ¬½ÓÊıÏŞÖÆÉúĞ§
+**åˆ¤å®š**: PASS â€” æœ€å¤§è¿æ¥æ•°é™åˆ¶ç”Ÿæ•ˆ
 
 ---
 
-## TCP-28: TCP_SERVER_CLOSE ¡ª ÓÅÑÅ¹Ø±Õ (ForceClose=0)
+## TCP-28: TCP_SERVER_CLOSE â€” ä¼˜é›…å…³é—­ (ForceClose=0)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x51` |
 
-**Ç°ÖÃ**: ´´½¨ TCP Server, ÓĞ 2 ¸ö»îÔ¾¿Í»§¶ËÁ¬½Ó
+**å‰ç½®**: åˆ›å»º TCP Server, æœ‰ 2 ä¸ªæ´»è·ƒå®¢æˆ·ç«¯è¿æ¥
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-1 | ServerHandle | ·şÎñÆ÷¾ä±ú |
-| 2 | ForceClose | `0x00` (ÓÅÑÅ¹Ø±Õ) |
+| 0-1 | ServerHandle | æœåŠ¡å™¨å¥æŸ„ |
+| 2 | ForceClose | `0x00` (ä¼˜é›…å…³é—­) |
 
-**Ô¤ÆÚ**:
-- Ã¿¸ö¿Í»§¶ËÊÕµ½ FIN
-- Éè±¸ÎªÃ¿¸ö×ÓÁ¬½Ó·¢ËÍ TCP_DISCONNECT_EVENT
-- Server ¾ä±úÊÍ·Å
+**é¢„æœŸ**:
+- æ¯ä¸ªå®¢æˆ·ç«¯æ”¶åˆ° FIN
+- è®¾å¤‡ä¸ºæ¯ä¸ªå­è¿æ¥å‘é€ TCP_DISCONNECT_EVENT
+- Server å¥æŸ„é‡Šæ”¾
 
-**ÅĞ¶¨**: PASS ¡ª ËùÓĞ DISCONNECT_EVENT ÕıÈ··¢³ö, ¶Ô¶ËÊÕµ½ FIN
+**åˆ¤å®š**: PASS â€” æ‰€æœ‰ DISCONNECT_EVENT æ­£ç¡®å‘å‡º, å¯¹ç«¯æ”¶åˆ° FIN
 
 ---
 
-## TCP-29: TCP ËùÓĞ OPEN/CONNECT ÃüÁî ¡ª ÎŞ IP Ê±µÄ±ê×¼ĞĞÎª
+## TCP-29: TCP æ‰€æœ‰ OPEN/CONNECT å‘½ä»¤ â€” æ—  IP æ—¶çš„æ ‡å‡†è¡Œä¸º
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x50`, `0x52` |
 
-**Ç°ÖÃ**: °Î³öÍøÏß, NET_STATUS È·ÈÏ IpAddr=0x00000000
+**å‰ç½®**: æ‹”å‡ºç½‘çº¿, NET_STATUS ç¡®è®¤ IpAddr=0x00000000
 
-> **¹Ì¼ş±ê×¼ĞĞÎª**: `bind(INADDR_ANY)` ²»ÒÀÀµ½Ó¿Ú IP¡£Server Open ÔÚÎŞ IP Ê±ÈÔ¿É³É¹¦£»
-> Client Connect »á×ßµ½ socket `connect()` µ«ÒòÁ´Â·²»Í¨¶ø×ÔÈ»Ê§°Ü¡£
+> **å›ºä»¶æ ‡å‡†è¡Œä¸º**: `bind(INADDR_ANY)` ä¸ä¾èµ–æ¥å£ IPã€‚Server Open åœ¨æ—  IP æ—¶ä»å¯æˆåŠŸï¼›
+> Client Connect ä¼šèµ°åˆ° socket `connect()` ä½†å› é“¾è·¯ä¸é€šè€Œè‡ªç„¶å¤±è´¥ã€‚
 
-**²âÊÔ²½Öè**:
-1. TCP_SERVER_OPEN(Port=9501) ¡ú Ô¤ÆÚ: Status=`0x00` (OK, socket °ó¶¨µ½ INADDR_ANY ³É¹¦)
-2. TCP_CLIENT_CONNECT(ÈÎÒâIP, ÈÎÒâPort) ¡ú Ô¤ÆÚ: Status=`0x41` (ERR_NET_CONN_REFUSED) »ò `0x42` (ERR_NET_TIMEOUT)
+**æµ‹è¯•æ­¥éª¤**:
+1. TCP_SERVER_OPEN(Port=9501) â†’ é¢„æœŸ: Status=`0x00` (OK, socket ç»‘å®šåˆ° INADDR_ANY æˆåŠŸ)
+2. TCP_CLIENT_CONNECT(ä»»æ„IP, ä»»æ„Port) â†’ é¢„æœŸ: Status=`0x41` (ERR_NET_CONN_REFUSED) æˆ– `0x42` (ERR_NET_TIMEOUT)
 
-**ÅĞ¶¨**: PASS ¡ª Server ´´½¨³É¹¦, Client Á¬½ÓÒòÁ´Â·²»¿É´ï±»¾Ü¾ø
+**åˆ¤å®š**: PASS â€” Server åˆ›å»ºæˆåŠŸ, Client è¿æ¥å› é“¾è·¯ä¸å¯è¾¾è¢«æ‹’ç»
 
 ---
 
-## TCP-30: TCP_LIST_CLIENTS ¡ª ²éÑ¯ÒÑÁ¬½Ó¿Í»§¶Ë
+## TCP-30: TCP_LIST_CLIENTS â€” æŸ¥è¯¢å·²è¿æ¥å®¢æˆ·ç«¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x59` |
 
-**Ç°ÖÃ**: TCP_SERVER_OPEN(Port=8080, AcceptMode=0x01) ¡ú ServerHandle=SH; ÒÑ½ÓÄÉ 2 ¸ö¿Í»§¶Ë
+**å‰ç½®**: TCP_SERVER_OPEN(Port=8080, AcceptMode=0x01) â†’ ServerHandle=SH; å·²æ¥çº³ 2 ä¸ªå®¢æˆ·ç«¯
 
-**ÇëÇóÔØºÉ**: ServerHandle=SH
+**è¯·æ±‚è½½è·**: ServerHandle=SH
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0 | Status | `0x00` |
 | 1 | ClientCount | `0x02` |
 
-±éÀú 2 ¸ö¿Í»§¶ËÌõÄ¿:
-| Æ«ÒÆ | ×Ö¶Î | ÑéÖ¤ |
+éå† 2 ä¸ªå®¢æˆ·ç«¯æ¡ç›®:
+| åç§» | å­—æ®µ | éªŒè¯ |
 |:---|:---|:---|
-| 0-1 | ClientHandle | ·ÇÁãºÏ·¨¾ä±ú |
-| 2-5 | ClientIP | ºÏ·¨ IP µØÖ· |
-| 6-7 | ClientPort | ·ÇÁã¶Ë¿ÚºÅ |
-| 8-9 | ConnectTime | ÓĞĞ§ Duration (²»³¬¹ı²âÊÔÔËĞĞÊ±¼ä) |
+| 0-1 | ClientHandle | éé›¶åˆæ³•å¥æŸ„ |
+| 2-5 | ClientIP | åˆæ³• IP åœ°å€ |
+| 6-7 | ClientPort | éé›¶ç«¯å£å· |
+| 8-9 | ConnectTime | æœ‰æ•ˆ Duration (ä¸è¶…è¿‡æµ‹è¯•è¿è¡Œæ—¶é—´) |
 
-**ÅĞ¶¨**: PASS ¡ª ClientCount=2, ÌõÄ¿ĞÅÏ¢ÕıÈ·
+**åˆ¤å®š**: PASS â€” ClientCount=2, æ¡ç›®ä¿¡æ¯æ­£ç¡®
 
 ---
 
-## TCP-31: TCP_LIST_CLIENTS ¡ª ¿Õ Server
+## TCP-31: TCP_LIST_CLIENTS â€” ç©º Server
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x59` |
 
-**Ç°ÖÃ**: TCP_SERVER_OPEN(Port=8081, AcceptMode=0x01) ¡ú ServerHandle=SH2, µ«ÎŞ¿Í»§¶ËÁ¬½Ó
+**å‰ç½®**: TCP_SERVER_OPEN(Port=8081, AcceptMode=0x01) â†’ ServerHandle=SH2, ä½†æ— å®¢æˆ·ç«¯è¿æ¥
 
-**ÇëÇóÔØºÉ**: ServerHandle=SH2
+**è¯·æ±‚è½½è·**: ServerHandle=SH2
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ClientCount=`0x00`, ÎŞ¿Í»§¶ËÌõÄ¿
+**é¢„æœŸå“åº”**: Status=`0x00`, ClientCount=`0x00`, æ— å®¢æˆ·ç«¯æ¡ç›®
 
-**ÅĞ¶¨**: PASS ¡ª ¿Õ Server ·µ»Ø ClientCount=0
+**åˆ¤å®š**: PASS â€” ç©º Server è¿”å› ClientCount=0
 
 ---
 
-## TCP-32: TCP_KICK_CLIENT ¡ª Ç¿ÖÆ¶Ï¿ªÖ¸¶¨¿Í»§¶Ë
+## TCP-32: TCP_KICK_CLIENT â€” å¼ºåˆ¶æ–­å¼€æŒ‡å®šå®¢æˆ·ç«¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x5A` |
 
-**Ç°ÖÃ**: TCP_SERVER_OPEN(Port=8082, AcceptMode=0x01) ¡ú SH; ¿Í»§¶ËÒÑÁ¬½Ó ¡ú CH
+**å‰ç½®**: TCP_SERVER_OPEN(Port=8082, AcceptMode=0x01) â†’ SH; å®¢æˆ·ç«¯å·²è¿æ¥ â†’ CH
 
-**²âÊÔ²½Öè**:
-1. TCP_LIST_CLIENTS(SH) ¡ú È·ÈÏ CH ´æÔÚ
-2. TCP_KICK_CLIENT(CH, ForceFlag=0x01) ¡ú Status=`0x00`
-3. µÈ´ı TCP_DISCONNECT_EVENT(CH, Reason=0x01)
-4. TCP_LIST_CLIENTS(SH) ¡ú ClientCount=`0x00` (È·ÈÏ CH ÒÑ²»ÔÚÁĞ±íÖĞ)
+**æµ‹è¯•æ­¥éª¤**:
+1. TCP_LIST_CLIENTS(SH) â†’ ç¡®è®¤ CH å­˜åœ¨
+2. TCP_KICK_CLIENT(CH, ForceFlag=0x01) â†’ Status=`0x00`
+3. ç­‰å¾… TCP_DISCONNECT_EVENT(CH, Reason=0x01)
+4. TCP_LIST_CLIENTS(SH) â†’ ClientCount=`0x00` (ç¡®è®¤ CH å·²ä¸åœ¨åˆ—è¡¨ä¸­)
 
-**ÅĞ¶¨**: PASS ¡ª CH ±»³É¹¦¶Ï¿ª²¢ÉÏ±¨ÊÂ¼ş, ÁĞ±íÖĞ²»ÔÙ³öÏÖ
+**åˆ¤å®š**: PASS â€” CH è¢«æˆåŠŸæ–­å¼€å¹¶ä¸ŠæŠ¥äº‹ä»¶, åˆ—è¡¨ä¸­ä¸å†å‡ºç°
 
 ---
 
-## TCP-33: TCP_KICK_CLIENT ¡ª ÎŞĞ§¾ä±ú
+## TCP-33: TCP_KICK_CLIENT â€” æ— æ•ˆå¥æŸ„
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x5A` |
 
-**ÇëÇóÔØºÉ**: ClientHandle=`0xFFFF` (ÎŞĞ§¾ä±ú), ForceFlag=0x01
+**è¯·æ±‚è½½è·**: ClientHandle=`0xFFFF` (æ— æ•ˆå¥æŸ„), ForceFlag=0x01
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x43` (ERR_NET_HANDLE_INVALID)
+**é¢„æœŸå“åº”**: Status=`0x43` (ERR_NET_HANDLE_INVALID)
 
-**ÅĞ¶¨**: PASS ¡ª ÎŞĞ§¾ä±ú·µ»Ø ERR_NET_HANDLE_INVALID
+**åˆ¤å®š**: PASS â€” æ— æ•ˆå¥æŸ„è¿”å› ERR_NET_HANDLE_INVALID
 
 ---
 
-## TCP-34: TCP_CONN_STATUS ¡ª ²éÑ¯µ¥Á¬½Ó×´Ì¬
+## TCP-34: TCP_CONN_STATUS â€” æŸ¥è¯¢å•è¿æ¥çŠ¶æ€
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x5B` |
 
-**Ç°ÖÃ**: TCP Client ÒÑÁ¬½Ó, ÒÑÖª ConnHandle=CH, ÒÑÊÕ·¢Êı¾İ
+**å‰ç½®**: TCP Client å·²è¿æ¥, å·²çŸ¥ ConnHandle=CH, å·²æ”¶å‘æ•°æ®
 
-**ÇëÇóÔØºÉ**: ConnHandle=CH
+**è¯·æ±‚è½½è·**: ConnHandle=CH
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | ÑéÖ¤ |
+| åç§» | å­—æ®µ | éªŒè¯ |
 |:---|:---|:---|
 | 0 | Status | `0x00` |
 | 1 | ConnState | `0x00` (ESTABLISHED) |
-| 2-5 | TxBytes | ·ÇÁã (ÈôÒÑ·¢ËÍÊı¾İ) |
-| 6-9 | RxBytes | ·ÇÁã (ÈôÒÑ½ÓÊÕÊı¾İ) |
-| 10-13 | RemoteIP | ¶Ô¶Ë IP µØÖ· |
-| 14-15 | RemotePort | ¶Ô¶Ë¶Ë¿Ú |
-| 16-17 | LocalPort | ±¾µØ¶Ë¿Ú |
-| 18-21 | ConnectTime | ÓĞĞ§ Duration |
+| 2-5 | TxBytes | éé›¶ (è‹¥å·²å‘é€æ•°æ®) |
+| 6-9 | RxBytes | éé›¶ (è‹¥å·²æ¥æ”¶æ•°æ®) |
+| 10-13 | RemoteIP | å¯¹ç«¯ IP åœ°å€ |
+| 14-15 | RemotePort | å¯¹ç«¯ç«¯å£ |
+| 16-17 | LocalPort | æœ¬åœ°ç«¯å£ |
+| 18-21 | ConnectTime | æœ‰æ•ˆ Duration |
 
-**ÅĞ¶¨**: PASS ¡ª ×´Ì¬Õı³£, Í³¼ÆÊı¾İÓĞĞ§
+**åˆ¤å®š**: PASS â€” çŠ¶æ€æ­£å¸¸, ç»Ÿè®¡æ•°æ®æœ‰æ•ˆ
 
 ---
 
-## TCP-35: TCP_CONN_STATUS ¡ª ÎŞĞ§¾ä±ú
+## TCP-35: TCP_CONN_STATUS â€” æ— æ•ˆå¥æŸ„
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x5B` |
 
-**ÇëÇóÔØºÉ**: ConnHandle=`0xFFFF` (ÎŞĞ§¾ä±ú)
+**è¯·æ±‚è½½è·**: ConnHandle=`0xFFFF` (æ— æ•ˆå¥æŸ„)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x43` (ERR_NET_HANDLE_INVALID)
+**é¢„æœŸå“åº”**: Status=`0x43` (ERR_NET_HANDLE_INVALID)
 
-**ÅĞ¶¨**: PASS ¡ª ÎŞĞ§¾ä±ú·µ»Ø ERR_NET_HANDLE_INVALID
-
----
-
-# µÚËÄ²¿·Ö£ºUDP Ä£¿é²âÊÔ (UDP, 0x60-0x6F)
+**åˆ¤å®š**: PASS â€” æ— æ•ˆå¥æŸ„è¿”å› ERR_NET_HANDLE_INVALID
 
 ---
 
-## UDP-01: UDP_SERVER_OPEN ¡ª ´´½¨ UDP Server
+# ç¬¬å››éƒ¨åˆ†ï¼šUDP æ¨¡å—æµ‹è¯• (UDP, 0x60-0x6F)
 
-| ÏîÄ¿ | Öµ |
+---
+
+## UDP-01: UDP_SERVER_OPEN â€” åˆ›å»º UDP Server
+
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x60` |
 | **PayloadLen** | `0x0007` |
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
 | 0-1 | Port | `0x1F91` (8081) |
-| 2 | BroadcastMode | `0x00` (½ûÓÃ¹ã²¥) |
-| 3-6 | MulticastAddr | `0x00000000` (½ûÓÃ¶à²¥) |
+| 2 | BroadcastMode | `0x00` (ç¦ç”¨å¹¿æ’­) |
+| 3-6 | MulticastAddr | `0x00000000` (ç¦ç”¨å¤šæ’­) |
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0 | Status | `0x00` |
 | 1-2 | ServerHandle | 0x0001-0x7FFF |
@@ -2135,325 +2005,325 @@ network-monitor-mcp_read_network_buffer
 
 ---
 
-## UDP-02: UDP_SERVER_SEND ¡ª ·¢ËÍÊı¾İµ½Ö¸¶¨µØÖ·
+## UDP-02: UDP_SERVER_SEND â€” å‘é€æ•°æ®åˆ°æŒ‡å®šåœ°å€
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x64` |
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-1 | ServerHandle | UDP-01 ·µ»ØµÄ¾ä±ú |
-| 2-5 | DestIP | ¸¨Öú PC µÄ IP |
+| 0-1 | ServerHandle | UDP-01 è¿”å›çš„å¥æŸ„ |
+| 2-5 | DestIP | è¾…åŠ© PC çš„ IP |
 | 6-7 | DestPort | `0x1F92` (8082) |
 | 8-9 | DataLen | `0x000B` (11) |
 | 10-20 | Data | `"Hello UDP\r\n"` |
 
-**Ç°ÖÃ**: ¸¨Öú PC ÉÏÖ´ĞĞ `nc -u -l 8082`
+**å‰ç½®**: è¾…åŠ© PC ä¸Šæ‰§è¡Œ `nc -u -l 8082`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ActualLen=11
+**é¢„æœŸå“åº”**: Status=`0x00`, ActualLen=11
 
-**ÑéÖ¤**: ¸¨Öú PC ÊÕµ½ `"Hello UDP\r\n"`
+**éªŒè¯**: è¾…åŠ© PC æ”¶åˆ° `"Hello UDP\r\n"`
 
 ---
 
-## UDP-03: UDP_RECV ¡ª ½ÓÊÕÍâ²¿ UDP Êı¾İ (ÊÂ¼ş)
+## UDP-03: UDP_RECV â€” æ¥æ”¶å¤–éƒ¨ UDP æ•°æ® (äº‹ä»¶)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **CmdCode** | `0x65` (ÊÂ¼ş) |
+| **CmdCode** | `0x65` (äº‹ä»¶) |
 
-**Ç°ÖÃ**: UDP Server ÒÑ´´½¨
+**å‰ç½®**: UDP Server å·²åˆ›å»º
 
-**²âÊÔ²½Öè**: ¸¨Öú PC Ö´ĞĞ `echo "PONG" | nc -u 192.168.x.x 8081`
+**æµ‹è¯•æ­¥éª¤**: è¾…åŠ© PC æ‰§è¡Œ `echo "PONG" | nc -u 192.168.x.x 8081`
 
-**Ô¤ÆÚÊÂ¼şÖ¡**:
+**é¢„æœŸäº‹ä»¶å¸§**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
-| 0-1 | Handle | Server ¾ä±ú |
-| 2-5 | SrcIP | ¸¨Öú PC µÄ IP |
-| 6-7 | SrcPort | ¸¨Öú PC µÄÔ´¶Ë¿Ú |
+| 0-1 | Handle | Server å¥æŸ„ |
+| 2-5 | SrcIP | è¾…åŠ© PC çš„ IP |
+| 6-7 | SrcPort | è¾…åŠ© PC çš„æºç«¯å£ |
 | 8-9 | DataLen | 5 |
 | 10-14 | Data | `"PONG\n"` |
 
 ---
 
-## UDP-04: UDP_CLIENT_CREATE ¡ª ´´½¨ UDP Client
+## UDP-04: UDP_CLIENT_CREATE â€” åˆ›å»º UDP Client
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x62` |
 | **PayloadLen** | `0x0008` |
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-3 | DefaultDestIP | ¸¨Öú PC IP (big-endian) |
+| 0-3 | DefaultDestIP | è¾…åŠ© PC IP (big-endian) |
 | 4-5 | DefaultDestPort | `0x1F93` (8083) |
-| 6-7 | LocalPort | `0x0000` (×Ô¶¯) |
+| 6-7 | LocalPort | `0x0000` (è‡ªåŠ¨) |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ClientHandle ºÏ·¨, ActualPort ·ÇÁã
+**é¢„æœŸå“åº”**: Status=`0x00`, ClientHandle åˆæ³•, ActualPort éé›¶
 
 ---
 
-## UDP-05: UDP_CLIENT_SEND ¡ª Ê¹ÓÃÄ¬ÈÏµØÖ··¢ËÍ
+## UDP-05: UDP_CLIENT_SEND â€” ä½¿ç”¨é»˜è®¤åœ°å€å‘é€
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x66` |
 
-**Ç°ÖÃ**: UDP Client (UDP-04) ÒÑ´´½¨, ¸¨Öú PC Ö´ĞĞ `nc -u -l 8083`
+**å‰ç½®**: UDP Client (UDP-04) å·²åˆ›å»º, è¾…åŠ© PC æ‰§è¡Œ `nc -u -l 8083`
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-1 | ClientHandle | UDP-04 ·µ»ØµÄ¾ä±ú |
-| 2 | AddrMode | `0x00` (Ê¹ÓÃÄ¬ÈÏµØÖ·) |
+| 0-1 | ClientHandle | UDP-04 è¿”å›çš„å¥æŸ„ |
+| 2 | AddrMode | `0x00` (ä½¿ç”¨é»˜è®¤åœ°å€) |
 | 3-4 | DataLen | `0x000C` (12) |
 | 5-16 | Data | `"Client Hello"` |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ActualLen=12
+**é¢„æœŸå“åº”**: Status=`0x00`, ActualLen=12
 
-**ÑéÖ¤**: ¸¨Öú PC ÊÕµ½ `"Client Hello"`
+**éªŒè¯**: è¾…åŠ© PC æ”¶åˆ° `"Client Hello"`
 
 ---
 
-## UDP-06: UDP_CLIENT_SEND ¡ª Ê¹ÓÃÖ¸¶¨µØÖ··¢ËÍ
+## UDP-06: UDP_CLIENT_SEND â€” ä½¿ç”¨æŒ‡å®šåœ°å€å‘é€
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x66` |
 
-**ÇëÇóÔØºÉ**: AddrMode=`0x01`, DestIP=¸¨Öú PC IP, DestPort=8083, DataLen=10, Data=`"Override\r\n"`
+**è¯·æ±‚è½½è·**: AddrMode=`0x01`, DestIP=è¾…åŠ© PC IP, DestPort=8083, DataLen=10, Data=`"Override\r\n"`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ActualLen=10
+**é¢„æœŸå“åº”**: Status=`0x00`, ActualLen=10
 
 ---
 
-## UDP-07: UDP_SERVER_OPEN ¡ª ÆôÓÃ¹ã²¥Ä£Ê½
+## UDP-07: UDP_SERVER_OPEN â€” å¯ç”¨å¹¿æ’­æ¨¡å¼
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x60` |
 
-**ÇëÇóÔØºÉ**: Port=8084, BroadcastMode=`0x01`
+**è¯·æ±‚è½½è·**: Port=8084, BroadcastMode=`0x01`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
-**ÑéÖ¤**: ¸¨Öú PC ÖĞ `nc -u -l 8084` ÄÜÊÕµ½¹ã²¥Êı¾İ
+**éªŒè¯**: è¾…åŠ© PC ä¸­ `nc -u -l 8084` èƒ½æ”¶åˆ°å¹¿æ’­æ•°æ®
 
 ---
 
-## UDP-08: UDP_SERVER_OPEN ¡ª ¶à²¥Ä£Ê½
+## UDP-08: UDP_SERVER_OPEN â€” å¤šæ’­æ¨¡å¼
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x60` |
 
-**ÇëÇóÔØºÉ**: Port=8085, BroadcastMode=`0x00`, MulticastAddr=`0xE0000001` (224.0.0.1)
+**è¯·æ±‚è½½è·**: Port=8085, BroadcastMode=`0x00`, MulticastAddr=`0xE0000001` (224.0.0.1)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
-**ÑéÖ¤**: Í¬Ò»¾ÖÓòÍøÄÚÁíÒ»Éè±¸¼ÓÈë¶à²¥×é `224.0.0.1:8085` ¿É½ÓÊÕÊı¾İ
+**éªŒè¯**: åŒä¸€å±€åŸŸç½‘å†…å¦ä¸€è®¾å¤‡åŠ å…¥å¤šæ’­ç»„ `224.0.0.1:8085` å¯æ¥æ”¶æ•°æ®
 
 ---
 
-## UDP-09: UDP_CLIENT_DELETE ¡ª É¾³ı UDP Client
+## UDP-09: UDP_CLIENT_DELETE â€” åˆ é™¤ UDP Client
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x63` |
 | **PayloadLen** | `0x0002` |
 
-**Ç°ÖÃ**: UDP Client (UDP-04) ´æÔÚ
+**å‰ç½®**: UDP Client (UDP-04) å­˜åœ¨
 
-**ÇëÇóÔØºÉ**: ClientHandle=UDP-04 µÄ¾ä±ú
+**è¯·æ±‚è½½è·**: ClientHandle=UDP-04 çš„å¥æŸ„
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
-**ÑéÖ¤**: ÔÙ´Î·¢ËÍ UDP_CLIENT_SEND Ó¦·µ»Ø `ERR_NET_HANDLE_INVALID`
+**éªŒè¯**: å†æ¬¡å‘é€ UDP_CLIENT_SEND åº”è¿”å› `ERR_NET_HANDLE_INVALID`
 
 ---
 
-## UDP-10: UDP_SERVER_CLOSE ¡ª ¹Ø±Õ UDP Server
+## UDP-10: UDP_SERVER_CLOSE â€” å…³é—­ UDP Server
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x61` |
 | **PayloadLen** | `0x0002` |
 
-**Ç°ÖÃ**: UDP Server (UDP-01) ´æÔÚ
+**å‰ç½®**: UDP Server (UDP-01) å­˜åœ¨
 
-**ÇëÇóÔØºÉ**: ServerHandle=UDP-01 µÄ¾ä±ú
+**è¯·æ±‚è½½è·**: ServerHandle=UDP-01 çš„å¥æŸ„
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
 ---
 
-## UDP-11: UDP_SERVER_OPEN ¡ª ³¬¹ı×î´ó Server Êı (ERR_NET_MAX_CONN)
+## UDP-11: UDP_SERVER_OPEN â€” è¶…è¿‡æœ€å¤§ Server æ•° (ERR_NET_MAX_CONN)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x60` |
 
-**Ç°ÖÃ**: ÒÑ´´½¨ UDP_MAX_SERVERS=4 ¸ö UDP Server
+**å‰ç½®**: å·²åˆ›å»º UDP_MAX_SERVERS=4 ä¸ª UDP Server
 
-**Ô¤ÆÚ**: µÚ 5 ¸ö UDP_SERVER_OPEN ÇëÇó·µ»Ø Status=`0x48` (ERR_NET_MAX_CONN)
+**é¢„æœŸ**: ç¬¬ 5 ä¸ª UDP_SERVER_OPEN è¯·æ±‚è¿”å› Status=`0x48` (ERR_NET_MAX_CONN)
 
-**ÅĞ¶¨**: PASS ¡ª ×î´ó Server ÊıÏŞÖÆÉúĞ§
+**åˆ¤å®š**: PASS â€” æœ€å¤§ Server æ•°é™åˆ¶ç”Ÿæ•ˆ
 
 ---
 
-## UDP-12: UDP_CLIENT_CREATE ¡ª ³¬¹ı×î´ó Client Êı (ERR_NET_MAX_CONN)
+## UDP-12: UDP_CLIENT_CREATE â€” è¶…è¿‡æœ€å¤§ Client æ•° (ERR_NET_MAX_CONN)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x62` |
 
-**Ç°ÖÃ**: ÒÑ´´½¨ UDP_MAX_CLIENTS=8 ¸ö UDP Client
+**å‰ç½®**: å·²åˆ›å»º UDP_MAX_CLIENTS=8 ä¸ª UDP Client
 
-**Ô¤ÆÚ**: µÚ 9 ¸ö UDP_CLIENT_CREATE ÇëÇó·µ»Ø Status=`0x48` (ERR_NET_MAX_CONN)
+**é¢„æœŸ**: ç¬¬ 9 ä¸ª UDP_CLIENT_CREATE è¯·æ±‚è¿”å› Status=`0x48` (ERR_NET_MAX_CONN)
 
-**ÅĞ¶¨**: PASS ¡ª ×î´ó Client ÊıÏŞÖÆÉúĞ§
+**åˆ¤å®š**: PASS â€” æœ€å¤§ Client æ•°é™åˆ¶ç”Ÿæ•ˆ
 
 ---
 
-## UDP-13: UDP_SERVER_CLOSE ¡ª ÎŞĞ§¾ä±ú (ERR_NET_HANDLE_INVALID)
+## UDP-13: UDP_SERVER_CLOSE â€” æ— æ•ˆå¥æŸ„ (ERR_NET_HANDLE_INVALID)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x61` |
 
-**ÇëÇóÔØºÉ**: ServerHandle=`0x0000` (ÎŞĞ§)
+**è¯·æ±‚è½½è·**: ServerHandle=`0x0000` (æ— æ•ˆ)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x43` (ERR_NET_HANDLE_INVALID)
+**é¢„æœŸå“åº”**: Status=`0x43` (ERR_NET_HANDLE_INVALID)
 
 ---
 
-## UDP-14: UDP ËùÓĞ OPEN/CREATE ÃüÁî ¡ª ÎŞ IP Ê±µÄ±ê×¼ĞĞÎª
+## UDP-14: UDP æ‰€æœ‰ OPEN/CREATE å‘½ä»¤ â€” æ—  IP æ—¶çš„æ ‡å‡†è¡Œä¸º
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x60`, `0x62` |
 
-**Ç°ÖÃ**: °Î³öÍøÏß, NET_STATUS È·ÈÏ IpAddr=0x00000000
+**å‰ç½®**: æ‹”å‡ºç½‘çº¿, NET_STATUS ç¡®è®¤ IpAddr=0x00000000
 
-> **¹Ì¼ş±ê×¼ĞĞÎª**: UDP Server/Client ´´½¨½ö×ö `socket()` + `bind(INADDR_ANY)`£¬²»ÒÀÀµ½Ó¿Ú IP£»
-> Êµ¼ÊÊı¾İÊÕ·¢ÔÚÁ´Â· UP ºó×Ô¶¯ÉúĞ§¡£
+> **å›ºä»¶æ ‡å‡†è¡Œä¸º**: UDP Server/Client åˆ›å»ºä»…åš `socket()` + `bind(INADDR_ANY)`ï¼Œä¸ä¾èµ–æ¥å£ IPï¼›
+> å®é™…æ•°æ®æ”¶å‘åœ¨é“¾è·¯ UP åè‡ªåŠ¨ç”Ÿæ•ˆã€‚
 
-**²âÊÔ²½Öè**:
-1. UDP_SERVER_OPEN(Port=9502) ¡ú Ô¤ÆÚ: Status=`0x00` (OK, socket °ó¶¨³É¹¦)
-2. UDP_CLIENT_CREATE(ÈÎÒâIP, ÈÎÒâPort) ¡ú Ô¤ÆÚ: Status=`0x00` (OK, socket ´´½¨³É¹¦)
+**æµ‹è¯•æ­¥éª¤**:
+1. UDP_SERVER_OPEN(Port=9502) â†’ é¢„æœŸ: Status=`0x00` (OK, socket ç»‘å®šæˆåŠŸ)
+2. UDP_CLIENT_CREATE(ä»»æ„IP, ä»»æ„Port) â†’ é¢„æœŸ: Status=`0x00` (OK, socket åˆ›å»ºæˆåŠŸ)
 
-**ÅĞ¶¨**: PASS ¡ª Server ºÍ Client ¾ù¿ÉÕı³£´´½¨
-
----
-
-# µÚÎå²¿·Ö£ºWebSocket Ä£¿é²âÊÔ (WS, 0x70-0x7F)
+**åˆ¤å®š**: PASS â€” Server å’Œ Client å‡å¯æ­£å¸¸åˆ›å»º
 
 ---
 
-## WS-01: WS_SERVER_OPEN ¡ª ´´½¨ WebSocket Server
+# ç¬¬äº”éƒ¨åˆ†ï¼šWebSocket æ¨¡å—æµ‹è¯• (WS, 0x70-0x7F)
 
-| ÏîÄ¿ | Öµ |
+---
+
+## WS-01: WS_SERVER_OPEN â€” åˆ›å»º WebSocket Server
+
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x70` |
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
 | 0-1 | Port | `0x1F94` (8084) |
 | 2 | MaxConn | `0x03` |
 | 3 | PathLen | `0x03` |
 | 4-6 | Path | `"/ws"` (ASCII) |
-| 7 | SubProtoLen | `0x00` (ÎŞ×ÓĞ­Òé) |
+| 7 | SubProtoLen | `0x00` (æ— å­åè®®) |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ServerHandle ºÏ·¨, ActualPort=8084
+**é¢„æœŸå“åº”**: Status=`0x00`, ServerHandle åˆæ³•, ActualPort=8084
 
 ---
 
-## WS-02: WS_ACCEPT ¡ª WebSocket ¿Í»§¶ËÁ¬½ÓÊÂ¼ş
+## WS-02: WS_ACCEPT â€” WebSocket å®¢æˆ·ç«¯è¿æ¥äº‹ä»¶
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **CmdCode** | `0x76` (ÊÂ¼ş) |
+| **CmdCode** | `0x76` (äº‹ä»¶) |
 
-**Ç°ÖÃ**: WS Server (WS-01) ÒÑ´´½¨
+**å‰ç½®**: WS Server (WS-01) å·²åˆ›å»º
 
-**²âÊÔ²½Öè**:
-1. ¸¨Öú PC Ê¹ÓÃ `wscat` »ò Python `websockets` Á¬½Ó: `ws://192.168.x.x:8084/ws`
-2. ¼àÌı COM4
+**æµ‹è¯•æ­¥éª¤**:
+1. è¾…åŠ© PC ä½¿ç”¨ `wscat` æˆ– Python `websockets` è¿æ¥: `ws://192.168.x.x:8084/ws`
+2. ç›‘å¬ COM4
 
-**Ô¤ÆÚÊÂ¼şÖ¡**:
+**é¢„æœŸäº‹ä»¶å¸§**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
-| 0-1 | ServerHandle | WS-01 ·µ»ØµÄ¾ä±ú |
+| 0-1 | ServerHandle | WS-01 è¿”å›çš„å¥æŸ„ |
 | 2-3 | ClientHandle | 0x8001-0xFFFE |
-| 4-7 | ClientIP | ¸¨Öú PC IP |
-| 8-9 | ClientPort | ¸¨Öú PC Ô´¶Ë¿Ú |
+| 4-7 | ClientIP | è¾…åŠ© PC IP |
+| 8-9 | ClientPort | è¾…åŠ© PC æºç«¯å£ |
 | 10 | SubProtoIndex | `0x00` |
 | 11 | PathLen | `0x03` |
 | 12-14 | Path | `"/ws"` |
 
 ---
 
-## WS-03: WS_SEND ¡ª ·¢ËÍ Text ÏûÏ¢
+## WS-03: WS_SEND â€” å‘é€ Text æ¶ˆæ¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x74` |
 
-**Ç°ÖÃ**: WebSocket ¿Í»§¶ËÒÑÁ¬½Ó (WS-02)
+**å‰ç½®**: WebSocket å®¢æˆ·ç«¯å·²è¿æ¥ (WS-02)
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-1 | ConnHandle | WS-02 ·µ»ØµÄ ClientHandle |
+| 0-1 | ConnHandle | WS-02 è¿”å›çš„ ClientHandle |
 | 2 | MsgType | `0x01` (Text) |
 | 3-4 | DataLen | `0x000D` (13) |
 | 5-17 | Data | `"Hello WS Text"` |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ActualLen=13
+**é¢„æœŸå“åº”**: Status=`0x00`, ActualLen=13
 
-**ÑéÖ¤**: ¸¨Öú PC ÊÕµ½ Text ÏûÏ¢ `"Hello WS Text"`
+**éªŒè¯**: è¾…åŠ© PC æ”¶åˆ° Text æ¶ˆæ¯ `"Hello WS Text"`
 
 ---
 
-## WS-04: WS_SEND ¡ª ·¢ËÍ Binary ÏûÏ¢
+## WS-04: WS_SEND â€” å‘é€ Binary æ¶ˆæ¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x74` |
 
-**ÇëÇóÔØºÉ**: MsgType=`0x02`, DataLen=4, Data=`0x00 0xFF 0x42 0x7E`
+**è¯·æ±‚è½½è·**: MsgType=`0x02`, DataLen=4, Data=`0x00 0xFF 0x42 0x7E`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ActualLen=4
+**é¢„æœŸå“åº”**: Status=`0x00`, ActualLen=4
 
-**ÑéÖ¤**: ¸¨Öú PC ÊÕµ½ 4 ×Ö½Ú¶ş½øÖÆÊı¾İ
+**éªŒè¯**: è¾…åŠ© PC æ”¶åˆ° 4 å­—èŠ‚äºŒè¿›åˆ¶æ•°æ®
 
 ---
 
-## WS-05: WS_RECV ¡ª ½ÓÊÕ WebSocket Text ÏûÏ¢ (ÊÂ¼ş)
+## WS-05: WS_RECV â€” æ¥æ”¶ WebSocket Text æ¶ˆæ¯ (äº‹ä»¶)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **CmdCode** | `0x75` (ÊÂ¼ş) |
+| **CmdCode** | `0x75` (äº‹ä»¶) |
 
-**Ç°ÖÃ**: WebSocket ¿Í»§¶ËÒÑÁ¬½Ó
+**å‰ç½®**: WebSocket å®¢æˆ·ç«¯å·²è¿æ¥
 
-**²âÊÔ²½Öè**: ¸¨Öú PC ·¢ËÍ WebSocket Text ÏûÏ¢ `"Hello from client"`
+**æµ‹è¯•æ­¥éª¤**: è¾…åŠ© PC å‘é€ WebSocket Text æ¶ˆæ¯ `"Hello from client"`
 
-**Ô¤ÆÚÊÂ¼şÖ¡**:
+**é¢„æœŸäº‹ä»¶å¸§**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0-1 | ConnHandle | ClientHandle |
 | 2 | MsgType | `0x01` (Text) |
@@ -2462,519 +2332,518 @@ network-monitor-mcp_read_network_buffer
 
 ---
 
-## WS-06: WS_SEND ¡ª ·¢ËÍ Ping (ĞÄÌø)
+## WS-06: WS_SEND â€” å‘é€ Ping (å¿ƒè·³)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x74` |
 
-**ÇëÇóÔØºÉ**: MsgType=`0x09` (Ping), DataLen=0
+**è¯·æ±‚è½½è·**: MsgType=`0x09` (Ping), DataLen=0
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ActualLen=0
+**é¢„æœŸå“åº”**: Status=`0x00`, ActualLen=0
 
-> ´ó²¿·Ö WebSocket ¿Í»§¶Ë»á×Ô¶¯»Ø¸´ Pong, ÎŞĞè½Å±¾ÑéÖ¤
+> å¤§éƒ¨åˆ† WebSocket å®¢æˆ·ç«¯ä¼šè‡ªåŠ¨å›å¤ Pong, æ— éœ€è„šæœ¬éªŒè¯
 
 ---
 
-## WS-07: WS_CLIENT_DISCONNECT ¡ª ¹Ø±Õ WebSocket Á¬½Ó
+## WS-07: WS_CLIENT_DISCONNECT â€” å…³é—­ WebSocket è¿æ¥
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x73` |
 | **PayloadLen** | `0x0004` |
 
-**Ç°ÖÃ**: WebSocket ¿Í»§¶ËÒÑÁ¬½Ó
+**å‰ç½®**: WebSocket å®¢æˆ·ç«¯å·²è¿æ¥
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-1 | ClientHandle | Á¬½Ó¾ä±ú |
-| 2-3 | CloseCode | `0x03E8` (1000, Õı³£¹Ø±Õ) |
+| 0-1 | ClientHandle | è¿æ¥å¥æŸ„ |
+| 2-3 | CloseCode | `0x03E8` (1000, æ­£å¸¸å…³é—­) |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
-**ÑéÖ¤**: ¸¨Öú PC ÊÕµ½ Close Ö¡ (CloseCode=1000)
+**éªŒè¯**: è¾…åŠ© PC æ”¶åˆ° Close å¸§ (CloseCode=1000)
 
 ---
 
-## WS-08: WS_DISCONNECT_EVENT ¡ª Ô¶¶Ë¶Ï¿ªÊÂ¼şÉÏ±¨
+## WS-08: WS_DISCONNECT_EVENT â€” è¿œç«¯æ–­å¼€äº‹ä»¶ä¸ŠæŠ¥
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **CmdCode** | `0x77` (ÊÂ¼ş) |
+| **CmdCode** | `0x77` (äº‹ä»¶) |
 
-**Ç°ÖÃ**: WebSocket ¿Í»§¶ËÒÑÁ¬½Ó
+**å‰ç½®**: WebSocket å®¢æˆ·ç«¯å·²è¿æ¥
 
-**²âÊÔ²½Öè**: ¸¨Öú PC Ö÷¶¯¹Ø±Õ WebSocket Á¬½Ó (Ctrl+C)
+**æµ‹è¯•æ­¥éª¤**: è¾…åŠ© PC ä¸»åŠ¨å…³é—­ WebSocket è¿æ¥ (Ctrl+C)
 
-**Ô¤ÆÚÊÂ¼şÖ¡**:
+**é¢„æœŸäº‹ä»¶å¸§**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
-| 0-1 | ConnHandle | ¶Ï¿ªµÄ¾ä±ú |
-| 2-3 | CloseCode | ¿Í»§¶Ë·¢ËÍµÄ¹Ø±ÕÂë |
-| 4 | Reason | ¶Ï¿ªÔ­Òò |
+| 0-1 | ConnHandle | æ–­å¼€çš„å¥æŸ„ |
+| 2-3 | CloseCode | å®¢æˆ·ç«¯å‘é€çš„å…³é—­ç  |
+| 4 | Reason | æ–­å¼€åŸå›  |
 
 ---
 
-## WS-09: WS_CLIENT_CONNECT ¡ª ×÷Îª¿Í»§¶ËÁ¬½ÓÔ¶¶Ë
+## WS-09: WS_CLIENT_CONNECT â€” ä½œä¸ºå®¢æˆ·ç«¯è¿æ¥è¿œç«¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x72` |
 
-**Ç°ÖÃ**: ¸¨Öú PC ÉÏÆô¶¯ WebSocket Server (Èç `python -m websockets`)
+**å‰ç½®**: è¾…åŠ© PC ä¸Šå¯åŠ¨ WebSocket Server (å¦‚ `python -m websockets`)
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-3 | ServerIP | ¸¨Öú PC IP |
+| 0-3 | ServerIP | è¾…åŠ© PC IP |
 | 4-5 | ServerPort | 8765 |
 | 6 | PathLen | 0x01 |
 | 7 | Path | `"/"` |
 | 8 | HeaderLen | 0x00 |
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`, ClientHandle ºÏ·¨, ConnResult=`0x01` (³É¹¦)
+**é¢„æœŸå“åº”**: Status=`0x00`, ClientHandle åˆæ³•, ConnResult=`0x01` (æˆåŠŸ)
 
 ---
 
-## WS-10: WS_CLIENT_CONNECT ¡ª ÎÕÊÖÊ§°Ü (´íÎóÓÃÀı)
+## WS-10: WS_CLIENT_CONNECT â€” æ¡æ‰‹å¤±è´¥ (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x72` |
 
-**Ç°ÖÃ**: ¸¨Öú PC TCP Server (·Ç WebSocket) ¼àÌı 8900 ¶Ë¿Ú
+**å‰ç½®**: è¾…åŠ© PC TCP Server (é WebSocket) ç›‘å¬ 8900 ç«¯å£
 
-**ÇëÇóÔØºÉ**: ServerIP=¸¨Öú PC IP, ServerPort=8900, PathLen=1, Path="/"
+**è¯·æ±‚è½½è·**: ServerIP=è¾…åŠ© PC IP, ServerPort=8900, PathLen=1, Path="/"
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x49` (ERR_NET_WS_HANDSHAKE) ¡ª HTTP Upgrade Î´·µ»Ø 101
+**é¢„æœŸå“åº”**: Status=`0x49` (ERR_NET_WS_HANDSHAKE) â€” HTTP Upgrade æœªè¿”å› 101
 
 ---
 
-## WS-11: WS_SERVER_CLOSE ¡ª ¹Ø±Õ WebSocket Server
+## WS-11: WS_SERVER_CLOSE â€” å…³é—­ WebSocket Server
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x71` |
 | **PayloadLen** | `0x0003` |
 
-**ÇëÇóÔØºÉ**: ServerHandle=WS-01 ¾ä±ú, ForceFlag=`0x01`
+**è¯·æ±‚è½½è·**: ServerHandle=WS-01 å¥æŸ„, ForceFlag=`0x01`
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
 ---
 
-## WS-12: WS_SEND ¡ª ·¢ËÍ Pong (ĞÄÌø»Ø¸´)
+## WS-12: WS_SEND â€” å‘é€ Pong (å¿ƒè·³å›å¤)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x74` |
 
-**ÇëÇóÔØºÉ**: MsgType=`0x0A` (Pong), DataLen=0
+**è¯·æ±‚è½½è·**: MsgType=`0x0A` (Pong), DataLen=0
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x00`
+**é¢„æœŸå“åº”**: Status=`0x00`
 
 ---
 
-## WS-13: WebSocket ÍêÕûÉúÃüÖÜÆÚ (¼¯³É)
+## WS-13: WebSocket å®Œæ•´ç”Ÿå‘½å‘¨æœŸ (é›†æˆ)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **Éæ¼°µÄ CmdCode** | `0x70` ¡ú `0x76` ¡ú `0x74` ¡ú `0x75` ¡ú `0x73` ¡ú `0x77` ¡ú `0x71` |
+| **æ¶‰åŠçš„ CmdCode** | `0x70` â†’ `0x76` â†’ `0x74` â†’ `0x75` â†’ `0x73` â†’ `0x77` â†’ `0x71` |
 
-**²âÊÔ²½Öè**:
-1. **SERVER_OPEN**: WS_SERVER_OPEN(Port=0, Path="/test") ¡ú »ñÈ¡ ServerHandle
-2. **ACCEPT**: ¸¨Öú PC Á¬½Ó ¡ú ÊÕµ½ WS_ACCEPT ÊÂ¼ş (ClientHandle=C1)
-3. **SEND Text**: WS_SEND(C1, Text, "Hi") ¡ú Status=0x00
-4. **RECV Text**: ¸¨Öú PC ·¢ËÍ "Hello" ¡ú ÊÕµ½ WS_RECV(C1, Text, "Hello")
-5. **SEND Binary**: WS_SEND(C1, Binary, `0xCA 0xFE`) ¡ú Status=0x00
-6. **SEND Ping**: WS_SEND(C1, Ping) ¡ú Status=0x00
-7. **DISCONNECT**: WS_CLIENT_DISCONNECT(C1, 1000) ¡ú Status=0x00 ¡ú ÊÕµ½ WS_DISCONNECT_EVENT
-8. **SERVER_CLOSE**: WS_SERVER_CLOSE ¡ú Status=0x00
+**æµ‹è¯•æ­¥éª¤**:
+1. **SERVER_OPEN**: WS_SERVER_OPEN(Port=0, Path="/test") â†’ è·å– ServerHandle
+2. **ACCEPT**: è¾…åŠ© PC è¿æ¥ â†’ æ”¶åˆ° WS_ACCEPT äº‹ä»¶ (ClientHandle=C1)
+3. **SEND Text**: WS_SEND(C1, Text, "Hi") â†’ Status=0x00
+4. **RECV Text**: è¾…åŠ© PC å‘é€ "Hello" â†’ æ”¶åˆ° WS_RECV(C1, Text, "Hello")
+5. **SEND Binary**: WS_SEND(C1, Binary, `0xCA 0xFE`) â†’ Status=0x00
+6. **SEND Ping**: WS_SEND(C1, Ping) â†’ Status=0x00
+7. **DISCONNECT**: WS_CLIENT_DISCONNECT(C1, 1000) â†’ Status=0x00 â†’ æ”¶åˆ° WS_DISCONNECT_EVENT
+8. **SERVER_CLOSE**: WS_SERVER_CLOSE â†’ Status=0x00
 
-**Ô¤ÆÚ**: È«²¿ 8 ²½ÒÀ´Î³É¹¦
+**é¢„æœŸ**: å…¨éƒ¨ 8 æ­¥ä¾æ¬¡æˆåŠŸ
 
 ---
 
-## WS-14: WS_RECV ¡ª ×Ô¶¯»Ø¸´ Ping (RFC 6455)
+## WS-14: WS_RECV â€” è‡ªåŠ¨å›å¤ Ping (RFC 6455)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **CmdCode** | `0x75` (²»Ô¤ÆÚÊÂ¼ş) |
+| **CmdCode** | `0x75` (ä¸é¢„æœŸäº‹ä»¶) |
 
-**Ç°ÖÃ**: WS Server ÒÑ´´½¨, MCP NM WS Client ÒÑÁ¬½Ó
+**å‰ç½®**: WS Server å·²åˆ›å»º, MCP NM WS Client å·²è¿æ¥
 
-**²âÊÔ²½Öè**:
-1. MCP NM WS Client ·¢ËÍ WebSocket Ping Ö¡µ½ HEX-Bridge
-2. HEX-Bridge ÄÚ²¿×Ô¶¯»Ø¸´ Pong (RFC 6455 ÒªÇó)
-3. ¼àÌı COM4 ¡ª ²»Ó¦ÊÕµ½ WS_RECV ÊÂ¼ş (Ping/Pong ÔÚÉè±¸²àÄÚ²¿¿ØÖÆ, ²»ÉÏ±¨¸ø UBCP)
+**æµ‹è¯•æ­¥éª¤**:
+1. MCP NM WS Client å‘é€ WebSocket Ping å¸§åˆ° HEX-Bridge
+2. HEX-Bridge å†…éƒ¨è‡ªåŠ¨å›å¤ Pong (RFC 6455 è¦æ±‚)
+3. ç›‘å¬ COM4 â€” ä¸åº”æ”¶åˆ° WS_RECV äº‹ä»¶ (Ping/Pong åœ¨è®¾å¤‡ä¾§å†…éƒ¨æ§åˆ¶, ä¸ä¸ŠæŠ¥ç»™ UBCP)
 
-**ÑéÖ¤**: UBCP Á´Â·²»ÊÜÓ°Ïì, WS Client ÊÕµ½ Pong
+**éªŒè¯**: UBCP é“¾è·¯ä¸å—å½±å“, WS Client æ”¶åˆ° Pong
 
-**ÅĞ¶¨**: PASS ¡ª Ping ±»×Ô¶¯´¦Àí, UBCP ÎŞÓ°Ïì
+**åˆ¤å®š**: PASS â€” Ping è¢«è‡ªåŠ¨å¤„ç†, UBCP æ— å½±å“
 
 ---
 
-## WS-15: WS_SEND ¡ª ·¢ËÍ Close Ö¡ (MsgType=0x08)
+## WS-15: WS_SEND â€” å‘é€ Close å¸§ (MsgType=0x08)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x74` |
 
-**Ç°ÖÃ**: WS Client ÒÑÁ¬½Ó
+**å‰ç½®**: WS Client å·²è¿æ¥
 
-**ÇëÇóÔØºÉ**:
+**è¯·æ±‚è½½è·**:
 
-| Æ«ÒÆ | ×Ö¶Î | Öµ |
+| åç§» | å­—æ®µ | å€¼ |
 |:---|:---|:---|
-| 0-1 | ConnHandle | Á¬½Ó¾ä±ú |
+| 0-1 | ConnHandle | è¿æ¥å¥æŸ„ |
 | 2 | MsgType | `0x08` (Close) |
 | 3-4 | DataLen | `0x0002` |
 | 5-6 | CloseCode | `0x03E8` (1000, big-endian) |
 
-**Ô¤ÆÚ**: Status=`0x00`, ¶Ô¶ËÊÕµ½ Close Ö¡ (CloseCode=1000), Éè±¸·¢³ö WS_DISCONNECT_EVENT
+**é¢„æœŸ**: Status=`0x00`, å¯¹ç«¯æ”¶åˆ° Close å¸§ (CloseCode=1000), è®¾å¤‡å‘å‡º WS_DISCONNECT_EVENT
 
-**ÅĞ¶¨**: PASS ¡ª Close Ö¡±à½âÂëÕıÈ·
+**åˆ¤å®š**: PASS â€” Close å¸§ç¼–è§£ç æ­£ç¡®
 
 ---
 
-## WS-16: WS_ACCEPT ¡ª ´íÎóÂ·¾¶ÇëÇó (404)
+## WS-16: WS_ACCEPT â€” é”™è¯¯è·¯å¾„è¯·æ±‚ (404)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **CmdCode** | `0x76` (ÊÂ¼ş, ²»Ô¤ÆÚ) |
+| **CmdCode** | `0x76` (äº‹ä»¶, ä¸é¢„æœŸ) |
 
-**Ç°ÖÃ**: WS Server ¼àÌı `/ws` Â·¾¶
+**å‰ç½®**: WS Server ç›‘å¬ `/ws` è·¯å¾„
 
-**²âÊÔ²½Öè**:
-1. MCP NM WS Client Á¬½Óµ½ `ws://<HEX IP>:8084/wrong` (²»Í¬Â·¾¶)
-2. ¼àÌı COM4
+**æµ‹è¯•æ­¥éª¤**:
+1. MCP NM WS Client è¿æ¥åˆ° `ws://<HEX IP>:8084/wrong` (ä¸åŒè·¯å¾„)
+2. ç›‘å¬ COM4
 
-**Ô¤ÆÚ**: ²»ÊÕµ½ WS_ACCEPT ÊÂ¼ş¡£MCP NM Client Á¬½ÓÊÕµ½ HTTP 404 ÏìÓ¦»òÁ¬½Ó±»¾Ü¾ø¡£
+**é¢„æœŸ**: ä¸æ”¶åˆ° WS_ACCEPT äº‹ä»¶ã€‚MCP NM Client è¿æ¥æ”¶åˆ° HTTP 404 å“åº”æˆ–è¿æ¥è¢«æ‹’ç»ã€‚
 
-**ÅĞ¶¨**: PASS ¡ª ´íÎóÂ·¾¶²»´¥·¢ WS_ACCEPT
+**åˆ¤å®š**: PASS â€” é”™è¯¯è·¯å¾„ä¸è§¦å‘ WS_ACCEPT
 
 ---
 
-## WS-17: WS_SERVER_OPEN ¡ª ³¬¹ı×î´óÁ¬½Ó (MaxConn ÈİÁ¿)
+## WS-17: WS_SERVER_OPEN â€” è¶…è¿‡æœ€å¤§è¿æ¥ (MaxConn å®¹é‡)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x70`, `0x76` |
 
-**²âÊÔ²½Öè**:
+**æµ‹è¯•æ­¥éª¤**:
 1. WS_SERVER_OPEN(Port=9503, MaxConn=`0x01`)
-2. MCP NM WS Client A Á¬½Ó ¡ú ÊÕµ½ WS_ACCEPT (CH_A)
-3. MCP NM WS Client B Á¬½Ó ¡ú Á¬½Ó±»¾Ü¾ø»òÅÅ¶Ó³¬Ê±
+2. MCP NM WS Client A è¿æ¥ â†’ æ”¶åˆ° WS_ACCEPT (CH_A)
+3. MCP NM WS Client B è¿æ¥ â†’ è¿æ¥è¢«æ‹’ç»æˆ–æ’é˜Ÿè¶…æ—¶
 
-**Ô¤ÆÚ**: µÚ¶ş¸ö¿Í»§¶Ë±»¾Ü¾ø, ²»²úÉúµÚ¶ş¸ö WS_ACCEPT ÊÂ¼ş
+**é¢„æœŸ**: ç¬¬äºŒä¸ªå®¢æˆ·ç«¯è¢«æ‹’ç», ä¸äº§ç”Ÿç¬¬äºŒä¸ª WS_ACCEPT äº‹ä»¶
 
-**ÅĞ¶¨**: PASS ¡ª MaxConn=1 ÏŞÖÆÉúĞ§
+**åˆ¤å®š**: PASS â€” MaxConn=1 é™åˆ¶ç”Ÿæ•ˆ
 
 ---
 
-## WS-18: WS ËùÓĞ OPEN/CONNECT ÃüÁî ¡ª ÎŞ IP Ê±µÄ±ê×¼ĞĞÎª
+## WS-18: WS æ‰€æœ‰ OPEN/CONNECT å‘½ä»¤ â€” æ—  IP æ—¶çš„æ ‡å‡†è¡Œä¸º
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x70`, `0x72` |
 
-**Ç°ÖÃ**: °Î³öÍøÏß, NET_STATUS È·ÈÏ IpAddr=0x00000000
+**å‰ç½®**: æ‹”å‡ºç½‘çº¿, NET_STATUS ç¡®è®¤ IpAddr=0x00000000
 
-> **¹Ì¼ş±ê×¼ĞĞÎª**: WS Server Open Ê¹ÓÃ `bind(INADDR_ANY)`£¬²»ÒÀÀµ½Ó¿Ú IP£»
-> WS Client Connect »áÏÈ×ß TCP Á¬½ÓÔÙ WS ÎÕÊÖ£¬ÒòÁ´Â·²»Í¨¶øÊ§°Ü¡£
+> **å›ºä»¶æ ‡å‡†è¡Œä¸º**: WS Server Open ä½¿ç”¨ `bind(INADDR_ANY)`ï¼Œä¸ä¾èµ–æ¥å£ IPï¼›
+> WS Client Connect ä¼šå…ˆèµ° TCP è¿æ¥å† WS æ¡æ‰‹ï¼Œå› é“¾è·¯ä¸é€šè€Œå¤±è´¥ã€‚
 
-**²âÊÔ²½Öè**:
-1. WS_SERVER_OPEN(Port=9504, Path="/ws") ¡ú Ô¤ÆÚ: Status=`0x00` (OK, socket °ó¶¨³É¹¦)
-2. WS_CLIENT_CONNECT(ÈÎÒâIP, ÈÎÒâPort) ¡ú Ô¤ÆÚ: Status=`0x41` (ERR_NET_CONN_REFUSED) »ò `0x49` (ERR_NET_WS_HANDSHAKE)
+**æµ‹è¯•æ­¥éª¤**:
+1. WS_SERVER_OPEN(Port=9504, Path="/ws") â†’ é¢„æœŸ: Status=`0x00` (OK, socket ç»‘å®šæˆåŠŸ)
+2. WS_CLIENT_CONNECT(ä»»æ„IP, ä»»æ„Port) â†’ é¢„æœŸ: Status=`0x41` (ERR_NET_CONN_REFUSED) æˆ– `0x49` (ERR_NET_WS_HANDSHAKE)
 
-**ÅĞ¶¨**: PASS ¡ª Server ´´½¨³É¹¦, Client Á¬½ÓÒòÁ´Â·²»¿É´ïÊ§°Ü
+**åˆ¤å®š**: PASS â€” Server åˆ›å»ºæˆåŠŸ, Client è¿æ¥å› é“¾è·¯ä¸å¯è¾¾å¤±è´¥
 
 ---
 
-## WS-19: WS_LIST_CLIENTS ¡ª ²éÑ¯ÒÑÁ¬½Ó¿Í»§¶Ë
+## WS-19: WS_LIST_CLIENTS â€” æŸ¥è¯¢å·²è¿æ¥å®¢æˆ·ç«¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x78` |
 
-**Ç°ÖÃ**: WS_SERVER_OPEN(Port=8085, Path="/ws") ¡ú ServerHandle=SH; ÒÑ½ÓÄÉ 2 ¸ö¿Í»§¶Ë
+**å‰ç½®**: WS_SERVER_OPEN(Port=8085, Path="/ws") â†’ ServerHandle=SH; å·²æ¥çº³ 2 ä¸ªå®¢æˆ·ç«¯
 
-**ÇëÇóÔØºÉ**: ServerHandle=SH
+**è¯·æ±‚è½½è·**: ServerHandle=SH
 
-**Ô¤ÆÚÏìÓ¦**:
+**é¢„æœŸå“åº”**:
 
-| Æ«ÒÆ | ×Ö¶Î | Ô¤ÆÚÖµ |
+| åç§» | å­—æ®µ | é¢„æœŸå€¼ |
 |:---|:---|:---|
 | 0 | Status | `0x00` |
 | 1 | ClientCount | `0x02` |
 
-±éÀú 2 ¸ö¿Í»§¶ËÌõÄ¿:
-| Æ«ÒÆ | ×Ö¶Î | ÑéÖ¤ |
+éå† 2 ä¸ªå®¢æˆ·ç«¯æ¡ç›®:
+| åç§» | å­—æ®µ | éªŒè¯ |
 |:---|:---|:---|
-| 0-1 | ClientHandle | ·ÇÁãºÏ·¨¾ä±ú |
-| 2-5 | ClientIP | ºÏ·¨ IP µØÖ· |
-| 6-7 | ClientPort | ·ÇÁã¶Ë¿ÚºÅ |
-| 8 | SubProtoIndex | ×ÓĞ­ÒéË÷Òı |
-| 9 | PathLen | ÇëÇóÂ·¾¶³¤¶È |
-| 10-11 | ConnectTime | ÓĞĞ§ Duration |
+| 0-1 | ClientHandle | éé›¶åˆæ³•å¥æŸ„ |
+| 2-5 | ClientIP | åˆæ³• IP åœ°å€ |
+| 6-7 | ClientPort | éé›¶ç«¯å£å· |
+| 8 | SubProtoIndex | å­åè®®ç´¢å¼• |
+| 9 | PathLen | è¯·æ±‚è·¯å¾„é•¿åº¦ |
+| 10-11 | ConnectTime | æœ‰æ•ˆ Duration |
 
-**ÅĞ¶¨**: PASS ¡ª ClientCount=2, ÌõÄ¿ĞÅÏ¢ÕıÈ·
+**åˆ¤å®š**: PASS â€” ClientCount=2, æ¡ç›®ä¿¡æ¯æ­£ç¡®
 
 ---
 
-## WS-20: WS_KICK_CLIENT ¡ª Ç¿ÖÆ¶Ï¿ªÖ¸¶¨¿Í»§¶Ë
+## WS-20: WS_KICK_CLIENT â€” å¼ºåˆ¶æ–­å¼€æŒ‡å®šå®¢æˆ·ç«¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x79` |
 
-**Ç°ÖÃ**: WS_SERVER_OPEN(Port=8086, Path="/ws") ¡ú SH; WS ¿Í»§¶ËÒÑÁ¬½Ó ¡ú CH
+**å‰ç½®**: WS_SERVER_OPEN(Port=8086, Path="/ws") â†’ SH; WS å®¢æˆ·ç«¯å·²è¿æ¥ â†’ CH
 
-**²âÊÔ²½Öè**:
-1. WS_LIST_CLIENTS(SH) ¡ú È·ÈÏ CH ´æÔÚ
-2. WS_KICK_CLIENT(CH, ForceFlag=0x01) ¡ú Status=`0x00`
-3. µÈ´ı WS_DISCONNECT_EVENT(CH, Reason=0x04 ÍøÂç´íÎó)
-4. WS_LIST_CLIENTS(SH) ¡ú ClientCount=`0x00` (È·ÈÏ CH ÒÑ²»ÔÙÁĞ±íÖĞ)
+**æµ‹è¯•æ­¥éª¤**:
+1. WS_LIST_CLIENTS(SH) â†’ ç¡®è®¤ CH å­˜åœ¨
+2. WS_KICK_CLIENT(CH, ForceFlag=0x01) â†’ Status=`0x00`
+3. ç­‰å¾… WS_DISCONNECT_EVENT(CH, Reason=0x04 ç½‘ç»œé”™è¯¯)
+4. WS_LIST_CLIENTS(SH) â†’ ClientCount=`0x00` (ç¡®è®¤ CH å·²ä¸å†åˆ—è¡¨ä¸­)
 
-**ÅĞ¶¨**: PASS ¡ª CH ±»³É¹¦¶Ï¿ª²¢ÉÏ±¨ÊÂ¼ş, ÁĞ±íÖĞ²»ÔÙ³öÏÖ
+**åˆ¤å®š**: PASS â€” CH è¢«æˆåŠŸæ–­å¼€å¹¶ä¸ŠæŠ¥äº‹ä»¶, åˆ—è¡¨ä¸­ä¸å†å‡ºç°
 
 ---
 
-## WS-21: WS_KICK_CLIENT ¡ª ÓÅÑÅ¹Ø±Õ
+## WS-21: WS_KICK_CLIENT â€” ä¼˜é›…å…³é—­
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x79` |
 
-**Ç°ÖÃ**: WS Server ÒÑ´´½¨, WS ¿Í»§¶ËÒÑÁ¬½Ó ¡ú CH
+**å‰ç½®**: WS Server å·²åˆ›å»º, WS å®¢æˆ·ç«¯å·²è¿æ¥ â†’ CH
 
-**²âÊÔ²½Öè**:
-1. WS_KICK_CLIENT(CH, ForceFlag=0x00) ¡ú Status=`0x00`
-2. µÈ´ı WS_DISCONNECT_EVENT(CH, Reason=`0x00` Õı³£¹Ø±Õ, CloseCode=`1000`)
+**æµ‹è¯•æ­¥éª¤**:
+1. WS_KICK_CLIENT(CH, ForceFlag=0x00) â†’ Status=`0x00`
+2. ç­‰å¾… WS_DISCONNECT_EVENT(CH, Reason=`0x00` æ­£å¸¸å…³é—­, CloseCode=`1000`)
 
-**ÅĞ¶¨**: PASS ¡ª ÓÅÑÅ¹Ø±Õ·¢ËÍ Close Ö¡ºó¶Ï¿ª, ÊÂ¼şÔ­ÒòÕıÈ·
-
----
-
-# µÚÁù²¿·Ö£ºÑ¹Á¦Óë±ß½ç²âÊÔ (STRESS)
+**åˆ¤å®š**: PASS â€” ä¼˜é›…å…³é—­å‘é€ Close å¸§åæ–­å¼€, äº‹ä»¶åŸå› æ­£ç¡®
 
 ---
 
-## STR-01: ¶à Server ²¢·¢
+# ç¬¬å…­éƒ¨åˆ†ï¼šå‹åŠ›ä¸è¾¹ç•Œæµ‹è¯• (STRESS)
 
-| ÏîÄ¿ | Öµ |
+---
+
+## STR-01: å¤š Server å¹¶å‘
+
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤Í¬Ê±ÔËĞĞ 4 ¸ö TCP Server µÄÎÈ¶¨ĞÔ |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯åŒæ—¶è¿è¡Œ 4 ä¸ª TCP Server çš„ç¨³å®šæ€§ |
 
-**²âÊÔ²½Öè**:
-1. ´´½¨ 4 ¸ö TCP Server (TCP-01 ¡Á 4, ²»Í¬¶Ë¿Ú)
-2. Ã¿¸ö Server ¸÷Á¬Èë 1 ¸ö¿Í»§¶Ë
-3. Í¬Ê±¶Ô 4 ¸öÁ¬½Ó·¢ËÍÊı¾İ
-4. ÑéÖ¤ËùÓĞÏìÓ¦ Status=0x00
+**æµ‹è¯•æ­¥éª¤**:
+1. åˆ›å»º 4 ä¸ª TCP Server (TCP-01 Ã— 4, ä¸åŒç«¯å£)
+2. æ¯ä¸ª Server å„è¿å…¥ 1 ä¸ªå®¢æˆ·ç«¯
+3. åŒæ—¶å¯¹ 4 ä¸ªè¿æ¥å‘é€æ•°æ®
+4. éªŒè¯æ‰€æœ‰å“åº” Status=0x00
 
 ---
 
-## STR-02: ¶à Client ²¢·¢Á¬½Ó
+## STR-02: å¤š Client å¹¶å‘è¿æ¥
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ TCP Server ´ïµ½×î´óÁ¬½ÓÊıÊ±µÄĞĞÎª |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ TCP Server è¾¾åˆ°æœ€å¤§è¿æ¥æ•°æ—¶çš„è¡Œä¸º |
 
-**²âÊÔ²½Öè**:
-1. ´´½¨ TCP Server (MaxConn=3)
-2. ¸¨Öú PC ½¨Á¢ 4 ¸ö TCP Á¬½Ó
-3. Ç° 3 ¸öÁ¬½Ó³É¹¦, µÚ 4 ¸öÁ¬½Ó³¬Ê±»ò±»¾Ü¾ø
-4. Éè±¸²»±ÀÀ£, ÒÑ½¨Á¢Á¬½ÓÕı³£Í¨ĞÅ
+**æµ‹è¯•æ­¥éª¤**:
+1. åˆ›å»º TCP Server (MaxConn=3)
+2. è¾…åŠ© PC å»ºç«‹ 4 ä¸ª TCP è¿æ¥
+3. å‰ 3 ä¸ªè¿æ¥æˆåŠŸ, ç¬¬ 4 ä¸ªè¿æ¥è¶…æ—¶æˆ–è¢«æ‹’ç»
+4. è®¾å¤‡ä¸å´©æºƒ, å·²å»ºç«‹è¿æ¥æ­£å¸¸é€šä¿¡
 
 ---
 
-## STR-03: ¿ìËÙ OPEN ¡ú CLOSE Ñ­»·
+## STR-03: å¿«é€Ÿ OPEN â†’ CLOSE å¾ªç¯
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤×ÊÔ´·ÖÅä/ÊÍ·ÅµÄÕıÈ·ĞÔ |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯èµ„æºåˆ†é…/é‡Šæ”¾çš„æ­£ç¡®æ€§ |
 
-**²âÊÔ²½Öè**: Á¬Ğø 5 ´Î TCP_SERVER_OPEN ¡ú TCP_SERVER_CLOSE, Ã¿´ÎÊ¹ÓÃ²»Í¬¶Ë¿Ú (9100-9104)
+**æµ‹è¯•æ­¥éª¤**: è¿ç»­ 5 æ¬¡ TCP_SERVER_OPEN â†’ TCP_SERVER_CLOSE, æ¯æ¬¡ä½¿ç”¨ä¸åŒç«¯å£ (9100-9104)
 
-**×¢**: ²âÊÔ½Å±¾½µÎª 5 ´Î£¨Ô­Éè¼Æ 20 ´Î£©ÒÔ±ÜÃâ UART Ö¡»ıÑ¹µ¼ÖÂµÄÅ¼·¢¶ªÖ¡¡£½¨ÒéºóĞø°æ±¾Ôö¼Ó UART Á÷¿ØºóÔÙ»Ö¸´ 20 ´Î¡£
+**æ³¨**: æµ‹è¯•è„šæœ¬é™ä¸º 5 æ¬¡ï¼ˆåŸè®¾è®¡ 20 æ¬¡ï¼‰ä»¥é¿å… UART å¸§ç§¯å‹å¯¼è‡´çš„å¶å‘ä¸¢å¸§ã€‚å»ºè®®åç»­ç‰ˆæœ¬å¢åŠ  UART æµæ§åå†æ¢å¤ 20 æ¬¡ã€‚
 
-**Ô¤ÆÚ**: Ã¿´Î¾ù·µ»Ø Status=0x00, ¶Ë¿Ú²»Ğ¹Â©
+**é¢„æœŸ**: æ¯æ¬¡å‡è¿”å› Status=0x00, ç«¯å£ä¸æ³„æ¼
 
-**×´Ì¬**: ? PASS (5/5)
+**çŠ¶æ€**: ? PASS (5/5)
 
 ---
 
-## STR-04: TCP_SEND ¹ã²¥¾ä±ú (0x8000)
+## STR-04: TCP_SEND å¹¿æ’­å¥æŸ„ (0x8000)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x54` |
 
-**ÇëÇóÔØºÉ**: ConnHandle=`0x8000` (BROADCAST), DataLen=`0x0000`
+**è¯·æ±‚è½½è·**: ConnHandle=`0x8000` (BROADCAST), DataLen=`0x0000`
 
-**µ±Ç°×´Ì¬**: ¹ã²¥¾ä±ú¹¦ÄÜÉĞÎ´ÊµÏÖ, ·µ»Ø `ERR_NET_HANDLE_INVALID(0x43)`¡£²âÊÔ½Å±¾ÒÑ¸üĞÂÎª½ÓÊÜ´Ë·µ»ØÖµ¡£
+**å½“å‰çŠ¶æ€**: å¹¿æ’­å¥æŸ„åŠŸèƒ½å°šæœªå®ç°, è¿”å› `ERR_NET_HANDLE_INVALID(0x43)`ã€‚æµ‹è¯•è„šæœ¬å·²æ›´æ–°ä¸ºæ¥å—æ­¤è¿”å›å€¼ã€‚
 
-**Ô¤ÆÚÏìÓ¦** (ÊµÏÖºó): Status=`0x00`, Êı¾İ·¢ËÍµ½ Server ËùÓĞÒÑÁ¬½Ó¿Í»§¶Ë
+**é¢„æœŸå“åº”** (å®ç°å): Status=`0x00`, æ•°æ®å‘é€åˆ° Server æ‰€æœ‰å·²è¿æ¥å®¢æˆ·ç«¯
 
-**×´Ì¬**: ? ´ıÊµÏÖ (²âÊÔ½Å±¾Í¨¹ı `ERR_NET_HANDLE_INVALID` ÑéÖ¤)
+**çŠ¶æ€**: ? å¾…å®ç° (æµ‹è¯•è„šæœ¬é€šè¿‡ `ERR_NET_HANDLE_INVALID` éªŒè¯)
 
 ---
 
-## STR-05: NET_STATUS ¡ª ÔØºÉ²»×ã (´íÎóÓÃÀı)
+## STR-05: NET_STATUS â€” è½½è·ä¸è¶³ (é”™è¯¯ç”¨ä¾‹)
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x41` |
 | **PayloadLen** | `0x0000` |
 
-**ÇëÇóÔØºÉ**: ¿Õ (È±ÉÙ InterfaceIndex)
+**è¯·æ±‚è½½è·**: ç©º (ç¼ºå°‘ InterfaceIndex)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x02` (ERR_PARAM)
-
----
-
-## STR-06: ÃüÁîÂë²»ÔÚÄ£¿é·¶Î§ÄÚ
-
-| ÏîÄ¿ | Öµ |
-|:---|:---|
-| **CmdCode** | `0x5F` (TCP ·¶Î§Ä©¶Ë) |
-
-**ÇëÇóÔØºÉ**: ÈÎÒâ 2 ×Ö½Ú
-
-**Ô¤ÆÚÏìÓ¦**: Status=`0x06` (ERR_NOT_SUPPORT) ¡ª ±£ÁôÃüÁîÂë
+**é¢„æœŸå“åº”**: Status=`0x02` (ERR_PARAM)
 
 ---
 
-## STR-07: ÄÚ´æĞ¹Â© ¡ª 100 ´Î Server ÉúÃüÖÜÆÚÑ­»·
+## STR-06: å‘½ä»¤ç ä¸åœ¨æ¨¡å—èŒƒå›´å†…
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ 100 ´Î´´½¨/Ïú»ÙÑ­»·ÎŞÄÚ´æĞ¹Â© |
+| **CmdCode** | `0x5F` (TCP èŒƒå›´æœ«ç«¯) |
 
-**²âÊÔ²½Öè**:
-1. ¼ÇÂ¼»ùÏß free heap
-2. Ö´ĞĞ 100 ´ÎÑ­»·:
+**è¯·æ±‚è½½è·**: ä»»æ„ 2 å­—èŠ‚
+
+**é¢„æœŸå“åº”**: Status=`0x06` (ERR_NOT_SUPPORT) â€” ä¿ç•™å‘½ä»¤ç 
+
+---
+
+## STR-07: å†…å­˜æ³„æ¼ â€” 100 æ¬¡ Server ç”Ÿå‘½å‘¨æœŸå¾ªç¯
+
+| é¡¹ç›® | å€¼ |
+|:---|:---|
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ 100 æ¬¡åˆ›å»º/é”€æ¯å¾ªç¯æ— å†…å­˜æ³„æ¼ |
+
+**æµ‹è¯•æ­¥éª¤**:
+1. è®°å½•åŸºçº¿ free heap
+2. æ‰§è¡Œ 100 æ¬¡å¾ªç¯:
    - TCP_SERVER_OPEN(Port=9505+i, MaxConn=2)
-   - MCP NM Client Á¬½Ó ¡ú TCP_ACCEPT
+   - MCP NM Client è¿æ¥ â†’ TCP_ACCEPT
    - TCP_SEND("data")
-   - MCP NM Client ¶Ï¿ª ¡ú TCP_DISCONNECT_EVENT
+   - MCP NM Client æ–­å¼€ â†’ TCP_DISCONNECT_EVENT
    - TCP_SERVER_CLOSE
-3. ¼ÇÂ¼×îÖÕ free heap
+3. è®°å½•æœ€ç»ˆ free heap
 
-**Ô¤ÆÚ**: free heap ²»Ó¦µ¥µ÷µİ¼õ, Ğ¹Â©Á¿ < 1KB
+**é¢„æœŸ**: free heap ä¸åº”å•è°ƒé€’å‡, æ³„æ¼é‡ < 1KB
 
-**ÅĞ¶¨**: PASS ¡ª ÎŞÄÚ´æĞ¹Â©
-
----
-
-## STR-08: ²¢·¢ÃüÁîÁ÷Ë®Ïß
-
-| ÏîÄ¿ | Öµ |
-|:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤ÅúÁ¿ÃüÁîÎŞ´®ÈÅ |
-
-**²âÊÔ²½Öè**:
-1. Á¬Ğø·¢ËÍ 5 Ìõ NET_STATUS(0x00) ÃüÁî (²»µÈ´ı¸÷×ÔÏìÓ¦)
-2. µÈ´ıÈ«²¿ 5 ÌõÏìÓ¦
-
-**Ô¤ÆÚ**: 5 ÌõÈ«²¿ÊÕµ½ Status=0x00, ÏìÓ¦ÓëÇëÇóÕıÈ·Åä¶Ô, ÎŞ´®ÈÅ
-
-**ÅĞ¶¨**: PASS ¡ª ÃüÁîÁ÷Ë®ÏßÕıÈ·
+**åˆ¤å®š**: PASS â€” æ— å†…å­˜æ³„æ¼
 
 ---
 
-## STR-09: ËùÓĞ±£ÁôÃüÁîÂë·µ»Ø ERR_NOT_SUPPORT
+## STR-08: å¹¶å‘å‘½ä»¤æµæ°´çº¿
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| **²âÊÔÄ¿µÄ** | ÑéÖ¤±£ÁôÃüÁîÂëÍ³Ò»·µ»Ø²»Ö§³Ö |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯æ‰¹é‡å‘½ä»¤æ— ä¸²æ‰° |
 
-**Éæ¼°µÄ CmdCode**:
+**æµ‹è¯•æ­¥éª¤**:
+1. è¿ç»­å‘é€ 5 æ¡ NET_STATUS(0x00) å‘½ä»¤ (ä¸ç­‰å¾…å„è‡ªå“åº”)
+2. ç­‰å¾…å…¨éƒ¨ 5 æ¡å“åº”
 
-| ·¶Î§ | ±£ÁôÃüÁîÂë |
+**é¢„æœŸ**: 5 æ¡å…¨éƒ¨æ”¶åˆ° Status=0x00, å“åº”ä¸è¯·æ±‚æ­£ç¡®é…å¯¹, æ— ä¸²æ‰°
+
+**åˆ¤å®š**: PASS â€” å‘½ä»¤æµæ°´çº¿æ­£ç¡®
+
+---
+
+## STR-09: æ‰€æœ‰ä¿ç•™å‘½ä»¤ç è¿”å› ERR_NOT_SUPPORT
+
+| é¡¹ç›® | å€¼ |
 |:---|:---|
-| ÍøÂçÅäÖÃ | `0x45-0x4F` |
+| **æµ‹è¯•ç›®çš„** | éªŒè¯ä¿ç•™å‘½ä»¤ç ç»Ÿä¸€è¿”å›ä¸æ”¯æŒ |
+
+**æ¶‰åŠçš„ CmdCode**:
+
+| èŒƒå›´ | ä¿ç•™å‘½ä»¤ç  |
+|:---|:---|
+| ç½‘ç»œé…ç½® | `0x45-0x4F` |
 | TCP | `0x5C-0x5F` |
 | UDP | `0x67-0x6F` |
 | WebSocket | `0x7A-0x7F` |
 
-**²âÊÔ²½Öè**: ¶ÔÃ¿¸ö±£ÁôÃüÁîÂë·¢ËÍÈÎÒâÔØºÉ
+**æµ‹è¯•æ­¥éª¤**: å¯¹æ¯ä¸ªä¿ç•™å‘½ä»¤ç å‘é€ä»»æ„è½½è·
 
-**Ô¤ÆÚ**: Ã¿¸öÃüÁî¾ù·µ»Ø Status=`0x06` (ERR_NOT_SUPPORT)
+**é¢„æœŸ**: æ¯ä¸ªå‘½ä»¤å‡è¿”å› Status=`0x06` (ERR_NOT_SUPPORT)
 
-**ÅĞ¶¨**: PASS ¡ª È«²¿±£ÁôÂë·µ»Ø 0x06
+**åˆ¤å®š**: PASS â€” å…¨éƒ¨ä¿ç•™ç è¿”å› 0x06
 
 ---
 
-## STR-10: TCP_SEND DataLen ÉùÃ÷²»Æ¥Åä
+## STR-10: TCP_SEND DataLen å£°æ˜ä¸åŒ¹é…
 
-| ÏîÄ¿ | Öµ |
+| é¡¹ç›® | å€¼ |
 |:---|:---|
 | **CmdCode** | `0x54` |
 
-**Ç°ÖÃ**: ÒÑ½¨Á¢ TCP Á¬½Ó
+**å‰ç½®**: å·²å»ºç«‹ TCP è¿æ¥
 
-**ÇëÇóÔØºÉ**: ConnHandle=CH, DataLen=`0x000A` (ÉùÃ÷ 10 ×Ö½Ú), Data Êµ¼Ê½ö `0x41 0x42 0x43` (3 ×Ö½Ú)
+**è¯·æ±‚è½½è·**: ConnHandle=CH, DataLen=`0x000A` (å£°æ˜ 10 å­—èŠ‚), Data å®é™…ä»… `0x41 0x42 0x43` (3 å­—èŠ‚)
 
-**Ô¤ÆÚÏìÓ¦**: Status=`0x02` (ERR_PARAM) ¡ª DataLen ÉùÃ÷Óë PayloadLen ²»·û
+**é¢„æœŸå“åº”**: Status=`0x02` (ERR_PARAM) â€” DataLen å£°æ˜ä¸ PayloadLen ä¸ç¬¦
 
-**ÅĞ¶¨**: PASS ¡ª ²ÎÊıĞ£ÑéÕıÈ·
+**åˆ¤å®š**: PASS â€” å‚æ•°æ ¡éªŒæ­£ç¡®
 
 ---
 
-## ÓÃÀıË÷Òı
+## ç”¨ä¾‹ç´¢å¼•
 
-| ·Ö×é | ÓÃÀı±àºÅ | ÊıÁ¿ | ËµÃ÷ |
+| åˆ†ç»„ | ç”¨ä¾‹ç¼–å· | æ•°é‡ | è¯´æ˜ |
 |:---|:---|:---|:---|
-| ÒÔÌ«ÍøÇı¶¯²ã | DRV-01 ~ DRV-05 | 5 | PHY Á´Â· UP/DOWN/ÈÈ²å°ÎÊÂ¼ş / DHCP²»¿ÉÓÃ / ¿ìËÙ²å°Î |
-| ÍøÂçÅäÖÃÄ£¿é | NET-01 ~ NET-16 | 16 | STATUS, DNS, CONFIG (DHCP/¾²Ì¬IP), NVS³Ö¾Ã»¯, DNS²»¿É´ï, IP_CHANGED, LIST_CONNS, ´íÎóÂ·¾¶ |
-| TCP Ä£¿é | TCP-01 ~ TCP-35 | 35 | Server/Client/ÊÕ·¢/¾ä±ú/¹ã²¥/´íÎó/ÉúÃüÖÜÆÚ / »º³åÂú / ³¬Á¬½Ó / ÓÅÑÅ¹Ø±Õ / ÎŞIP / LIST_CLIENTS / KICK_CLIENT / CONN_STATUS |
-| UDP Ä£¿é | UDP-01 ~ UDP-14 | 14 | Server/Client/ÊÕ·¢/¹ã²¥/¶à²¥/ÉúÃüÖÜÆÚ / ³¬Server / ³¬Client / ÎŞĞ§¾ä±ú / ÎŞIP |
-| WebSocket Ä£¿é | WS-01 ~ WS-21 | 21 | Server/Client/Text/Binary/Ping/Pong/Close/ÎÕÊÖ/ÉúÃüÖÜÆÚ / ×Ô¶¯Pong / CloseÖ¡ / 404 / MaxConn / ÎŞIP / LIST_CLIENTS / KICK_CLIENT |
-| Ñ¹Á¦Óë±ß½ç | STR-01 ~ STR-10 | 10 | ²¢·¢/Ñ­»·/¿ÕÔØºÉ/±£ÁôÃüÁîÂë/ÄÚ´æĞ¹Â©/Á÷Ë®Ïß/DataLen²»Æ¥Åä |
-| **MCP NM ¸¨Öú²âÊÔ** | **NM-TCP-01 ~ NM-TCP-07** | **7** | TCP ¶Ëµ½¶ËÊÕ·¢/¹ã²¥/ÊÖ¶¯Accept/¾Ü¾ø/LIST_CLIENTS / KICK_CLIENT |
-| | **NM-UDP-01 ~ NM-UDP-03** | **3** | UDP ¶Ëµ½¶Ë/ClientÉúÃüÖÜÆÚ/¹ã²¥ |
-| | **NM-WS-01 ~ NM-WS-06** | **6** | WS Text/Binary/PingPong ¶Ëµ½¶Ë / LIST_CLIENTS / KICK_CLIENT |
-| | **NM-INT-01 ~ NM-INT-03** | **3** | 3 Ğ­Òé²¢·¢/¶à Client ²¢·¢ / NET_LIST_CONNS È«¾Ö¸ÅÀÀ |
-| | **NM-STR-01** | **1** | ´óÊı¾İÁ¿Ñ¹Á¦ |
-| **ºÏ¼Æ** | | **121** | |
+| ç½‘ç»œé…ç½®æ¨¡å— | NET-01 ~ NET-16 | 16 | STATUS, DNS, CONFIG (DHCP/é™æ€IP), NVSæŒä¹…åŒ–, DNSä¸å¯è¾¾, IP_CHANGED, LIST_CONNS, é”™è¯¯è·¯å¾„ |
+| TCP æ¨¡å— | TCP-01 ~ TCP-35 | 35 | Server/Client/æ”¶å‘/å¥æŸ„/å¹¿æ’­/é”™è¯¯/ç”Ÿå‘½å‘¨æœŸ / ç¼“å†²æ»¡ / è¶…è¿æ¥ / ä¼˜é›…å…³é—­ / æ— IP / LIST_CLIENTS / KICK_CLIENT / CONN_STATUS |
+| UDP æ¨¡å— | UDP-01 ~ UDP-14 | 14 | Server/Client/æ”¶å‘/å¹¿æ’­/å¤šæ’­/ç”Ÿå‘½å‘¨æœŸ / è¶…Server / è¶…Client / æ— æ•ˆå¥æŸ„ / æ— IP |
+| WebSocket æ¨¡å— | WS-01 ~ WS-21 | 21 | Server/Client/Text/Binary/Ping/Pong/Close/æ¡æ‰‹/ç”Ÿå‘½å‘¨æœŸ / è‡ªåŠ¨Pong / Closeå¸§ / 404 / MaxConn / æ— IP / LIST_CLIENTS / KICK_CLIENT |
+| å‹åŠ›ä¸è¾¹ç•Œ | STR-01 ~ STR-10 | 10 | å¹¶å‘/å¾ªç¯/ç©ºè½½è·/ä¿ç•™å‘½ä»¤ç /å†…å­˜æ³„æ¼/æµæ°´çº¿/DataLenä¸åŒ¹é… |
+| **MCP NM è¾…åŠ©æµ‹è¯•** | **NM-TCP-01 ~ NM-TCP-07** | **7** | TCP ç«¯åˆ°ç«¯æ”¶å‘/å¹¿æ’­/æ‰‹åŠ¨Accept/æ‹’ç»/LIST_CLIENTS / KICK_CLIENT |
+| | **NM-UDP-01 ~ NM-UDP-03** | **3** | UDP ç«¯åˆ°ç«¯/Clientç”Ÿå‘½å‘¨æœŸ/å¹¿æ’­ |
+| | **NM-WS-01 ~ NM-WS-06** | **6** | WS Text/Binary/PingPong ç«¯åˆ°ç«¯ / LIST_CLIENTS / KICK_CLIENT |
+| | **NM-INT-01 ~ NM-INT-03** | **3** | 3 åè®®å¹¶å‘/å¤š Client å¹¶å‘ / NET_LIST_CONNS å…¨å±€æ¦‚è§ˆ |
+| | **NM-STR-01** | **1** | å¤§æ•°æ®é‡å‹åŠ› |
+| **åˆè®¡** | | **121** | |
 
 ---
 
-## ²âÊÔ½Å±¾²Î¿¼
+## æµ‹è¯•è„šæœ¬å‚è€ƒ
 
 ```bash
-# ·½Ê½Ò»: Kilo Agent ¼¯³É²âÊÔ (ÍÆ¼ö, ÎŞĞèÍâ²¿¸¨Öú PC)
-# ²½Öè 1: ÔÚ Kilo Agent ÖĞÆô¶¯ÍøÂç¶Ô¶Ë
+# æ–¹å¼ä¸€: Kilo Agent é›†æˆæµ‹è¯• (æ¨è, æ— éœ€å¤–éƒ¨è¾…åŠ© PC)
+# æ­¥éª¤ 1: åœ¨ Kilo Agent ä¸­å¯åŠ¨ç½‘ç»œå¯¹ç«¯
 #   network-monitor-mcp_connect_network
 #     connId="tcp-srv" protocol="tcp" role="server" listenPort=9090
 #
-# ²½Öè 2: ·¢ËÍ UBCP ÃüÁî¿ØÖÆ HEX-Bridge Á¬½Ó MCP NM Server
+# æ­¥éª¤ 2: å‘é€ UBCP å‘½ä»¤æ§åˆ¶ HEX-Bridge è¿æ¥ MCP NM Server
 #   serial-monitor-mcp_send_serial_data
-#     port="COM4" data="<UBCP TCP_CLIENT_CONNECT Ö¡>" format="hex"
+#     port="COM4" data="<UBCP TCP_CLIENT_CONNECT å¸§>" format="hex"
 #
-# ²½Öè 3: Ë«ÏòÊÕ·¢ÑéÖ¤
-#   serial-monitor-mcp_send_serial_data   ¡ú TCP_SEND ÃüÁî
-#   network-monitor-mcp_read_network_buffer   ¡ú ÑéÖ¤ÍøÂçÊı¾İ
-# Ïê¼û¸÷ NM-* ÓÃÀı
+# æ­¥éª¤ 3: åŒå‘æ”¶å‘éªŒè¯
+#   serial-monitor-mcp_send_serial_data   â†’ TCP_SEND å‘½ä»¤
+#   network-monitor-mcp_read_network_buffer   â†’ éªŒè¯ç½‘ç»œæ•°æ®
+# è¯¦è§å„ NM-* ç”¨ä¾‹
 
-# ·½Ê½¶ş: ¶ÀÁ¢ Python ½Å±¾ (¿ÉÅäºÏ MCP NM »òÍâ²¿ PC)
+# æ–¹å¼äºŒ: ç‹¬ç«‹ Python è„šæœ¬ (å¯é…åˆ MCP NM æˆ–å¤–éƒ¨ PC)
 python script/test/test_network.py --mcp COM4 --mcp-baud 921600
 ```
 
 ---
 
-## ´íÎóÂë¸²¸Ç¾ØÕó
+## é”™è¯¯ç è¦†ç›–çŸ©é˜µ
 
-| ´íÎóÂë | Ãû³Æ | ¸²¸ÇÓÃÀı |
+| é”™è¯¯ç  | åç§° | è¦†ç›–ç”¨ä¾‹ |
 |:---|:---|:---|
-| `0x00` | SUCCESS | ËùÓĞÕı³£Á÷³ÌÓÃÀı |
+| `0x00` | SUCCESS | æ‰€æœ‰æ­£å¸¸æµç¨‹ç”¨ä¾‹ |
 | `0x02` | ERR_PARAM | NET-05, NET-09, STR-05, STR-10 |
-| `0x03` | ERR_TIMEOUT | ¡ª |
+| `0x03` | ERR_TIMEOUT | â€” |
 | `0x06` | ERR_NOT_SUPPORT | STR-06, STR-09 |
 | `0x0A` | ERR_CHANNEL_INVALID | NET-08 |
 | `0x40` | ERR_NET_DISCONNECTED | TCP-16, TCP-24 |

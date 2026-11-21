@@ -128,9 +128,7 @@ esp_err_t msg_bus_send_frame(const ubcp_frame_t *frame)
 ### 5.3 SPI 与 I2C 模块适配设计（`mod_spi.c` / `mod_i2c.c`）
 * **同步阻塞与片选管理**：
   - SPI（`0x20-0x2F`）和 I2C（`0x30-0x3F`）物理协议在硬件层是同步、主从结构的应答协议（Master-Slave）。因此，PC 端的读写请求（如 `SPI_TRANSFER`、`I2C_WRITE`）在固件端均采取**同步阻塞响应**模式。
-   - **SPI 片选控制**：通过 `ChannelID` 区分不同的 SPI 从设备，每个 CS 片选对应一个
-     独立的静态 Channel ID（如 `UBCP_CH_SPI_EXT1 = 5` 对应板载 MCP2518FD，
-     `UBCP_CH_SPI_EXT2 = 6` 对应外部扩展引脚 CS）。
+   - **SPI 片选控制**：外部 SPI2 固定使用 `UBCP_CH_SPI_EXT1 = 4`，当前仅允许打开一个外部从设备；CS GPIO27 的有效电平由 `SPI_OPEN` 设置。板载 MCP2518FD 独占 SPI3，由 CAN 模块管理，不通过 SPI 命令通道访问。
 * **硬件总线互斥**：
   - 固件端在调用 ESP32 物理 SPI 驱动或 I2C 驱动前，必须通过 ESP-IDF 驱动层自身的互斥锁（如 `i2c_master_write_read_device` 的底层锁）来防止多线程冲突。这与 `msg_bus` 物理发送锁解耦。
 
@@ -184,7 +182,7 @@ sequenceDiagram
 
 ---
 
-## 7. 远程 MCP 传输扩展（Wi-Fi / 以太网 TCP）与上位机生态桥接规划
+## 7. 远程 MCP 传输扩展（Wi-Fi TCP）与上位机生态桥接规划
 
 ### 7.1 设计原则：固件统一 UBCP 总线 + 上位机按需协议转换
 
@@ -217,7 +215,7 @@ flowchart TB
 
     subgraph ESP32["远端 / 本地 HEX-Bridge (ESP32)"]
         direction TB
-        Trans["mcp_transport 传输适配层\n[UART1: COM4] / [Wi-Fi & ETH TCP: 9500]"]
+        Trans["mcp_transport 传输适配层\n[UART1: COM4] / [Wi-Fi STA TCP: 9500]"]
         Bus["msg_bus 核心消息总线\n(s_bus_mutex 原子帧保護 + 流控水位)"]
         UART2["mod_uart\n(UART2 扩展口)"]
         CAN["mod_can\n(MCP2518FD CAN FD)"]
@@ -227,13 +225,13 @@ flowchart TB
         Bus <--> UART2 & CAN & NET
     end
 
-    MuxClient <===>|"物理链路二选一：\n1. 本地 USB 串口 (COM4)\n2. 远程 Wi-Fi / 以太网 (TCP 9500)"| Trans
+    MuxClient <===>|"物理链路二选一：\n1. 本地 USB 串口 (COM4)\n2. 远程 Wi-Fi (TCP 9500)"| Trans
 ```
 
 ### 7.3 该架构的核心工程优势
 
 1. **零 GPIO 额外消耗**：当前硬件外部 GPIO 已 100% 分配完毕（剩余 0 个），ESP32 片内 Wi-Fi 不占用任何外部引脚；且模组配备 8MB PSRAM，开启 `CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP` 后可轻松承载 Wi-Fi + lwIP 协议栈内存开销。
-2. **一处打通，全外设远程化**：`mcp_transport` 接入 Wi-Fi / 以太网 TCP 后，不仅扩展串口 `UART2` 可以远程使用，**CAN FD (`MCP2518FD`)、SPI、I2C、GPIO、OTA 也同步获得远程无线访问能力**。
+2. **一处打通，全外设远程化**：`mcp_transport` 接入 Wi-Fi TCP 后，不仅扩展串口 `UART2` 可以远程使用，**CAN FD (`MCP2518FD`)、SPI、I2C、GPIO、OTA 也同步获得远程无线访问能力**。
 3. **抗无线网络抖动（Jitter）**：串口硬件断帧（行模式、定长模式、Modbus RTU 超时模式 `RxMode=0x03`）与 CAN 报文微秒级时间戳均在 ESP32 本地实时完成，封装为带 CRC16 的 UBCP 帧后再经 Wi-Fi 传输，不会因无线延迟抖动破坏协议时序。
 
 ### 7.4 单活链路与切换边界（开发规约）
