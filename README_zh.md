@@ -4,22 +4,37 @@
 
 HEX-Bridge 是运行于经典 ESP32 开发板上的固件，通过 UBCP v2.0 为上位机工具提供硬件接口，同时实现独立的 CMSIS-DAP over TCP SWD 网络探针。
 
-当前固件支持 MCP2518FD CAN FD、外接 UART、Wi-Fi 网络功能，以及 HEX-Bridge 网络调试探针。SPI、I2C、通用 GPIO、批量传输和 OTA 命令模块尚未实现。SPI 目前用于 ESP32 与 CAN 控制器之间的内部通信。
+当前固件支持外接 SPI 主机、MCP2518FD 经典 CAN 和 CAN FD、UART2、Wi-Fi 网络功能，以及 HEX-Bridge 网络调试探针。设备配置 v2 允许外接 SPI 与 MCP2518FD 分别选择 SPI2 或 SPI3，默认仍为外接 SPI2、CAN 使用 SPI3。
 
 ## 当前功能
 
-设备支持通过 UBCP 配置功能开关和业务引脚。UART1 电脑控制口（GPIO4/34）与 UART0 下载口（GPIO1/3）固定保留。上位机 CLI 支持配置导出、预检、保存及重启试用，操作命令和首次升级的分区要求见[设备配置扩展协议](files/design/protocol/17-Device-Profile.md)。
+设备支持通过 UBCP 配置功能开关和业务引脚。UART1 电脑控制口（GPIO4/34）与 UART0 下载口（GPIO1/3）固定保留。共享 Python CLI 和 Tkinter 工具支持导出、预检、保存、重启试用及确认。每份配置保留 UART1，或保留 Wi-Fi STA、TCP 9500 管理服务及已保存的可用配网参数；普通 TCP 业务不充当管理入口。当前或已确认的回退配置仅靠 Wi-Fi 管理时拒绝 WIFI_FORGET；必要驱动完成初始化后才接受确认，并检查控制会话及需要验证的入口。操作命令和首次升级分区要求见[设备配置扩展协议](files/design/protocol/17-Device-Profile.md)。
 
 | 功能 | 接口 | 状态 |
 |:---|:---|:---|
-| UBCP 控制 | UART1，或 Wi-Fi TCP `9500` 单客户端 | 已实现。TCP 客户端连接后接管 UBCP 会话；Wi-Fi 断开后恢复 UART1。 |
+| UBCP 控制 | UART1，或 Wi-Fi TCP `9500` 单客户端 | TCP 客户端连接后接管 UBCP 会话。Wi-Fi 断开时，已启用的 UART1 恢复控制。 |
 | CAN / CAN FD | MCP2518FD（SPI） | 已实现。UBCP 命令支持通道控制、时序配置、收发、滤波、状态和总线事件。 |
-| 外接 UART | UART2 | 已实现。支持串口参数配置、收发、状态、清空缓冲和 Break 控制。 |
+| 外接 UART | UART2（通道 1）、可选 UART1（通道 2） | Profile v4 可关闭 UART1 串口控制，再启用 GPIO4/34 上的普通收发，通过 Wi-Fi TCP 9500 管理。两路串口独立配置、收发、查询状态、清空缓冲及发送 Break。 |
 | Wi-Fi STA | ESP32 内置 2.4 GHz 无线接口 | 已实现。支持 IPv4 DHCP/静态配置、DNS、通过 UBCP 配网和断线重连；TCP、UDP、WebSocket 服务由 UBCP 管理。 |
 | DAPLink | TCP `4441` 上的 CMSIS-DAP | 已实现 SWD。它是 ESP32 上的网络探针，不是 Nucleo 板载 ST-LINK，也不是 USB HID DAPLink。 |
-| 外接 SPI、I2C、GPIO、批量传输、OTA | 预留命令范围 | 尚未实现为上位机可访问的功能模块。 |
+| 外接 SPI 主机 | 可选 SPI2 / SPI3 | Profile v3 支持两个可独立打开的普通设备（通道 4、5）。可关闭 CAN FD 并同时使用两条主机，各设备可选择 CS；无 CS 设备独占所属主机。共享主机时使用独立的自动片选。 |
+| SPI 从机 | SPI2（通道 6）、SPI3（通道 7） | Profile v5 可逐控制器选择主／从。作为从机时预置 1–64 字节，外部主机通过时钟和片选发起单线 Mode 0 事务，再领取实际收到的位数和数据。 |
+| I2C、GPIO、批量传输、OTA | 预留命令范围 | 上位机可访问的业务模块有待实现。 |
 
 实现细节见[固件设计索引](files/design/firmware/README.md)、[Wi-Fi 设计](files/design/firmware/06-WiFi-STA.md)和[DAPLink 设计与实测记录](files/design/firmware/08-DAPLink.md)。
+
+## 可选外设规划
+
+阶段 1 在现有驱动上实现配置 v2；主机验证和剩余实板项目见[阶段 1 交付证据](files/design/test-report/Stage1-Peripheral-Delivery.md)。各固件版本声明支持的实例、通道及引脚配置。每份配置必须保留 UART1 控制或 Wi-Fi 上 TCP 9500 的 UBCP 管理服务。
+
+| 阶段 | 计划支持 |
+|---|---|
+| 1 · 已有接口 | 延续 UART1 控制、UART2、Wi-Fi、DAP/SWD 和 MCP2518FD。SPI2、SPI3 可独立选择和改配；外接 SPI 业务和 MCP2518FD 均可选择任一主机，外接 CAN FD 默认使用 SPI3。 |
+| 2 · 数字接口与总线 | 可选数字 GPIO、独立的 I2C0/I2C1，以及配合外部收发器使用的片上经典 CAN（TWAI）。TWAI 与 MCP2518FD CAN FD 分别启停。 |
+| 3 · 波形与计数 | 最多 16 个 LEDC PWM 通道逐路选择，支持电机 PWM（MCPWM）及 8 个可独立选择的 PCNT 计数单元。并用数量取决于引脚及共享硬件资源。 |
+| 4 · 有线网络 | 在具备兼容 PHY、参考时钟和 RMII 布线的板型上开放可选以太网 MAC。 |
+
+旧版 v1 描述开放 9 个可配置 GPIO；v2 将原 SPI2 六脚纳入可分配池，共 15 个。启用的单线主机预留 SCLK/MOSI/MISO，Quad 额外预留 IO2/IO3，四根数据线均须双向。占用由配置的最大线宽决定，临时单线传输不会释放 Quad 引脚。默认接线且原九条业务信号全开时，外接单线 SPI 为 13 占用、GPIO22/23 空闲；Quad 为 15 占用；关闭外接 SPI 及其无其他使用者的主机后为 9 占用。启用但无挂载设备的主机仍预留总线脚。旧配置迁移保留外接 SPI2 的 Quad 路由及原 CAN 设置；会丢失 v2 字段的 v1 写操作被拒绝。详见[外设功能与配置设计](files/design/function/08-device-profile.md)和[当前板型默认接线](files/sch/esp32-pinout-design.md)。
 
 ## 架构
 
@@ -77,6 +92,7 @@ idf.py build
 
 ## 测试与文档
 
+- [阶段 1 外设交付证据](files/design/test-report/Stage1-Peripheral-Delivery.md)
 - [DAPLink 实现与实板测试记录](files/design/firmware/08-DAPLink.md)
 - [Wi-Fi STA 设计](files/design/firmware/06-WiFi-STA.md)
 - [CAN FD 协议](files/design/protocol/04-CAN.md)

@@ -1,5 +1,7 @@
 # 7. UART 接口命令 (0xA0-0xAF)
 
+HXB1 的业务 UART2 对应 ChannelID 1，业务 UART1 对应 ChannelID 2。主机通过 GET_TOPOLOGY 枚举当前可用通道。Profile v4 启用 UART1 普通串口后，从 TCP 9500 管理连接向通道 2 发送以下命令，原始串口数据经 GPIO4/34 收发。每路分别 OPEN、CONFIG 和 CLOSE，UART_RECV 事件的 ChannelID 标识数据来源。
+
 ## 命令码一览
 
 | 命令码 | 名称 | 方向 | 说明 |

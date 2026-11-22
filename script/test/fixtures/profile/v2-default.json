@@ -1,0 +1,95 @@
+{
+  "schema": 2,
+  "board": "HXB1",
+  "capabilities": 15,
+  "gpio_policy": {
+    "0": "strap",
+    "1": "uart0.tx",
+    "2": "strap",
+    "3": "uart0.rx",
+    "4": "uart1.tx",
+    "5": "strap",
+    "6": "flash",
+    "7": "flash",
+    "8": "flash",
+    "9": "flash",
+    "10": "flash",
+    "11": "flash",
+    "12": "eeprom",
+    "13": "flexible",
+    "14": "flexible",
+    "15": "can.cs_only",
+    "16": "psram",
+    "17": "psram",
+    "18": "flexible",
+    "19": "flexible",
+    "20": "unavailable",
+    "21": "flexible",
+    "22": "flexible",
+    "23": "flexible",
+    "24": "unavailable",
+    "25": "flexible",
+    "26": "flexible",
+    "27": "flexible",
+    "28": "unavailable",
+    "29": "unavailable",
+    "30": "unavailable",
+    "31": "unavailable",
+    "32": "flexible",
+    "33": "eeprom",
+    "34": "uart1.rx",
+    "35": "input_only",
+    "36": "input_only",
+    "37": "unavailable",
+    "38": "unavailable",
+    "39": "input_only"
+  },
+  "revision": 1,
+  "features": {
+    "serial": true,
+    "control_tcp": true,
+    "can": true,
+    "uart": true,
+    "wifi": true,
+    "tcp": true,
+    "udp": true,
+    "websocket": true,
+    "dap": true
+  },
+  "pins": {
+    "uart.tx": 32,
+    "uart.rx": 35,
+    "dap.swclk": 25,
+    "dap.swdio": 26
+  },
+  "spi": {
+    "2": {
+      "enabled": true,
+      "width": 4,
+      "sck": 18,
+      "mosi": 19,
+      "miso": 21,
+      "io2": 22,
+      "io3": 23
+    },
+    "3": {
+      "enabled": true,
+      "width": 1,
+      "sck": 14,
+      "mosi": 13,
+      "miso": 36,
+      "io2": 22,
+      "io3": 23
+    }
+  },
+  "external": {
+    "enabled": true,
+    "host": 2,
+    "cs": 27
+  },
+  "mcp2518fd": {
+    "host": 3,
+    "cs": 15,
+    "int": 39
+  }
+}

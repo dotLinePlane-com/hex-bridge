@@ -329,6 +329,9 @@ static void handle_wifi(const ubcp_frame_t *req)
         memcpy(data + 6, s_target.ssid, data[5]);
         response(req, data, 6 + data[5]);
     } else {
+        if(req->cmd_code==UBCP_CMD_WIFI_FORGET && !profile_wifi_forget_allowed()) {
+            msg_bus_send_status_response(req,UBCP_ERR_PERMISSION); return;
+        }
         s_active = s_save = false; stop_session();
         memset(&s_target, 0, sizeof(s_target)); s_state = s_reason = s_retry = 0;
         if (s_driver_ready && !s_started && !s_stopping) {
@@ -528,6 +531,7 @@ static void network_task(void *arg)
     if (driver_init() != ESP_OK) { profile_driver_failed(); s_state = 5; s_reason = 5; }
     else {
         s_driver_ready = true;
+        profile_network_ready();
         record_load();
         start_target();
     }

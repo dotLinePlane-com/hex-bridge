@@ -2,11 +2,11 @@
  * @file mod_uart.c
  * @brief UART 扩展模块实现 (0xA0-0xAF)
  *
- * 管理 UART2 (扩展口, GPIO 2 TX / GPIO 35 RX)：
+ * 管理 UART2 (通道1，可改配) 和 UART1 业务模式 (通道2，GPIO4/34)：
  * - UART_OPEN   (0xA0): 安装驱动，创建接收任务
  * - UART_CLOSE  (0xA1): 卸载驱动，销毁接收任务
  * - UART_CONFIG (0xA2): 配置波特率/数据位/校验/停止位/流控
- * - UART_SEND   (0xA3): 向 UART2 发送数据
+ * - UART_SEND   (0xA3): 向所选业务 UART 发送数据
  * - UART_RECV   (0xA4): 接收任务自动上报事件
  * - UART_SET_BREAK (0xA5): 发送 Break 信号
  * - UART_STATUS (0xA6): 查询状态
@@ -26,6 +26,7 @@
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 #include "driver/uart.h"
+#include "driver/gpio.h"
 #include "modules/mod_uart.h"
 #include "core/msg_bus.h"
 #include "transport/mcp_transport.h"
@@ -56,6 +57,8 @@ static const char *TAG = "mod_uart";
 
 /** UART 通道运行状态 */
 typedef struct {
+    int         uart_num;
+    SemaphoreHandle_t rx_stopped;
     bool        is_open;            /**< 通道是否已打开 */
     uint8_t     rx_mode;            /**< 接收模式 */
     uint16_t    rx_threshold;       /**< 接收上报阈值 */
@@ -71,13 +74,46 @@ typedef struct {
     bool        flow_xoff_sent;     /**< 是否已发送 XOFF */
 } uart_channel_t;
 
-/** 当前只有一个 UART2 通道 */
-static uart_channel_t s_channel = {
-    .is_open    = false,
-    .rx_mode    = UBCP_UART_RXMODE_PASSIVE,
-    .baud_rate  = HEX_EXT_UART_DEFAULT_BAUD,
-    .channel_id = UBCP_CH_UART_EXT1,
+/** Each business port owns its task, counters, event queue and RX mode. */
+static uart_channel_t s_channels[2] = {
+    {.uart_num = HEX_EXT_UART_NUM, .baud_rate = HEX_EXT_UART_DEFAULT_BAUD,
+     .channel_id = UBCP_CH_UART_EXT1},
+    {.uart_num = HEX_MCP_UART_NUM, .baud_rate = HEX_EXT_UART_DEFAULT_BAUD,
+     .channel_id = UBCP_CH_UART_EXT2},
 };
+
+static bool channel_enabled(const uart_channel_t *ch)
+{
+    return ch->channel_id == UBCP_CH_UART_EXT1 ? profile_enabled(PF_UART) : profile_uart1_business_enabled();
+}
+static int tx_pin(const uart_channel_t *ch)
+{
+    return ch->channel_id == UBCP_CH_UART_EXT2 ? HEX_MCP_UART_TX_PIN : profile_pin(SIG_UART_TX);
+}
+static int rx_pin(const uart_channel_t *ch)
+{
+    return ch->channel_id == UBCP_CH_UART_EXT2 ? HEX_MCP_UART_RX_PIN : profile_pin(SIG_UART_RX);
+}
+static void rx_task_finished(uart_channel_t *ch)
+{
+    ch->rx_running = false;
+    xSemaphoreGive(ch->rx_stopped);
+    vTaskDelete(NULL);
+}
+
+static void update_uart_flow_state(void)
+{
+    unsigned usage = 0, capacity = 0;
+    bool paused = false;
+    for (int i = 0; i < 2; ++i) if (s_channels[i].is_open) {
+        size_t buffered = 0;
+        uart_get_buffered_data_len(s_channels[i].uart_num, &buffered);
+        usage += buffered;
+        capacity += HEX_EXT_UART_RX_BUF_SIZE;
+        paused |= s_channels[i].flow_xoff_sent;
+    }
+    msg_bus_update_flow_state(0xA0, paused ? 1 : 0, (uint16_t)usage, (uint16_t)capacity);
+}
 
 /* ========================================================================
  * 接收任务
@@ -86,7 +122,7 @@ static uart_channel_t s_channel = {
 /**
  * @brief 发送 FLOW_CONTROL 事件 (XOFF/XON) 到主机
  */
-static void send_flow_event(uint8_t channel, uint8_t action,
+static void send_flow_event(uint32_t session, uint8_t channel, uint8_t action,
                             uint16_t buf_usage, uint16_t buf_capacity)
 {
     uint8_t payload[7];
@@ -102,6 +138,7 @@ static void send_flow_event(uint8_t channel, uint8_t action,
     ubcp_frame_make_event(&evt, UBCP_CMD_FLOW_CONTROL, channel, seq_num_next());
     evt.payload     = payload;
     evt.payload_len = sizeof(payload);
+    evt.session_id = session;
 
     msg_bus_send_frame(&evt);
 }
@@ -109,30 +146,27 @@ static void send_flow_event(uint8_t channel, uint8_t action,
 /**
  * @brief 检查 RX 缓冲区水位并触发流控
  */
-static void check_rx_flow(uart_channel_t *ch)
+static void check_rx_flow(uart_channel_t *ch, uint32_t session)
 {
     size_t rx_buffered = 0;
-    uart_get_buffered_data_len(HEX_EXT_UART_NUM, &rx_buffered);
+    uart_get_buffered_data_len(ch->uart_num, &rx_buffered);
     uint16_t buf_cap = HEX_EXT_UART_RX_BUF_SIZE;
     uint8_t pct = buf_cap > 0 ? (uint8_t)((rx_buffered * 100) / buf_cap) : 0;
-
-    /* 更新 msg_bus 全局流控状态 */
-    msg_bus_update_flow_state(0xA0, ch->flow_xoff_sent ? 1 : 0,
-                              (uint16_t)rx_buffered, buf_cap);
 
     if (pct >= HEX_FLOW_XOFF_PCT && !ch->flow_xoff_sent) {
         ch->flow_xoff_sent = true;
         HEX_LOGW(TAG, "XOFF: RX 缓冲 %u/%u (%u%%)",
                  (unsigned)rx_buffered, (unsigned)buf_cap, pct);
-        send_flow_event(ch->channel_id, 0x00,
+        send_flow_event(session, ch->channel_id, 0x00,
                         (uint16_t)rx_buffered, buf_cap);
     } else if (pct <= HEX_FLOW_XON_PCT && ch->flow_xoff_sent) {
         ch->flow_xoff_sent = false;
         HEX_LOGI(TAG, "XON: RX 缓冲 %u/%u (%u%%)",
                  (unsigned)rx_buffered, (unsigned)buf_cap, pct);
-        send_flow_event(ch->channel_id, 0x01,
+        send_flow_event(session, ch->channel_id, 0x01,
                         (uint16_t)rx_buffered, buf_cap);
     }
+    update_uart_flow_state();
 }
 
 /**
@@ -217,7 +251,7 @@ static uint8_t drain_uart_events(uart_channel_t *ch)
 /**
  * @brief UART 接收任务 — 被动上报模式
  *
- * 从 UART2 读取数据，一旦有数据就上报。
+ * 从所选业务 UART 读取数据，一旦有数据就上报。
  */
 static void uart_rx_task_passive(void *arg)
 {
@@ -230,11 +264,13 @@ static void uart_rx_task_passive(void *arg)
     while (ch->rx_running) {
         if (!mcp_transport_session_is_current(session)) {
             session = mcp_transport_session_id();
-            uart_flush_input(HEX_EXT_UART_NUM);
+            uart_flush_input(ch->uart_num);
+            ch->flow_xoff_sent = false;
+            update_uart_flow_state();
             drain_uart_events(ch);
             continue;
         }
-        int len = uart_read_bytes(HEX_EXT_UART_NUM, rx_buf, sizeof(rx_buf),
+        int len = uart_read_bytes(ch->uart_num, rx_buf, sizeof(rx_buf),
                                   pdMS_TO_TICKS(50));
         if (!mcp_transport_session_is_current(session)) continue;
         if (len > 0) {
@@ -244,11 +280,11 @@ static void uart_rx_task_passive(void *arg)
         } else {
             drain_uart_events(ch);
         }
-        check_rx_flow(ch);
+        check_rx_flow(ch, session);
     }
 
     HEX_LOGI(TAG, "UART RX 任务退出");
-    vTaskDelete(NULL);
+    rx_task_finished(ch);
 }
 
 /**
@@ -269,17 +305,19 @@ static void uart_rx_task_line(void *arg)
     while (ch->rx_running) {
         if (!mcp_transport_session_is_current(session)) {
             session = mcp_transport_session_id();
-            uart_flush_input(HEX_EXT_UART_NUM);
+            uart_flush_input(ch->uart_num);
+            ch->flow_xoff_sent = false;
+            update_uart_flow_state();
             line_pos = 0;
             drain_uart_events(ch);
             continue;
         }
-        int len = uart_read_bytes(HEX_EXT_UART_NUM, rx_buf, sizeof(rx_buf),
+        int len = uart_read_bytes(ch->uart_num, rx_buf, sizeof(rx_buf),
                                   pdMS_TO_TICKS(50));
         if (!mcp_transport_session_is_current(session)) continue;
         if (len <= 0) {
             drain_uart_events(ch);
-            check_rx_flow(ch);
+            check_rx_flow(ch, session);
             continue;
         }
 
@@ -295,7 +333,7 @@ static void uart_rx_task_line(void *arg)
                 line_pos = 0;
             }
         }
-        check_rx_flow(ch);
+        check_rx_flow(ch, session);
     }
 
     drain_uart_events(ch);
@@ -306,7 +344,7 @@ static void uart_rx_task_line(void *arg)
     }
 
     HEX_LOGI(TAG, "UART RX 任务退出（行模式）");
-    vTaskDelete(NULL);
+    rx_task_finished(ch);
 }
 
 /**
@@ -322,7 +360,7 @@ static void uart_rx_task_fixed(void *arg)
     uint8_t *accum_buf = malloc(threshold);
     if (!accum_buf) {
         HEX_LOGE(TAG, "定长模式缓冲区分配失败");
-        vTaskDelete(NULL);
+        rx_task_finished(ch);
         return;
     }
     size_t accum_pos = 0;
@@ -332,13 +370,15 @@ static void uart_rx_task_fixed(void *arg)
     while (ch->rx_running) {
         if (!mcp_transport_session_is_current(session)) {
             session = mcp_transport_session_id();
-            uart_flush_input(HEX_EXT_UART_NUM);
+            uart_flush_input(ch->uart_num);
+            ch->flow_xoff_sent = false;
+            update_uart_flow_state();
             accum_pos = 0;
             drain_uart_events(ch);
             continue;
         }
         size_t want = threshold - accum_pos;
-        int len = uart_read_bytes(HEX_EXT_UART_NUM, accum_buf + accum_pos,
+        int len = uart_read_bytes(ch->uart_num, accum_buf + accum_pos,
                                   want, pdMS_TO_TICKS(100));
         if (!mcp_transport_session_is_current(session)) continue;
         if (len > 0) {
@@ -352,7 +392,7 @@ static void uart_rx_task_fixed(void *arg)
         } else {
             drain_uart_events(ch);
         }
-        check_rx_flow(ch);
+        check_rx_flow(ch, session);
     }
 
     drain_uart_events(ch);
@@ -364,7 +404,7 @@ static void uart_rx_task_fixed(void *arg)
 
     free(accum_buf);
     HEX_LOGI(TAG, "UART RX 任务退出（定长模式）");
-    vTaskDelete(NULL);
+    rx_task_finished(ch);
 }
 
 /**
@@ -386,7 +426,9 @@ static void uart_rx_task_timeout(void *arg)
     while (ch->rx_running) {
         if (!mcp_transport_session_is_current(session)) {
             session = mcp_transport_session_id();
-            uart_flush_input(HEX_EXT_UART_NUM);
+            uart_flush_input(ch->uart_num);
+            ch->flow_xoff_sent = false;
+            update_uart_flow_state();
             accum_pos = 0;
             drain_uart_events(ch);
             continue;
@@ -394,7 +436,7 @@ static void uart_rx_task_timeout(void *arg)
         TickType_t wait_ticks = (accum_pos > 0) ?
             pdMS_TO_TICKS(timeout_ms) : pdMS_TO_TICKS(50);
 
-        int len = uart_read_bytes(HEX_EXT_UART_NUM, rx_buf, sizeof(rx_buf),
+        int len = uart_read_bytes(ch->uart_num, rx_buf, sizeof(rx_buf),
                                   wait_ticks);
         if (!mcp_transport_session_is_current(session)) continue;
         if (len > 0) {
@@ -420,7 +462,7 @@ static void uart_rx_task_timeout(void *arg)
         } else {
             drain_uart_events(ch);
         }
-        check_rx_flow(ch);
+        check_rx_flow(ch, session);
     }
 
     drain_uart_events(ch);
@@ -431,7 +473,7 @@ static void uart_rx_task_timeout(void *arg)
     }
 
     HEX_LOGI(TAG, "UART RX 任务退出（超时模式）");
-    vTaskDelete(NULL);
+    rx_task_finished(ch);
 }
 
 /**
@@ -456,7 +498,11 @@ static esp_err_t start_rx_task(uart_channel_t *ch)
         break;
     }
 
+    if (!ch->rx_stopped) ch->rx_stopped = xSemaphoreCreateBinary();
+    if (!ch->rx_stopped) return ESP_ERR_NO_MEM;
+    xSemaphoreTake(ch->rx_stopped, 0);
     ch->rx_running = true;
+    ch->rx_task_handle = NULL;
     BaseType_t ret = xTaskCreate(task_fn, "uart_rx",
                                  HEX_UART_RX_TASK_STACK,
                                  ch,
@@ -476,9 +522,9 @@ static esp_err_t start_rx_task(uart_channel_t *ch)
  */
 static void stop_rx_task(uart_channel_t *ch)
 {
-    if (ch->rx_running) {
+    if (ch->rx_task_handle) {
         ch->rx_running = false;
-        vTaskDelay(pdMS_TO_TICKS(200)); /* 等待任务退出 */
+        xSemaphoreTake(ch->rx_stopped, portMAX_DELAY);
         ch->rx_task_handle = NULL;
     }
 }
@@ -490,9 +536,9 @@ static void stop_rx_task(uart_channel_t *ch)
 /**
  * @brief UART_OPEN (0xA0) — 打开 UART 通道
  */
-static void handle_uart_open(const ubcp_frame_t *req)
+static void handle_uart_open(uart_channel_t *ch, const ubcp_frame_t *req)
 {
-    if (s_channel.is_open) {
+    if (ch->is_open) {
         msg_bus_send_status_response(req, UBCP_ERR_ALREADY_OPEN);
         return;
     }
@@ -507,9 +553,9 @@ static void handle_uart_open(const ubcp_frame_t *req)
         }
     }
 
-    /* 安装 UART2 驱动（使用默认配置） */
+    /* Install only the selected business controller, never the control UART. */
     uart_config_t uart_config = {
-        .baud_rate  = s_channel.baud_rate,
+        .baud_rate  = ch->baud_rate,
         .data_bits  = UART_DATA_8_BITS,
         .parity     = UART_PARITY_DISABLE,
         .stop_bits  = UART_STOP_BITS_1,
@@ -518,59 +564,59 @@ static void handle_uart_open(const ubcp_frame_t *req)
     };
 
     esp_err_t err;
-    err = uart_driver_install(HEX_EXT_UART_NUM,
+    err = uart_driver_install(ch->uart_num,
                               HEX_EXT_UART_RX_BUF_SIZE,
                               HEX_EXT_UART_TX_BUF_SIZE,
                               UART_EVENT_QUEUE_SIZE,
-                              &s_channel.event_queue, 0);
+                              &ch->event_queue, 0);
     if (err != ESP_OK) {
-        HEX_LOGE(TAG, "UART2 驱动安装失败: 0x%x", err);
+        HEX_LOGE(TAG, "UART%d 驱动安装失败: 0x%x", ch->uart_num, err);
         msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
         return;
     }
 
-    err = uart_param_config(HEX_EXT_UART_NUM, &uart_config);
+    err = uart_param_config(ch->uart_num, &uart_config);
     if (err != ESP_OK) {
-        uart_driver_delete(HEX_EXT_UART_NUM);
+        uart_driver_delete(ch->uart_num);
         msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
         return;
     }
 
-    err = uart_set_pin(HEX_EXT_UART_NUM,
-                       profile_pin(SIG_UART_TX),
-                       profile_pin(SIG_UART_RX),
+    err = uart_set_pin(ch->uart_num,
+                       tx_pin(ch),
+                       rx_pin(ch),
                        UART_PIN_NO_CHANGE,
                        UART_PIN_NO_CHANGE);
     if (err != ESP_OK) {
-        uart_driver_delete(HEX_EXT_UART_NUM);
+        uart_driver_delete(ch->uart_num);
         msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
         return;
     }
 
     const ubcp_route_entry_t *route = topology_find(req->channel_id);
     if (!route) {
-        uart_driver_delete(HEX_EXT_UART_NUM);
+        uart_driver_delete(ch->uart_num);
         msg_bus_send_status_response(req, UBCP_ERR_CHANNEL_INVALID);
         return;
     }
     if (route->device_type != UBCP_DEV_TYPE_UART) {
-        uart_driver_delete(HEX_EXT_UART_NUM);
+        uart_driver_delete(ch->uart_num);
         msg_bus_send_status_response(req, UBCP_ERR_TYPE_MISMATCH);
         return;
     }
 
-    s_channel.rx_mode    = rx_mode;
-    s_channel.tx_count   = 0;
-    s_channel.rx_count   = 0;
-    s_channel.error_count = 0;
-    s_channel.flow_xoff_sent = false;
-    s_channel.is_open    = true;
+    ch->rx_mode    = rx_mode;
+    ch->tx_count   = 0;
+    ch->rx_count   = 0;
+    ch->error_count = 0;
+    ch->flow_xoff_sent = false;
+    ch->is_open    = true;
 
     /* 启动接收任务 */
-    err = start_rx_task(&s_channel);
+    err = start_rx_task(ch);
     if (err != ESP_OK) {
-        uart_driver_delete(HEX_EXT_UART_NUM);
-        s_channel.is_open = false;
+        uart_driver_delete(ch->uart_num);
+        ch->is_open = false;
         msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
         return;
     }
@@ -594,35 +640,37 @@ static void handle_uart_open(const ubcp_frame_t *req)
     resp.payload_len = sizeof(payload);
     msg_bus_send_frame(&resp);
 
-    HEX_LOGI(TAG, "UART2 已打开，RxMode=%u, 波特率=%lu",
-             rx_mode, (unsigned long)s_channel.baud_rate);
+    HEX_LOGI(TAG, "UART%d 已打开，RxMode=%u, 波特率=%lu",
+             ch->uart_num, rx_mode, (unsigned long)ch->baud_rate);
 }
 
 /**
  * @brief UART_CLOSE (0xA1) — 关闭 UART 通道
  */
-static void handle_uart_close(const ubcp_frame_t *req)
+static void handle_uart_close(uart_channel_t *ch, const ubcp_frame_t *req)
 {
-    if (!s_channel.is_open) {
+    if (!ch->is_open) {
         msg_bus_send_status_response(req, UBCP_ERR_NOT_OPEN);
         return;
     }
 
-    stop_rx_task(&s_channel);
-    uart_driver_delete(HEX_EXT_UART_NUM);
-    s_channel.event_queue = NULL;
-    s_channel.is_open = false;
+    stop_rx_task(ch);
+    uart_driver_delete(ch->uart_num);
+    ch->event_queue = NULL;
+    ch->is_open = false;
+    ch->flow_xoff_sent = false;
+    update_uart_flow_state();
 
     msg_bus_send_status_response(req, UBCP_ERR_SUCCESS);
-    HEX_LOGI(TAG, "UART2 已关闭");
+    HEX_LOGI(TAG, "UART%d 已关闭", ch->uart_num);
 }
 
 /**
  * @brief UART_CONFIG (0xA2) — 配置 UART 参数
  */
-static void handle_uart_config(const ubcp_frame_t *req)
+static void handle_uart_config(uart_channel_t *ch, const ubcp_frame_t *req)
 {
-    if (!s_channel.is_open) {
+    if (!ch->is_open) {
         msg_bus_send_status_response(req, UBCP_ERR_NOT_OPEN);
         return;
     }
@@ -653,7 +701,7 @@ static void handle_uart_config(const ubcp_frame_t *req)
     uint16_t rx_threshold = ((uint16_t)p[8] << 8) | p[9];
     uint8_t rx_timeout    = p[10];
 
-    /* 校验 FlowControl：UART2 无 RTS/CTS 引脚，不支持硬件和软件流控 */
+    /* Neither business connector exposes RTS/CTS; flow control is unsupported. */
     if (flow_ctrl != 0x00) {
         msg_bus_send_status_response(req, UBCP_ERR_NOT_SUPPORT);
         return;
@@ -697,45 +745,53 @@ static void handle_uart_config(const ubcp_frame_t *req)
 
     /* 应用配置 */
     esp_err_t err;
-    err = uart_set_baudrate(HEX_EXT_UART_NUM, baud);
+    err = uart_set_baudrate(ch->uart_num, baud);
     if (err != ESP_OK) {
         msg_bus_send_status_response(req, UBCP_ERR_UART_BAUD);
         return;
     }
 
-    err = uart_set_word_length(HEX_EXT_UART_NUM, esp_data_bits);
+    err = uart_set_word_length(ch->uart_num, esp_data_bits);
     if (err != ESP_OK) {
         msg_bus_send_status_response(req, UBCP_ERR_PARAM);
         return;
     }
 
-    uart_set_stop_bits(HEX_EXT_UART_NUM, esp_stop_bits);
-    uart_set_parity(HEX_EXT_UART_NUM, esp_parity);
+    uart_set_stop_bits(ch->uart_num, esp_stop_bits);
+    uart_set_parity(ch->uart_num, esp_parity);
 
     /* 检测参数变化是否需要重启接收任务（定长/超时模式下阈值/超时变化） */
     bool need_restart = false;
-    if (s_channel.rx_mode == UBCP_UART_RXMODE_FIXED &&
-        s_channel.rx_threshold != rx_threshold) {
+    if (ch->rx_mode == UBCP_UART_RXMODE_FIXED &&
+        ch->rx_threshold != rx_threshold) {
         need_restart = true;
     }
-    if (s_channel.rx_mode == UBCP_UART_RXMODE_TIMEOUT &&
-        s_channel.rx_timeout_ms != rx_timeout) {
+    if (ch->rx_mode == UBCP_UART_RXMODE_TIMEOUT &&
+        ch->rx_timeout_ms != rx_timeout) {
         need_restart = true;
     }
 
     /* 保存配置 */
-    s_channel.baud_rate     = baud;
-    s_channel.rx_threshold  = rx_threshold;
-    s_channel.rx_timeout_ms = rx_timeout;
+    ch->baud_rate     = baud;
+    ch->rx_threshold  = rx_threshold;
+    ch->rx_timeout_ms = rx_timeout;
 
     if (need_restart) {
-        stop_rx_task(&s_channel);
-        start_rx_task(&s_channel);
+        stop_rx_task(ch);
+        if (start_rx_task(ch) != ESP_OK) {
+            uart_driver_delete(ch->uart_num);
+            ch->event_queue = NULL;
+            ch->is_open = false;
+            ch->flow_xoff_sent = false;
+            update_uart_flow_state();
+            msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
+            return;
+        }
     }
 
     /* 读取实际波特率（可能因分频略有偏差） */
     uint32_t actual_baud = 0;
-    uart_get_baudrate(HEX_EXT_UART_NUM, &actual_baud);
+    uart_get_baudrate(ch->uart_num, &actual_baud);
 
     /*
      * 响应载荷（5 字节）：
@@ -755,8 +811,8 @@ static void handle_uart_config(const ubcp_frame_t *req)
     resp.payload_len = sizeof(payload);
     msg_bus_send_frame(&resp);
 
-    HEX_LOGI(TAG, "UART2 配置更新: 波特率=%lu (实际=%lu), %u%c%u",
-             (unsigned long)baud, (unsigned long)actual_baud,
+    HEX_LOGI(TAG, "UART%d 配置更新: 波特率=%lu (实际=%lu), %u%c%u",
+             ch->uart_num, (unsigned long)baud, (unsigned long)actual_baud,
              data_bits,
              parity == 0 ? 'N' : (parity == 1 ? 'O' : 'E'),
              stop_bits == 1 ? 1 : 2);
@@ -765,9 +821,9 @@ static void handle_uart_config(const ubcp_frame_t *req)
 /**
  * @brief UART_SEND (0xA3) — 发送数据
  */
-static void handle_uart_send(const ubcp_frame_t *req)
+static void handle_uart_send(uart_channel_t *ch, const ubcp_frame_t *req)
 {
-    if (!s_channel.is_open) {
+    if (!ch->is_open) {
         msg_bus_send_status_response(req, UBCP_ERR_NOT_OPEN);
         return;
     }
@@ -790,14 +846,14 @@ static void handle_uart_send(const ubcp_frame_t *req)
 
     const uint8_t *data = &req->payload[2];
 
-    /* 写入 UART2 */
-    int written = uart_write_bytes(HEX_EXT_UART_NUM, data, data_len);
+    /* Write only to this channel's physical controller. */
+    int written = uart_write_bytes(ch->uart_num, data, data_len);
     if (written < 0) {
         msg_bus_send_status_response(req, UBCP_ERR_UNKNOWN);
         return;
     }
 
-    s_channel.tx_count += written;
+    ch->tx_count += written;
 
     /*
      * 响应载荷（3 字节）：
@@ -822,9 +878,9 @@ static void handle_uart_send(const ubcp_frame_t *req)
  * 通过 GPIO 直接控制 TXD 线实现 Break，避免 uart_set_line_inverse
  * 在极性恢复时产生的电平跳变被接收端误判为起始位（产生 0x00 假字节）。
  */
-static void handle_uart_set_break(const ubcp_frame_t *req)
+static void handle_uart_set_break(uart_channel_t *ch, const ubcp_frame_t *req)
 {
-    if (!s_channel.is_open) {
+    if (!ch->is_open) {
         msg_bus_send_status_response(req, UBCP_ERR_NOT_OPEN);
         return;
     }
@@ -835,10 +891,10 @@ static void handle_uart_set_break(const ubcp_frame_t *req)
         if (duration_ms == 0) duration_ms = 10;
     }
 
-    int tx_pin = profile_pin(SIG_UART_TX);
+    int pin = tx_pin(ch);
 
     /* 等待正在进行的 UART 发送完成 */
-    uart_wait_tx_done(HEX_EXT_UART_NUM, pdMS_TO_TICKS(100));
+    uart_wait_tx_done(ch->uart_num, pdMS_TO_TICKS(100));
 
     /*
      * GPIO 直接控制 TXD 产生 Break：
@@ -848,23 +904,23 @@ static void handle_uart_set_break(const ubcp_frame_t *req)
      * 4. 稳定延时让接收端重同步 (>1 帧时间, 最坏 1200bps≈10ms, 取 20ms)
      * 5. 将 TX pin 交还给 UART 控制器
      */
-    gpio_set_direction(tx_pin, GPIO_MODE_OUTPUT);
-    gpio_set_level(tx_pin, 0);
+    gpio_set_direction(pin, GPIO_MODE_OUTPUT);
+    gpio_set_level(pin, 0);
     vTaskDelay(pdMS_TO_TICKS(duration_ms));
-    gpio_set_level(tx_pin, 1);
+    gpio_set_level(pin, 1);
 
     /*
      * 注意：Break 恢复时 CH340 接收端会将电平跳变检测为 0x00 + 帧错误，
      * 这是所有 UART 接收器的标准 Break 检测行为，无法从发送侧消除。
      * 接收端可通过帧错误标志 (RxFlags=0x04 BreakDetect) 区分真实数据与 Break 假字节。
      */
-    gpio_set_level(tx_pin, 1);
+    gpio_set_level(pin, 1);
     vTaskDelay(pdMS_TO_TICKS(20));
 
     /* 恢复 UART 控制 */
-    gpio_set_direction(tx_pin, GPIO_MODE_INPUT_OUTPUT);
-    uart_set_pin(HEX_EXT_UART_NUM,
-                 tx_pin, profile_pin(SIG_UART_RX),
+    gpio_set_direction(pin, GPIO_MODE_INPUT_OUTPUT);
+    uart_set_pin(ch->uart_num,
+                 pin, rx_pin(ch),
                  UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 
     msg_bus_send_status_response(req, UBCP_ERR_SUCCESS);
@@ -873,9 +929,9 @@ static void handle_uart_set_break(const ubcp_frame_t *req)
 /**
  * @brief UART_STATUS (0xA6) — 获取状态
  */
-static void handle_uart_status(const ubcp_frame_t *req)
+static void handle_uart_status(uart_channel_t *ch, const ubcp_frame_t *req)
 {
-    if (!s_channel.is_open) {
+    if (!ch->is_open) {
         msg_bus_send_status_response(req, UBCP_ERR_NOT_OPEN);
         return;
     }
@@ -896,14 +952,14 @@ static void handle_uart_status(const ubcp_frame_t *req)
     payload[0] = UBCP_ERR_SUCCESS;
 
     /* 波特率 */
-    uint32_t baud = s_channel.baud_rate;
+    uint32_t baud = ch->baud_rate;
     payload[1] = (uint8_t)(baud >> 24);
     payload[2] = (uint8_t)(baud >> 16);
     payload[3] = (uint8_t)(baud >> 8);
     payload[4] = (uint8_t)(baud & 0xFF);
 
     /* 先清空事件队列，让错误计数更新到最新 */
-    drain_uart_events(&s_channel);
+    drain_uart_events(ch);
 
     /* LineState：
      * Bit 0: TxIdle = 1 (常态)
@@ -911,10 +967,10 @@ static void handle_uart_status(const ubcp_frame_t *req)
      */
     size_t tx_buf_free = 0;
     size_t rx_buf_used = 0;
-    uart_get_tx_buffer_free_size(HEX_EXT_UART_NUM, &tx_buf_free);
+    uart_get_tx_buffer_free_size(ch->uart_num, &tx_buf_free);
     size_t tx_buf_used = HEX_EXT_UART_TX_BUF_SIZE > tx_buf_free
                        ? HEX_EXT_UART_TX_BUF_SIZE - tx_buf_free : 0;
-    uart_get_buffered_data_len(HEX_EXT_UART_NUM, &rx_buf_used);
+    uart_get_buffered_data_len(ch->uart_num, &rx_buf_used);
 
     uint8_t line_state = (tx_buf_used == 0) ? 0x01 : 0x00; /* TxIdle */
     if (rx_buf_used > 0) {
@@ -929,17 +985,17 @@ static void handle_uart_status(const ubcp_frame_t *req)
     payload[9] = (uint8_t)(rx_buf_used & 0xFF);
 
     /* 总发送/接收计数 */
-    payload[10] = (uint8_t)(s_channel.tx_count >> 24);
-    payload[11] = (uint8_t)(s_channel.tx_count >> 16);
-    payload[12] = (uint8_t)(s_channel.tx_count >> 8);
-    payload[13] = (uint8_t)(s_channel.tx_count & 0xFF);
-    payload[14] = (uint8_t)(s_channel.rx_count >> 24);
-    payload[15] = (uint8_t)(s_channel.rx_count >> 16);
-    payload[16] = (uint8_t)(s_channel.rx_count >> 8);
-    payload[17] = (uint8_t)(s_channel.rx_count & 0xFF);
+    payload[10] = (uint8_t)(ch->tx_count >> 24);
+    payload[11] = (uint8_t)(ch->tx_count >> 16);
+    payload[12] = (uint8_t)(ch->tx_count >> 8);
+    payload[13] = (uint8_t)(ch->tx_count & 0xFF);
+    payload[14] = (uint8_t)(ch->rx_count >> 24);
+    payload[15] = (uint8_t)(ch->rx_count >> 16);
+    payload[16] = (uint8_t)(ch->rx_count >> 8);
+    payload[17] = (uint8_t)(ch->rx_count & 0xFF);
 
     /* 错误计数 */
-    payload[18] = s_channel.error_count;
+    payload[18] = ch->error_count;
 
     ubcp_frame_t resp;
     ubcp_frame_make_response(req, &resp);
@@ -973,9 +1029,9 @@ static void flush_tx_with_yield(int uart_num, int max_wait_ms)
 /**
  * @brief UART_FLUSH (0xA7) — 清空缓冲区
  */
-static void handle_uart_flush(const ubcp_frame_t *req)
+static void handle_uart_flush(uart_channel_t *ch, const ubcp_frame_t *req)
 {
-    if (!s_channel.is_open) {
+    if (!ch->is_open) {
         msg_bus_send_status_response(req, UBCP_ERR_NOT_OPEN);
         return;
     }
@@ -987,18 +1043,18 @@ static void handle_uart_flush(const ubcp_frame_t *req)
 
     switch (flush_type) {
     case UBCP_UART_FLUSH_RX:
-        uart_flush_input(HEX_EXT_UART_NUM);
+        uart_flush_input(ch->uart_num);
         break;
     case UBCP_UART_FLUSH_TX:
-        flush_tx_with_yield(HEX_EXT_UART_NUM, 200);
+        flush_tx_with_yield(ch->uart_num, 200);
         break;
     case UBCP_UART_FLUSH_ALL:
-        uart_flush_input(HEX_EXT_UART_NUM);
-        flush_tx_with_yield(HEX_EXT_UART_NUM, 200);
+        uart_flush_input(ch->uart_num);
+        flush_tx_with_yield(ch->uart_num, 200);
         break;
     case UBCP_UART_FLUSH_DRAIN:
-        flush_tx_with_yield(HEX_EXT_UART_NUM, 1000);
-        uart_flush_input(HEX_EXT_UART_NUM);
+        flush_tx_with_yield(ch->uart_num, 1000);
+        uart_flush_input(ch->uart_num);
         break;
     default:
         msg_bus_send_status_response(req, UBCP_ERR_PARAM);
@@ -1014,39 +1070,46 @@ static void handle_uart_flush(const ubcp_frame_t *req)
 
 static esp_err_t uart_module_init(void)
 {
-    HEX_LOGI(TAG, "UART 扩展模块初始化 (UART%d, TX=GPIO%d, RX=GPIO%d)",
-             HEX_EXT_UART_NUM, profile_pin(SIG_UART_TX), profile_pin(SIG_UART_RX));
-    topology_register(UBCP_CH_UART_EXT1, UBCP_DEV_TYPE_UART, &s_channel);
+    for (int i = 0; i < 2; ++i) {
+        uart_channel_t *ch = &s_channels[i];
+        if (!channel_enabled(ch)) continue;
+        topology_register(ch->channel_id, UBCP_DEV_TYPE_UART, ch);
+        HEX_LOGI(TAG, "UART%d business channel %u ready (TX=%d RX=%d)", ch->uart_num, ch->channel_id, tx_pin(ch), rx_pin(ch));
+    }
     return ESP_OK;
 }
 
 static void uart_module_handle_cmd(const ubcp_frame_t *frame)
 {
+    uart_channel_t *ch = frame->channel_id == UBCP_CH_UART_EXT1 ? &s_channels[0] :
+                         frame->channel_id == UBCP_CH_UART_EXT2 ? &s_channels[1] : NULL;
+    if (!ch) { msg_bus_send_status_response(frame, UBCP_ERR_CHANNEL_INVALID); return; }
+    if (!channel_enabled(ch)) { msg_bus_send_status_response(frame, UBCP_ERR_PERMISSION); return; }
     switch (frame->cmd_code) {
     case UBCP_CMD_UART_OPEN:
-        handle_uart_open(frame);
+        handle_uart_open(ch, frame);
         break;
     case UBCP_CMD_UART_CLOSE:
-        handle_uart_close(frame);
+        handle_uart_close(ch, frame);
         break;
     case UBCP_CMD_UART_CONFIG:
-        handle_uart_config(frame);
+        handle_uart_config(ch, frame);
         break;
     case UBCP_CMD_UART_SEND:
-        handle_uart_send(frame);
+        handle_uart_send(ch, frame);
         break;
     case UBCP_CMD_UART_RECV:
         /* RECV 是事件上报，设备端不会收到此命令 */
         msg_bus_send_status_response(frame, UBCP_ERR_NOT_SUPPORT);
         break;
     case UBCP_CMD_UART_SET_BREAK:
-        handle_uart_set_break(frame);
+        handle_uart_set_break(ch, frame);
         break;
     case UBCP_CMD_UART_STATUS:
-        handle_uart_status(frame);
+        handle_uart_status(ch, frame);
         break;
     case UBCP_CMD_UART_FLUSH:
-        handle_uart_flush(frame);
+        handle_uart_flush(ch, frame);
         break;
     default:
         msg_bus_send_status_response(frame, UBCP_ERR_NOT_SUPPORT);
@@ -1056,16 +1119,21 @@ static void uart_module_handle_cmd(const ubcp_frame_t *frame)
 
 static void uart_module_stop(void)
 {
-    if (s_channel.is_open) {
-        stop_rx_task(&s_channel);
-        uart_driver_delete(HEX_EXT_UART_NUM);
-        s_channel.event_queue = NULL;
-        s_channel.is_open = false;
+    for (int i = 0; i < 2; ++i) {
+        uart_channel_t *ch = &s_channels[i];
+        if (ch->is_open) {
+            stop_rx_task(ch);
+            uart_driver_delete(ch->uart_num);
+            ch->event_queue = NULL;
+            ch->is_open = false;
+            ch->flow_xoff_sent = false;
+        }
+        if (ch->rx_stopped) { vSemaphoreDelete(ch->rx_stopped); ch->rx_stopped = NULL; }
     }
-    HEX_LOGI(TAG, "UART 扩展模块已停止");
+    msg_bus_update_flow_state(0xA0, 0, 0, 0);
+    HEX_LOGI(TAG, "UART business module stopped");
 }
 
-/* 模块定义（静态生命周期） */
 static const hex_module_t s_uart_module = {
     .name            = "UART",
     .cmd_range_start = UBCP_CMD_RANGE_UART_START,

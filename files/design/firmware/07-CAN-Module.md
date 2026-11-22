@@ -2,14 +2,16 @@
 
 ## 7.1 概述
 
-CAN 模块管理 MCP2518FD CAN FD 控制器，实现 UBCP 协议中的 CAN 命令组 (0x10-0x1F)。
+阶段 1 的 CAN 模块管理外置 MCP2518FD，支持经典 CAN 和 CAN FD；UBCP CAN 命令组 (0x10-0x1F) 中的现有外置通道不代表 ESP32 片上 TWAI。TWAI 仅支持经典 CAN，使用独立 TX/RX 和外部收发器，不经过 SPI。其独立通道与启停计划见[阶段 2.3](../function/09-peripheral-delivery-plan.md)。
 
-### 硬件配置
+### HXB1 默认硬件配置
+
+设备配置 v2 中，MCP2518FD 引用 SPI2 或 SPI3 的一组总线引脚，并独占 CS 和 INT。通用 SPI 可挂到同一主机，使用另一根 CS。试用启动时固件先探测芯片，失败则回退。GPIO 矩阵改配、接线及实板结果见[阶段 1 交付记录](../test-report/Stage1-Peripheral-Delivery.md)。
 
 | 参数 | 值 |
 |:---|:---|
 | 控制器 | MCP2518FD |
-| 接口 | SPI（VSPI / SPI3） |
+| 接口 | 默认 SPI3（VSPI）；v2 可选择 SPI2 或 SPI3 |
 | SCK 引脚 | GPIO 14 |
 | MOSI 引脚 | GPIO 13 |
 | MISO 引脚 | GPIO 36 (GPI，外接 10kΩ 上拉) |
@@ -94,7 +96,7 @@ ISR 中仅发送队列通知，不执行 SPI 读写操作（SPI 不可在 ISR �
 使用 ESP-IDF 的 `driver/spi_master.h` API：
 
 ```
-SPI Bus:  VSPI_HOST (SPI3)
+SPI Bus:  profile-selected SPI2_HOST or SPI3_HOST (default SPI3_HOST)
 Mode:     0 (CPOL=0, CPHA=0)
 Speed:    10 MHz
 CS:       GPIO15 (手动控制，非 SPI 自动 CS)

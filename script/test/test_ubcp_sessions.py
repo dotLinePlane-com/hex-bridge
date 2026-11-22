@@ -79,7 +79,9 @@ class SessionTests:
     def request(self, ep, cmd=0, payload=b'', channel=0):
         seq, wire = self.wire(cmd, payload, channel)
         ep.send(wire)
-        return ep.response(seq)
+        frame = ep.response(seq)
+        assert frame.is_response and frame.cmd_code == cmd and frame.channel_id == channel, 'mismatched response command/channel'
+        return frame
 
     def ping(self, ep):
         frame = self.request(ep)
@@ -89,6 +91,81 @@ class SessionTests:
         sock = stack.enter_context(socket.create_connection((self.args.host, self.args.port), 3))
         sock.settimeout(0.05)
         return Endpoint(sock, True)
+
+    def recover_wifi(self, uart):
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                self.ping(uart)
+                break
+            except (AssertionError, OSError):
+                if time.monotonic() >= deadline:
+                    raise AssertionError('UART1 unavailable for temporary Wi-Fi recovery') from None
+                time.sleep(0.2)
+        ssid = self.args.ssid.encode('utf-8')
+        key = b'' if self.args.open_network else os.environ[self.args.key_env].encode('ascii')
+        payload = bytes([0, 0, 0 if self.args.open_network else 1, len(ssid), len(key)]) + ssid + key
+        response = self.request(uart, 0x46, payload)
+        assert response.payload and response.payload[0] == 0, 'temporary Wi-Fi rejoin rejected'
+        deadline = time.monotonic() + 45
+        while time.monotonic() < deadline:
+            status = self.request(uart, 0x47, b'\0')
+            assert len(status.payload) >= 2 and status.payload[0] == 0, 'invalid Wi-Fi recovery status'
+            if status.payload[1] == 3:
+                return
+            time.sleep(0.2)
+        raise AssertionError('Wi-Fi recovery did not acquire IP')
+
+    def cycle_wifi(self, stack, uart, old, pcan=None):
+        offline_verified = False
+        try:
+            _, wire = self.wire(0x48, b'\0')
+            old.send(wire)
+            old.poll(0.5)
+            # Wireless loss can lose FIN/RST. Prove server ownership fallback
+            # through real UART commands instead of requiring peer FIN timing.
+            self.ping(uart)
+            status = self.request(uart, 0x47, b'\0')
+            assert len(status.payload) >= 2 and status.payload[0] == 0 and status.payload[1] == 0, 'Wi-Fi did not become offline'
+            stale_seq, stale_wire = self.wire()
+            try:
+                old.send(stale_wire)
+            except (socket.timeout, TimeoutError):
+                pass  # no peer FIN/RST evidence, keep observing the old socket
+            except OSError:
+                old.closed = True
+            old.no_response(stale_seq)
+            offline_verified = True
+            print('PASS Wi-Fi offline restores UART1 provisioning; old session cannot answer')
+            print('INFO remote FIN/RST observed' if old.closed else 'INFO remote FIN/RST not observed during outage')
+            if pcan:
+                self.can_event(uart, None, pcan)
+                print('PASS CAN events during Wi-Fi offline')
+        finally:
+            if not offline_verified:
+                # A failed assertion must not prevent rejoining. Closing our
+                # client also allows UART fallback if the leave command failed.
+                old.io.close()
+                time.sleep(0.25)
+            self.recover_wifi(uart)
+            print('PASS temporary Wi-Fi connection restored')
+        fresh = self.connect(stack)
+        self.ping(fresh)
+        # A discarded server session must remain discarded after link recovery.
+        stale_seq, stale_wire = self.wire()
+        try:
+            old.send(stale_wire)
+        except (socket.timeout, TimeoutError):
+            pass
+        except OSError:
+            old.closed = True
+        old.no_response(stale_seq)
+        self.ping(fresh)
+        print('PASS Wi-Fi recovery and fresh remote session; old session stays invalid')
+        if pcan:
+            self.can_event(fresh, uart, pcan)
+            print('PASS CAN events exclusive after Wi-Fi recovery')
+        return fresh
 
     def event(self, active, inactive, adapter):
         marker = b'ownership-event-\x7d\x7e\n'
@@ -214,35 +291,7 @@ class SessionTests:
                 self.can_event(tcp, uart, pcan)
                 print('PASS CAN events exclusive after TCP reconnect')
             if self.args.cycle_wifi:
-                seq, wire = self.wire(0x48, b'\0')
-                tcp.send(wire)
-                tcp.poll(3)
-                assert tcp.closed, 'Wi-Fi leave did not close TCP session'
-                self.ping(uart)
-                status = self.request(uart, 0x47, b'\0')
-                assert status.payload[0] == 0 and status.payload[1] == 0
-                print('PASS Wi-Fi offline closes TCP and restores UART1 provisioning')
-                if pcan:
-                    self.can_event(uart, None, pcan)
-                    print('PASS CAN events during Wi-Fi offline')
-                ssid = self.args.ssid.encode('utf-8')
-                key = b'' if self.args.open_network else os.environ[self.args.key_env].encode('ascii')
-                payload = bytes([0, 0, 0 if self.args.open_network else 1, len(ssid), len(key)]) + ssid + key
-                assert self.request(uart, 0x46, payload).payload[0] == 0
-                deadline = time.monotonic() + 45
-                while time.monotonic() < deadline:
-                    status = self.request(uart, 0x47, b'\0')
-                    if status.payload[1] == 3:
-                        break
-                    time.sleep(0.2)
-                else:
-                    raise AssertionError('Wi-Fi recovery did not acquire IP')
-                tcp = self.connect(stack)
-                self.ping(tcp)
-                print('PASS Wi-Fi recovery and fresh remote session')
-                if pcan:
-                    self.can_event(tcp, uart, pcan)
-                    print('PASS CAN events exclusive after Wi-Fi recovery')
+                tcp = self.cycle_wifi(stack, uart, tcp, pcan)
             else:
                 print('SKIP Wi-Fi leave/recovery (provide --cycle-wifi and credentials)')
             if pcan:

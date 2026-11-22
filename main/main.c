@@ -20,6 +20,7 @@
 #include "nvs_flash.h"
 
 #include "core/device_profile.h"
+#include "core/spi_bus_manager.h"
 #include "hex_config.h"
 #include "utils/hex_log.h"
 #include "core/msg_bus.h"
@@ -61,22 +62,34 @@ void app_main(void)
 
     /* ── 3. 注册功能模块 ── */
     profile_init();
+    ret=hex_spi_buses_init();
+    if(ret!=ESP_OK) {profile_driver_failed();ESP_ERROR_CHECK(ret);}
     const struct {
         const hex_module_t *module;
         unsigned feature;
     } modules[] = {
         {mod_system_get(), 0}, {mod_uart_get(), PF_UART}, {mod_can_get(), PF_CAN},
         {mod_tcp_get(), PF_TCP}, {mod_udp_get(), PF_UDP}, {mod_ws_get(), PF_WS},
-        {mod_network_get(), PF_WIFI}, {mod_spi_get(), 0},
+        {mod_network_get(), PF_WIFI}, {mod_spi_get(), PF_SPI},
     };
     for (size_t i = 0; i < sizeof(modules) / sizeof(modules[0]); i++) {
-        if (modules[i].feature && !profile_enabled(modules[i].feature)) continue;
+        if (modules[i].feature == PF_UART) {
+            if (!profile_enabled(PF_UART) && !profile_uart1_business_enabled()) continue;
+        } else if (modules[i].feature && !profile_enabled(modules[i].feature)) continue;
         const hex_module_t *module = modules[i].module;
         ESP_ERROR_CHECK(msg_bus_register_module(module));
-        if (module->init) ESP_ERROR_CHECK(module->init());
+        if (module->init) {
+            ret=module->init();
+            if(ret!=ESP_OK) {
+                profile_driver_failed();
+                HEX_LOGE(TAG,"Module initialization failed: %s",esp_err_to_name(ret));
+                ESP_ERROR_CHECK(ret);
+            }
+        }
     }
     uint32_t mcp_baud = mod_system_get_mcp_baud_rate();
-    ESP_ERROR_CHECK(mcp_transport_init(mcp_baud));
+    ret=mcp_transport_init(mcp_baud);
+    if(ret!=ESP_OK) {profile_driver_failed();ESP_ERROR_CHECK(ret);}
     if (profile_enabled(PF_DAP)) {
         dap_release();
         ret = dap_server_start();
@@ -88,6 +101,7 @@ void app_main(void)
     if (profile_enabled(PF_WIFI)) mod_network_start();
 
     /* ── 6. 广播 SYS_BOOT_EVENT 通知主机系统复位/启动原因 ── */
+    profile_boot_ready();
     mod_system_send_boot_event();
 
     HEX_LOGI(TAG, "========================================");

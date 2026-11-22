@@ -153,9 +153,9 @@ static void handle_get_info(const ubcp_frame_t *req)
     memcpy(&payload[8], HEX_MODEL_ID, 4);
 
     /* 能力位图 */
-    uint16_t caps = UBCP_CAP_SPI;
+    uint16_t caps = profile_enabled(PF_SPI) ? UBCP_CAP_SPI : 0;
     if (profile_enabled(PF_CAN)) caps |= UBCP_CAP_CAN | UBCP_CAP_CAN_FD;
-    if (profile_enabled(PF_UART)) caps |= UBCP_CAP_UART;
+    if (profile_enabled(PF_UART) || profile_uart1_business_enabled()) caps |= UBCP_CAP_UART;
     if (profile_enabled(PF_WIFI)) caps |= UBCP_CAP_WIFI_STA;
     if (profile_enabled(PF_TCP)) caps |= UBCP_CAP_TCP;
     if (profile_enabled(PF_UDP)) caps |= UBCP_CAP_UDP;
@@ -410,7 +410,7 @@ static void handle_get_config(const ubcp_frame_t *req)
         break;
 
     case UBCP_CFGKEY_UART_CHANNEL_COUNT: {
-        tmp_buf[0] = profile_enabled(PF_UART) ? 1 : 0;
+        tmp_buf[0] = (profile_enabled(PF_UART) ? 1 : 0) + (profile_uart1_business_enabled() ? 1 : 0);
         value = tmp_buf;
         value_len = 1;
         break;

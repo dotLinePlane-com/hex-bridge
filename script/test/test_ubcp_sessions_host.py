@@ -1,6 +1,7 @@
 """Compile and run real UBCP transport/bus/frame code against deterministic I/O.
 Usage: python script/test/test_ubcp_sessions_host.py --cc PATH_TO_COMPILER
 For Zig: --cc PATH_TO_ZIG --zig. Uses temporary platform headers only.
+For MSVC: run from a VS developer prompt with --cc cl.
 """
 import argparse
 import os
@@ -70,17 +71,21 @@ int uart_set_pin(int,int,int,int,int);
 #define SOL_SOCKET 1
 #define SO_REUSEADDR 2
 #define SO_KEEPALIVE 3
+#define SO_SNDTIMEO 8
 #define TCP_KEEPIDLE 4
 #define TCP_KEEPINTVL 5
 #define TCP_KEEPCNT 6
+#define TCP_NODELAY 7
 #define INADDR_ANY 0
 #define SHUT_RDWR 2
+#define SHUT_WR 1
 #define MSG_DONTWAIT 0
 #define F_SETFL 0
 #define O_NONBLOCK 0
 #define htons(x) (x)
 #define htonl(x) (x)
 struct sockaddr { int dummy; };
+struct timeval { long tv_sec, tv_usec; };
 struct sockaddr_in { int sin_family,sin_port; struct { unsigned s_addr; } sin_addr; };
 int socket(int,int,int);
 int setsockopt(int,int,int,const void *,unsigned);
@@ -111,14 +116,23 @@ def main():
             path.parent.mkdir(exist_ok=True, parents=True)
             path.write_text('#include "platform.h"\n')
         binary = work / ('sessions.exe' if os.name == 'nt' else 'sessions')
-        command = [args.cc] + (['cc'] if args.zig else []) + [
-            '-std=c11', '-Wall', '-Wextra', '-Werror',
-            '-Wno-unused-parameter', '-Wno-unused-variable',
-            '-I', str(work), '-I', str(root / 'main'),
-            str(root / 'script/test/host/test_ubcp_sessions.c'),
-            str(root / 'main/core/msg_bus.c'),
-            str(root / 'main/protocol/ubcp_frame.c'), '-o', str(binary)]
-        subprocess.run(command, check=True)
+        sources = [str(root / 'script/test/host/test_ubcp_sessions.c'),
+                   str(root / 'main/core/msg_bus.c'),
+                   str(root / 'main/protocol/ubcp_frame.c')]
+        if Path(args.cc).stem.lower() == 'cl' and not args.zig:
+            # Unused mocked I/O arguments/log tags, explicit wire-size narrowing,
+            # and MSVC's const-pointee-array memset warning are expected here.
+            command = [args.cc, '/nologo', '/std:c11', '/utf-8', '/W4', '/WX',
+                       '/wd4090', '/wd4100', '/wd4189', '/wd4505', '/wd4244', '/wd4267',
+                       '/I' + str(work), '/I' + str(root / 'main'),
+                       *sources, '/Fe:' + str(binary)]
+        else:
+            command = [args.cc] + (['cc'] if args.zig else []) + [
+                '-std=c11', '-Wall', '-Wextra', '-Werror',
+                '-Wno-unused-parameter', '-Wno-unused-variable',
+                '-I', str(work), '-I', str(root / 'main'),
+                *sources, '-o', str(binary)]
+        subprocess.run(command, cwd=work, check=True)
         subprocess.run([str(binary)], check=True)
 
 

@@ -63,9 +63,12 @@
 #define UBCP_DEV_TYPE_GPIO          5       /**< GPIO 引脚组 */
 
 #define UBCP_CH_UART_EXT1           1       /**< 物理扩展串口 1 (UART2) */
-#define UBCP_CH_UART_EXT2           2       /**< 物理扩展串口 2 (预留) */
+#define UBCP_CH_UART_EXT2           2       /**< UART1 业务串口 (GPIO4/34) */
 #define UBCP_CH_CAN_EXT1            3       /**< 物理扩展 CAN 1 */
 #define UBCP_CH_SPI_EXT1            4       /**< 物理扩展 SPI 1 */
+#define UBCP_CH_SPI_SLAVE2          6
+#define UBCP_CH_SPI_SLAVE3          7
+#define UBCP_CH_SPI_EXT2            5       /**< 普通 SPI 设备 2；主机由配置选择 */
 
 /* External SPI2 mode and transfer width */
 #define UBCP_SPI_MODE_0             0x00
@@ -78,6 +81,7 @@
 #define UBCP_SPI_WORD_16             0x01
 #define UBCP_SPI_CS_AUTO             0x00
 #define UBCP_SPI_CS_MANUAL           0x01
+#define UBCP_SPI_NO_CS               0xFF    /**< 无片选；只允许独占主机的设备 */
 #define UBCP_SPI_WIDTH_SINGLE        0x01
 #define UBCP_SPI_WIDTH_QUAD          0x04
 
@@ -164,6 +168,8 @@
 #define UBCP_CMD_SPI_WRITE          0x24
 #define UBCP_CMD_SPI_READ           0x25
 #define UBCP_CMD_SPI_CS_CONTROL     0x26
+#define UBCP_CMD_SPI_SLAVE_PREPARE  0x27
+#define UBCP_CMD_SPI_SLAVE_FETCH    0x28
 
 /* ========================================================================
  * 命令码定义 — I2C (0x30-0x3F)

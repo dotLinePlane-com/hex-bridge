@@ -124,6 +124,7 @@ static void io_task(void *arg)
                 } else {
                     int yes = 1, idle = 10, interval = 3, count = 3;
                     setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
+                    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes));
                     setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(idle));
                     setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(interval));
                     setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &count, sizeof(count));
@@ -188,6 +189,46 @@ esp_err_t mcp_transport_send(const uint8_t *data, size_t len)
 {
     uint32_t session = mcp_transport_session_id();
     return mcp_transport_send_session(data, len, session);
+}
+void mcp_transport_prepare_restart(uint32_t session)
+{
+    if (!s_lock || xSemaphoreTake(s_lock, pdMS_TO_TICKS(1000)) != pdTRUE) return;
+    if (!s_running || !session || session != s_session) {
+        xSemaphoreGive(s_lock);
+        return;
+    }
+    /* No new commands or events may race the terminal response. lwIP runs in
+     * its own task and continues transmitting while this I/O task waits. */
+    s_running = false;
+    s_online = false;
+    if (s_listener >= 0) { close(s_listener); s_listener = -1; }
+    if (s_client < 0) {
+        if (profile_enabled(PF_SERIAL))
+            uart_wait_tx_done(HEX_MCP_UART_NUM, pdMS_TO_TICKS(500));
+    } else {
+        int yes = 1;
+        setsockopt(s_client, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes));
+        /* lwIP also uses SO_SNDTIMEO to bound FIN allocation retries during
+         * shutdown/close under memory pressure (its default is 20 seconds). */
+        struct timeval send_timeout = {.tv_sec = 0, .tv_usec = 250000};
+        setsockopt(s_client, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(send_timeout));
+        /* send() only queued the UBCP response. A write-side shutdown orders
+         * FIN after those bytes; the CLI can read the response and then EOF. */
+        if (shutdown(s_client, SHUT_WR) == 0) {
+            TickType_t start = xTaskGetTickCount();
+            uint8_t discarded[128];
+            while (xTaskGetTickCount() - start < pdMS_TO_TICKS(1500)) {
+                int n = recv(s_client, discarded, sizeof(discarded), MSG_DONTWAIT);
+                if (n == 0) break; /* Peer closed its side of the ordered stream. */
+                if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) break;
+                /* Ignore pipelined commands while the durable APPLY is armed. */
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
+        }
+        close(s_client);
+        s_client = -1;
+    }
+    xSemaphoreGive(s_lock);
 }
 esp_err_t mcp_transport_init(uint32_t baud_rate)
 {

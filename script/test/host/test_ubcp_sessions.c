@@ -6,8 +6,14 @@
 #include <string.h>
 #include "transport/mcp_transport.c"
 
+/* Exercise the existing session scenarios with the factory feature set. */
+bool profile_enabled(enum profile_feature feature) { return (PF_ALL & feature) != 0; }
+bool profile_uart1_business_enabled(void) { return false; }
+
 static int mutex_count, uart_writes, tcp_writes, tx_waits, rx_flushes;
 static int transition_on_bus_lock, partial_send, fail_send, dispatches;
+static int restart_polls, peer_eof_after, write_shutdowns, close_calls, timed_tx_waits;
+static int pending_restart_data, close_timeout_configured;
 static ubcp_frame_t delayed;
 SemaphoreHandle_t xSemaphoreCreateMutex(void) { return (void *)(intptr_t)++mutex_count; }
 int xSemaphoreTake(SemaphoreHandle_t mutex, unsigned wait) {
@@ -25,7 +31,11 @@ void vTaskDelete(void *task) { (void)task; }
 int xTaskCreate(void (*fn)(void *), const char *name, unsigned stack, void *arg, int prio, void **task) {
     (void)fn; (void)name; (void)stack; (void)arg; (void)prio; *task = (void *)1; return pdPASS;
 }
-int uart_wait_tx_done(int n, unsigned wait) { (void)n; assert(wait == portMAX_DELAY); ++tx_waits; return 0; }
+int uart_wait_tx_done(int n, unsigned wait) {
+    (void)n; assert(wait == portMAX_DELAY || wait == pdMS_TO_TICKS(500));
+    if(wait == pdMS_TO_TICKS(500)) ++timed_tx_waits;
+    ++tx_waits; return 0;
+}
 int uart_flush_input(int n) { (void)n; ++rx_flushes; return 0; }
 int uart_write_bytes(int n, const void *p, size_t len) { (void)n; (void)p; ++uart_writes; return (int)len; }
 int uart_read_bytes(int n, void *p, size_t len, unsigned wait) { (void)n; (void)p; (void)len; (void)wait; return 0; }
@@ -34,14 +44,26 @@ int uart_driver_delete(int n) { return 0; }
 int uart_param_config(int n,const uart_config_t *c) { return 0; }
 int uart_set_pin(int n,int tx,int rx,int rts,int cts) { return 0; }
 int socket(int af,int type,int protocol) { return 100; }
-int setsockopt(int fd,int level,int opt,const void *v,unsigned len) { return 0; }
+int setsockopt(int fd,int level,int opt,const void *v,unsigned len) {
+    if(opt==SO_SNDTIMEO) {
+        const struct timeval *timeout=v;
+        assert(timeout->tv_sec==0 && timeout->tv_usec==250000);
+        ++close_timeout_configured;
+    }
+    return 0;
+}
 int bind(int fd,const struct sockaddr *addr,unsigned len) { return 0; }
 int listen(int fd,int backlog) { return 0; }
 int fcntl(int fd,int command,...) { return 0; }
 int accept(int fd,struct sockaddr *addr,void *len) { return -1; }
-int shutdown(int fd,int how) { return 0; }
-int close(int fd) { return 0; }
-int recv(int fd,void *buf,size_t len,int flags) { errno = EAGAIN; return -1; }
+int shutdown(int fd,int how) { if(how==SHUT_WR) ++write_shutdowns; return 0; }
+int close(int fd) { ++close_calls; return 0; }
+int recv(int fd,void *buf,size_t len,int flags) {
+    ++restart_polls;
+    if(pending_restart_data) { --pending_restart_data; memset(buf,0,1); return 1; }
+    if(peer_eof_after && restart_polls>=peer_eof_after) return 0;
+    errno = EAGAIN; return -1;
+}
 int send(int fd,const void *buf,size_t len,int flags) {
     ++tcp_writes;
     if (fail_send && --fail_send == 0) { errno = ECONNRESET; return -1; }
@@ -114,5 +136,24 @@ int main(void) {
     assert(dispatches == 1);
     assert(tx_waits && rx_flushes);
     puts("PASS parser drops half frame at session boundary and accepts fresh frame");
+    /* Reboot responses follow the accepted session, independent of enabled UART. */
+    original=s_session;int closes=close_calls;
+    mcp_transport_prepare_restart(original+1);
+    assert(s_running && close_calls==closes);
+    mcp_transport_prepare_restart(original);
+    assert(!s_running && timed_tx_waits==1);
+    puts("PASS UART reboot drains TX with a bounded wait; stale session cannot close it");
+    s_running=true;s_client=45;s_listener=100;s_online=true;
+    restart_polls=0;peer_eof_after=3;pending_restart_data=1;
+    assert(mcp_transport_send_session(wire,len,s_session)==ESP_OK);
+    mcp_transport_prepare_restart(s_session);
+    assert(write_shutdowns==1 && restart_polls==3 && s_client==-1 && s_listener==-1);
+    assert(close_timeout_configured==1 && !pending_restart_data);
+    assert(!s_running && !s_online && timed_tx_waits==1);
+    puts("PASS TCP reboot half-closes after response and waits for peer EOF before close");
+    s_running=true;s_client=46;restart_polls=0;peer_eof_after=0;
+    mcp_transport_prepare_restart(s_session);
+    assert(write_shutdowns==2 && restart_polls>0 && restart_polls<=1500 && s_client==-1);
+    puts("PASS TCP reboot peer that never closes is bounded to 1500 ms");
     return 0;
 }

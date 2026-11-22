@@ -455,6 +455,7 @@ static void can_int_task_fn(void *arg)
     }
 
     HEX_LOGI(TAG, "CAN 中断任务退出");
+    s_can.int_task = NULL;
     vTaskDelete(NULL);
 }
 
@@ -508,6 +509,7 @@ static void can_rx_proc_fn(void *arg)
     }
 
     HEX_LOGI(TAG, "CAN 接收上报任务退出");
+    s_can.rx_proc_task = NULL;
     vTaskDelete(NULL);
 }
 
@@ -707,6 +709,14 @@ static esp_err_t hw_set_mode(uint8_t mode)
 /**
  * @brief CAN_OPEN (0x10)
  */
+static void stop_workers(void)
+{
+    s_can.tasks_running = false;
+    while (s_can.int_task || s_can.rx_proc_task) vTaskDelay(pdMS_TO_TICKS(10));
+    if (s_can.event_queue) { vQueueDelete(s_can.event_queue); s_can.event_queue = NULL; }
+    if (s_can.rx_queue) { vQueueDelete(s_can.rx_queue); s_can.rx_queue = NULL; }
+}
+
 static void handle_can_open(const ubcp_frame_t *req)
 {
     /* 校验通道 */
@@ -761,17 +771,14 @@ static void handle_can_open(const ubcp_frame_t *req)
     BaseType_t r2 = xTaskCreate(can_rx_proc_fn, "can_rx", 4096, NULL, 8,
                                 &s_can.rx_proc_task);
     if (r1 != pdPASS || r2 != pdPASS) {
-        s_can.tasks_running = false;
-        vQueueDelete(s_can.event_queue);
-        vQueueDelete(s_can.rx_queue);
-        s_can.event_queue = NULL;
-        s_can.rx_queue = NULL;
+        stop_workers();
         send_status_resp(req, UBCP_ERR_HAL_FAIL);
         return;
     }
 
     /* 设置工作模式 */
     if (hw_set_mode(mode) != ESP_OK) {
+        stop_workers();
         send_status_resp(req, UBCP_ERR_HAL_FAIL);
         return;
     }
@@ -793,6 +800,9 @@ static void handle_can_open(const ubcp_frame_t *req)
     mcp2518fd_int_flags_clear(0xFFFF);
     if (setup_gpio_isr() != ESP_OK) {
         HEX_LOGE(TAG, "GPIO 中断配置失败");
+        stop_workers();
+        send_status_resp(req, UBCP_ERR_HAL_FAIL);
+        return;
     }
 
     s_can.is_open       = true;
@@ -856,7 +866,7 @@ static void handle_can_close(const ubcp_frame_t *req)
     /* 先停止接收任务与中断，避免配置模式误触发事件 */
     s_can.tasks_running = false;
     gpio_isr_handler_remove(profile_pin(SIG_CAN_INT));
-    vTaskDelay(pdMS_TO_TICKS(200));
+    while (s_can.int_task || s_can.rx_proc_task) vTaskDelay(pdMS_TO_TICKS(10));
 
     /* 等待 TX 排空 (1s 超时) */
     mcp2518fd_txq_wait_empty(1000);
@@ -1455,18 +1465,17 @@ static void handle_can_filter_batch(const ubcp_frame_t *req)
 
 static esp_err_t can_module_init(void)
 {
-    HEX_LOGI(TAG, "CAN FD 模块初始化 (MCP2518FD, SCK=GPIO%d, CS=GPIO%d)",
-             profile_pin(SIG_CAN_SCK), profile_pin(SIG_CAN_CS));
-
-    topology_register(CAN_CHANNEL_ID, UBCP_DEV_TYPE_CAN, &s_can);
-
-    /* SPI 总线初始化 (仅一次) */
     esp_err_t err = mcp2518fd_init();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        profile_driver_failed();
-        HEX_LOGW(TAG, "SPI 初始化失败 (0x%x)，CAN 将在 OPEN 时重试", err);
+    if (err != ESP_OK) { profile_driver_failed(); return err; }
+    if (profile_is_trial()) {
+        err = mcp2518fd_probe();
+        if (err != ESP_OK) {
+            mcp2518fd_deinit();
+            profile_driver_failed();
+            return err;
+        }
     }
-
+    topology_register(CAN_CHANNEL_ID, UBCP_DEV_TYPE_CAN, &s_can);
     return ESP_OK;
 }
 
@@ -1521,22 +1530,13 @@ static void can_module_handle_cmd(const ubcp_frame_t *frame)
 static void can_module_stop(void)
 {
     if (s_can.is_open) {
-        s_can.tasks_running = false;
         gpio_isr_handler_remove(profile_pin(SIG_CAN_INT));
-        if (s_can.event_queue) {
-            vQueueDelete(s_can.event_queue);
-            s_can.event_queue = NULL;
-        }
-        if (s_can.rx_queue) {
-            vQueueDelete(s_can.rx_queue);
-            s_can.rx_queue = NULL;
-        }
         s_can.is_open = false;
     }
-    HEX_LOGI(TAG, "CAN FD 模块已停止");
+    stop_workers();
+    mcp2518fd_deinit();
 }
 
-/* 模块定义（静态生命周期） */
 static const hex_module_t s_can_module = {
     .name            = "CAN",
     .cmd_range_start = UBCP_CMD_RANGE_CAN_START,

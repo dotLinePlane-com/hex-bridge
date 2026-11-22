@@ -117,8 +117,5 @@
  * 设备信息
  * ======================================================================== */
 
-#define HEX_FW_VERSION_MAJOR        0
-#define HEX_FW_VERSION_MINOR        1
-#define HEX_FW_VERSION_PATCH        0
 #define HEX_MODEL_ID                "HXB1"
 #define HEX_PROTO_VERSION           0x02

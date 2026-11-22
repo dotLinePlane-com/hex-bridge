@@ -1,5 +1,6 @@
 """Compile the real profile handler with in-memory NVS. Run with cl (VS prompt) or cc."""
 import argparse
+from contextlib import contextmanager
 import os
 import subprocess
 import tempfile
@@ -52,9 +53,13 @@ static int nvs_commit(int h){
     memcpy(disk,staged,staged_len);disk_len=staged_len;return 0;
 }
 """
-HARNESS = r"""
+HARNESS_PREFIX = r"""
 #include "core/device_profile.c"
 static bool credentials, tcp;
+static bool session_current=true;
+bool mcp_transport_session_is_current(uint32_t session) {return session_current;}
+static unsigned restart_preparations;
+void mcp_transport_prepare_restart(uint32_t session) {++restart_preparations;}
 bool mod_network_has_saved_credentials(void) {return credentials;}
 bool mcp_transport_using_tcp(void) {return tcp;}
 static uint8_t reply[100];
@@ -71,6 +76,8 @@ static unsigned command(int op,unsigned id,const mapping_t*m){
     profile_command(&req);
     return reply[0];
 }
+"""
+HARNESS = HARNESS_PREFIX + r"""
 int main(void){
     profile_init();
     assert(command(DESCRIBE,0,NULL)==0 && length==57);
@@ -103,7 +110,7 @@ int main(void){
     assert(command(SAVE,state.revision,&m)==UBCP_ERR_UNKNOWN && state.phase==IDLE);
     fail_write=false;
     assert(command(SAVE,state.revision,&m)==0);id=get32(reply+1);
-    assert(command(APPLY,id,NULL)==0 && restarts==1);
+    assert(command(APPLY,id,NULL)==0 && restarts==1 && restart_preparations==1);
     profile_init();assert(state.phase==TRIAL && profile_pin(SIG_UART_TX)==25);
     assert(command(APPLY,id,NULL)==0 && restarts==1);
     assert(command(SAVE,state.revision,&m)==UBCP_ERR_BUSY);
@@ -111,12 +118,12 @@ int main(void){
     trial_timeout(NULL);assert(restarts==2);
     profile_init();assert(state.phase==IDLE && profile_pin(SIG_UART_TX)==32);
     assert(command(SAVE,state.revision,&m)==0);id=get32(reply+1);
-    assert(command(APPLY,id,NULL)==0);profile_init();tcp=true;
+    assert(command(APPLY,id,NULL)==0);profile_init();profile_boot_ready();profile_network_ready();tcp=true;
     assert(command(CONFIRM,id,NULL)==0 && command(CONFIRM,id,NULL)==0);
     profile_init();assert(!profile_enabled(PF_SERIAL) && profile_pin(SIG_UART_TX)==25);
     m.mask_lo |= PF_SERIAL;
     assert(command(SAVE,state.revision,&m)==0);id=get32(reply+1);
-    assert(command(APPLY,id,NULL)==0);profile_init();
+    assert(command(APPLY,id,NULL)==0);profile_init();profile_boot_ready();profile_network_ready();
     assert(command(CONFIRM,id,NULL)==UBCP_ERR_PERMISSION);
     tcp=false;assert(command(CONFIRM,id,NULL)==0);
     return 0;
@@ -124,10 +131,9 @@ int main(void){
 """
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("compiler", nargs="?", default="cl" if os.name == "nt" else "cc")
-    args = parser.parse_args()
+@contextmanager
+def compiled_harness(compiler, source=HARNESS):
+    """Build the actual firmware handler against temporary platform services."""
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         for name in ("esp_err.h esp_system.h esp_log.h esp_timer.h freertos/FreeRTOS.h "
@@ -137,13 +143,21 @@ def main():
             header.parent.mkdir(exist_ok=True)
             header.write_text('#include "mock.h"\n')
         (root / "mock.h").write_text(STUBS + "".join(f"#define GPIO_NUM_{i} {i}\n" for i in range(40)))
-        (root / "test.c").write_text(HARNESS)
-        if Path(args.compiler).stem.lower() == "cl":
-            cmd = [args.compiler, "/nologo", "/std:c11", "/utf-8", "/I.", "/I" + str(MAIN), "test.c"]
+        (root / "test.c").write_text(source)
+        if Path(compiler).stem.lower() == "cl":
+            cmd = [compiler, "/nologo", "/std:c11", "/utf-8", "/I.", "/I" + str(MAIN), "test.c"]
         else:
-            cmd = [args.compiler, "-std=c11", "-I.", "-I" + str(MAIN), "test.c", "-o", "test"]
+            cmd = [compiler, "-std=c11", "-I.", "-I" + str(MAIN), "test.c", "-o", "test"]
         subprocess.run(cmd, cwd=root, check=True)
-        subprocess.run([str(root / ("test.exe" if os.name == "nt" else "test"))], check=True)
+        yield root / ("test.exe" if os.name == "nt" else "test")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("compiler", nargs="?", default="cl" if os.name == "nt" else "cc")
+    args = parser.parse_args()
+    with compiled_harness(args.compiler) as binary:
+        subprocess.run([str(binary)], check=True)
     print("Device profile protocol, validation, persistence and rollback: PASS")
 
 

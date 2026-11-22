@@ -17,3 +17,7 @@ uint32_t mcp_transport_session_id(void);
 bool mcp_transport_using_tcp(void);
 bool mcp_transport_session_is_current(uint32_t session);
 esp_err_t mcp_transport_send_session(const uint8_t *data, size_t len, uint32_t session);
+/* Drain a just-sent reboot response to this session. UART waits at most 500 ms;
+ * TCP sends an ordered FIN and waits at most 1500 ms for peer EOF before close.
+ * This quiesces transport I/O; only use immediately before restarting. */
+void mcp_transport_prepare_restart(uint32_t session);

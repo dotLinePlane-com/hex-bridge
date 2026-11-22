@@ -8,9 +8,11 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "driver/spi_master.h"
 #include "esp_log.h"
 #include "core/device_profile.h"
+#include "core/spi_bus_manager.h"
 #include "hex_config.h"
 #include "modules/mcp2518fd.h"
 
@@ -22,6 +24,8 @@ static const char *TAG = "mcp2518fd";
 
 static spi_device_handle_t s_spi_dev = NULL;
 static SemaphoreHandle_t s_spi_mutex = NULL;
+static bool s_bus_retained;
+static int can_spi_host(void) { return profile_spi_host(true) == 2 ? SPI2_HOST : SPI3_HOST; }
 
 /* ========================================================================
  * 位时序表 (40 MHz 系统时钟)
@@ -84,7 +88,11 @@ static esp_err_t spi_transfer(const uint8_t *tx_buf, uint8_t *rx_buf,
         t.rxlength = len * 8;
     }
 
-    esp_err_t err = spi_device_transmit(s_spi_dev, &t);
+    esp_err_t err = spi_device_acquire_bus(s_spi_dev, portMAX_DELAY);
+    if (err == ESP_OK) {
+        err = spi_device_transmit(s_spi_dev, &t);
+        spi_device_release_bus(s_spi_dev);
+    }
 
     xSemaphoreGive(s_spi_mutex);
     return err;
@@ -201,7 +209,7 @@ esp_err_t mcp2518fd_osc_enable(void)
         if (err != ESP_OK) {
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(5));
+        vTaskDelay(pdMS_TO_TICKS(5) + 1);
 
         uint8_t verify = 0;
         err = mcp2518fd_read_byte(MCP2518FD_REG_OSC, &verify);
@@ -221,7 +229,7 @@ esp_err_t mcp2518fd_osc_enable(void)
         if (osc & (1u << 10)) {
             return ESP_OK;
         }
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(1) + 1);
     }
     ESP_LOGE(TAG, "振荡器未就绪 (OSCRDY=0), OSC=0x%08X", (unsigned)osc);
     return ESP_ERR_TIMEOUT;
@@ -314,7 +322,7 @@ esp_err_t mcp2518fd_opmode_select(uint8_t mode)
         if (mcp2518fd_opmode_get() == mode) {
             return ESP_OK;
         }
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(1) + 1);
     }
     ESP_LOGW(TAG, "opmode_select timeout: req=%u, cur=%u", mode, mcp2518fd_opmode_get());
     return ESP_ERR_TIMEOUT;
@@ -826,36 +834,64 @@ esp_err_t mcp2518fd_init(void)
         return ESP_ERR_NO_MEM;
     }
 
-    spi_bus_config_t buscfg = {
-        .sclk_io_num   = profile_pin(SIG_CAN_SCK),
-        .mosi_io_num   = profile_pin(SIG_CAN_MOSI),
-        .miso_io_num   = profile_pin(SIG_CAN_MISO),
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-        .max_transfer_sz = 4096,
-    };
-
-    esp_err_t err = spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "SPI 总线初始化失败: 0x%x", err);
+    esp_err_t err = hex_spi_bus_retain(can_spi_host());
+    if (err != ESP_OK) {
+        vSemaphoreDelete(s_spi_mutex); s_spi_mutex = NULL;
         return err;
     }
+    s_bus_retained = true;
 
     spi_device_interface_config_t devcfg = {
-        .clock_speed_hz = 10 * 1000 * 1000,   /* 10 MHz */
+        .clock_speed_hz = profile_spi_clock(true),   /* 10 MHz */
         .mode           = 0,                  /* CPOL=0, CPHA=0 */
         .spics_io_num   = profile_pin(SIG_CAN_CS),
         .queue_size     = 4,
     };
 
-    err = spi_bus_add_device(SPI3_HOST, &devcfg, &s_spi_dev);
+    err = spi_bus_add_device(can_spi_host(), &devcfg, &s_spi_dev);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "SPI 设备添加失败: 0x%x", err);
+        hex_spi_bus_release(can_spi_host());
+        s_bus_retained = false;
+        vSemaphoreDelete(s_spi_mutex);
+        s_spi_mutex = NULL;
         return err;
     }
 
     ESP_LOGI(TAG, "MCP2518FD SPI 初始化完成 (10MHz, Mode0)");
     return ESP_OK;
+}
+
+esp_err_t mcp2518fd_probe(void)
+{
+    esp_err_t err = mcp2518fd_reset();
+    if (err == ESP_OK) {
+        /* Match OPEN's reset settling period, plus one tick so a tick-edge
+         * wakeup cannot shorten it below 20 ms on CONFIG_FREERTOS_HZ=100. */
+        vTaskDelay(pdMS_TO_TICKS(20) + 1);
+        err = mcp2518fd_osc_enable();
+    }
+    /* Exercise both MOSI writes and MISO readback. Reading the reset-default
+     * CONFIG mode alone cannot detect a disconnected MOSI wire. */
+    if (err == ESP_OK) err = mcp2518fd_opmode_select(MCP2518FD_MODE_INTERNAL_LOOP);
+    if (err == ESP_OK) err = mcp2518fd_opmode_select(MCP2518FD_MODE_CONFIG);
+    return err;
+}
+
+esp_err_t mcp2518fd_deinit(void)
+{
+    if (!s_spi_mutex) return ESP_OK;
+    xSemaphoreTake(s_spi_mutex, portMAX_DELAY);
+    esp_err_t err = s_spi_dev ? spi_bus_remove_device(s_spi_dev) : ESP_OK;
+    if (err != ESP_OK) { xSemaphoreGive(s_spi_mutex); return err; }
+    s_spi_dev = NULL;
+    if (s_bus_retained) {
+        err = hex_spi_bus_release(can_spi_host());
+        if (err == ESP_OK) s_bus_retained = false;
+    }
+    xSemaphoreGive(s_spi_mutex);
+    if (err == ESP_OK) { vSemaphoreDelete(s_spi_mutex); s_spi_mutex = NULL; }
+    return err;
 }
 
 esp_err_t mcp2518fd_get_dev_id(uint8_t *dev_id)

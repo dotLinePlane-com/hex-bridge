@@ -194,6 +194,10 @@ typedef struct {
  * @return ESP_OK 或错误码
  */
 esp_err_t mcp2518fd_init(void);
+/** Call after CAN worker tasks have stopped. Releases only this device reference. */
+esp_err_t mcp2518fd_deinit(void);
+/** Trial boot only: verifies chip communication without a CAN peer. Resets chip. */
+esp_err_t mcp2518fd_probe(void);
 
 /**
  * @brief 获取器件 ID (DEVID 寄存器)
