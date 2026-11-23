@@ -1,0 +1,377 @@
+{"t": 39376.765, "utc": "2026-11-21T13:02:45.227+00:00", "kind": "session", "mode": "switch", "mcp": "COM3", "canable": "COM9", "restore_rate": 500000, "bench": "isolated-bench", "purpose": "minimum_switch_gate", "data_timeout": 1.0, "control_feedback_window": 0.02, "correlation": "original fixed ID/data; matching background traffic cannot be distinguished"}
+{"t": 39376.765, "utc": "2026-11-21T13:02:45.227+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 39376.796, "utc": "2026-11-21T13:02:45.258+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39376.796, "utc": "2026-11-21T13:02:45.258+00:00", "kind": "ubcp_tx", "seq": 1, "cmd": 17, "payload": ""}
+{"t": 39376.812, "utc": "2026-11-21T13:02:45.273+00:00", "kind": "ubcp_response", "seq": 1, "cmd": 17, "payload": "05"}
+{"t": 39376.812, "utc": "2026-11-21T13:02:45.273+00:00", "kind": "ubcp_tx", "seq": 2, "cmd": 16, "payload": "00"}
+{"t": 39376.875, "utc": "2026-11-21T13:02:45.343+00:00", "kind": "ubcp_response", "seq": 2, "cmd": 16, "payload": "00000010000000030008"}
+{"t": 39376.875, "utc": "2026-11-21T13:02:45.343+00:00", "kind": "ubcp_tx", "seq": 3, "cmd": 18, "payload": "06032000"}
+{"t": 39376.906, "utc": "2026-11-21T13:02:45.363+00:00", "kind": "ubcp_response", "seq": 3, "cmd": 18, "payload": "00"}
+{"t": 39376.906, "utc": "2026-11-21T13:02:45.363+00:00", "kind": "slcan_tx", "hex": "53360d"}
+{"t": 39376.937, "utc": "2026-11-21T13:02:45.395+00:00", "kind": "slcan_feedback_window", "command": "S6", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39376.937, "utc": "2026-11-21T13:02:45.395+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 39376.968, "utc": "2026-11-21T13:02:45.428+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39376.968, "utc": "2026-11-21T13:02:45.428+00:00", "kind": "slcan_tx", "hex": "4d300d"}
+{"t": 39377.0, "utc": "2026-11-21T13:02:45.460+00:00", "kind": "slcan_feedback_window", "command": "M0", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39377.0, "utc": "2026-11-21T13:02:45.460+00:00", "kind": "slcan_tx", "hex": "41310d"}
+{"t": 39377.031, "utc": "2026-11-21T13:02:45.491+00:00", "kind": "slcan_feedback_window", "command": "A1", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39377.031, "utc": "2026-11-21T13:02:45.491+00:00", "kind": "slcan_tx", "hex": "4f0d"}
+{"t": 39377.062, "utc": "2026-11-21T13:02:45.522+00:00", "kind": "slcan_feedback_window", "command": "O", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39378.062, "utc": "2026-11-21T13:02:46.525+00:00", "kind": "slcan_boundary", "discarded": [], "partial": ""}
+{"t": 39379.093, "utc": "2026-11-21T13:02:47.553+00:00", "kind": "phase_start", "round": 1, "phase": 0, "rate": 500000}
+{"t": 39379.093, "utc": "2026-11-21T13:02:47.553+00:00", "kind": "ubcp_tx", "seq": 4, "cmd": 22, "payload": ""}
+{"t": 39379.093, "utc": "2026-11-21T13:02:47.566+00:00", "kind": "ubcp_response", "seq": 4, "cmd": 22, "payload": "00000000000000000000000000000008001000000000000000000000"}
+{"t": 39379.093, "utc": "2026-11-21T13:02:47.566+00:00", "kind": "status", "label": "before", "payload": "00000000000000000000000000000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39379.093, "utc": "2026-11-21T13:02:47.566+00:00", "kind": "probe", "round": 1, "phase": 0, "rate": 500000, "direction": 0, "id": 1536, "dlc": 5, "data": "48656c6c6f"}
+{"t": 39379.109, "utc": "2026-11-21T13:02:47.567+00:00", "kind": "ubcp_tx", "seq": 5, "cmd": 19, "payload": "000006000548656c6c6f"}
+{"t": 39379.109, "utc": "2026-11-21T13:02:47.574+00:00", "kind": "ubcp_response", "seq": 5, "cmd": 19, "payload": "00acae2533"}
+{"t": 39379.125, "utc": "2026-11-21T13:02:47.585+00:00", "kind": "slcan_rx", "hex": "7436303035343836353643364336460d"}
+{"t": 39379.125, "utc": "2026-11-21T13:02:47.585+00:00", "kind": "slcan_line", "hex": "743630303534383635364336433646", "feedback_type": "frame_or_feedback"}
+{"t": 39379.14, "utc": "2026-11-21T13:02:47.605+00:00", "kind": "slcan_match_raw", "hex": "743630303534383635364336433646", "id": 1536}
+{"t": 39379.14, "utc": "2026-11-21T13:02:47.606+00:00", "kind": "slcan_match_decoded", "id": 1536, "dlc": 5, "data": "48656c6c6f", "extended": false, "rtr": false, "fd": false, "brs": false}
+{"t": 39379.14, "utc": "2026-11-21T13:02:47.606+00:00", "kind": "verdict", "round": 1, "phase": 0, "direction": 0, "ok": true}
+{"t": 39379.14, "utc": "2026-11-21T13:02:47.606+00:00", "kind": "ubcp_tx", "seq": 6, "cmd": 22, "payload": ""}
+{"t": 39379.156, "utc": "2026-11-21T13:02:47.616+00:00", "kind": "ubcp_response", "seq": 6, "cmd": 22, "payload": "00000000000000000001000000000008001000000000000000000000"}
+{"t": 39379.156, "utc": "2026-11-21T13:02:47.616+00:00", "kind": "status", "label": "after_forward", "payload": "00000000000000000001000000000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39379.156, "utc": "2026-11-21T13:02:47.616+00:00", "kind": "probe", "round": 1, "phase": 0, "rate": 500000, "direction": 1, "id": 1552, "dlc": 6, "data": "5248656c6c6f"}
+{"t": 39380.187, "utc": "2026-11-21T13:02:48.645+00:00", "kind": "slcan_tx", "hex": "74363130363532343836353663366336660d"}
+{"t": 39380.218, "utc": "2026-11-21T13:02:48.677+00:00", "kind": "slcan_feedback_window", "command": "t61065248656c6c6f", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39380.218, "utc": "2026-11-21T13:02:48.677+00:00", "kind": "ubcp_event", "payload": "00000610065248656c6c6f00acbe9f6e"}
+{"t": 39380.218, "utc": "2026-11-21T13:02:48.677+00:00", "kind": "verdict", "round": 1, "phase": 0, "direction": 1, "ok": true}
+{"t": 39380.218, "utc": "2026-11-21T13:02:48.677+00:00", "kind": "ubcp_tx", "seq": 7, "cmd": 22, "payload": ""}
+{"t": 39380.218, "utc": "2026-11-21T13:02:48.686+00:00", "kind": "ubcp_response", "seq": 7, "cmd": 22, "payload": "00000000000000000001000100000008001000000000000000000000"}
+{"t": 39380.218, "utc": "2026-11-21T13:02:48.686+00:00", "kind": "status", "label": "after", "payload": "00000000000000000001000100000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39380.218, "utc": "2026-11-21T13:02:48.686+00:00", "kind": "phase_result", "round": 1, "phase": 0, "rate": 500000, "ok": true}
+{"t": 39380.218, "utc": "2026-11-21T13:02:48.686+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 39380.25, "utc": "2026-11-21T13:02:48.718+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39380.25, "utc": "2026-11-21T13:02:48.718+00:00", "kind": "ubcp_tx", "seq": 8, "cmd": 18, "payload": "05032000"}
+{"t": 39380.281, "utc": "2026-11-21T13:02:48.743+00:00", "kind": "ubcp_response", "seq": 8, "cmd": 18, "payload": "00"}
+{"t": 39380.281, "utc": "2026-11-21T13:02:48.743+00:00", "kind": "slcan_tx", "hex": "53350d"}
+{"t": 39380.312, "utc": "2026-11-21T13:02:48.774+00:00", "kind": "slcan_feedback_window", "command": "S5", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39380.312, "utc": "2026-11-21T13:02:48.774+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 39380.343, "utc": "2026-11-21T13:02:48.805+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39380.343, "utc": "2026-11-21T13:02:48.805+00:00", "kind": "slcan_tx", "hex": "4d300d"}
+{"t": 39380.375, "utc": "2026-11-21T13:02:48.836+00:00", "kind": "slcan_feedback_window", "command": "M0", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39380.375, "utc": "2026-11-21T13:02:48.836+00:00", "kind": "slcan_tx", "hex": "41310d"}
+{"t": 39380.406, "utc": "2026-11-21T13:02:48.867+00:00", "kind": "slcan_feedback_window", "command": "A1", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39380.406, "utc": "2026-11-21T13:02:48.867+00:00", "kind": "slcan_tx", "hex": "4f0d"}
+{"t": 39380.437, "utc": "2026-11-21T13:02:48.899+00:00", "kind": "slcan_feedback_window", "command": "O", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39381.437, "utc": "2026-11-21T13:02:49.899+00:00", "kind": "slcan_boundary", "discarded": [], "partial": ""}
+{"t": 39382.468, "utc": "2026-11-21T13:02:50.928+00:00", "kind": "phase_start", "round": 1, "phase": 1, "rate": 250000}
+{"t": 39382.468, "utc": "2026-11-21T13:02:50.928+00:00", "kind": "ubcp_tx", "seq": 9, "cmd": 22, "payload": ""}
+{"t": 39382.468, "utc": "2026-11-21T13:02:50.936+00:00", "kind": "ubcp_response", "seq": 9, "cmd": 22, "payload": "00000000000000000001000100000008001000000000000000000000"}
+{"t": 39382.468, "utc": "2026-11-21T13:02:50.936+00:00", "kind": "status", "label": "before", "payload": "00000000000000000001000100000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39382.468, "utc": "2026-11-21T13:02:50.936+00:00", "kind": "probe", "round": 1, "phase": 1, "rate": 250000, "direction": 0, "id": 1537, "dlc": 5, "data": "576f726c64"}
+{"t": 39382.468, "utc": "2026-11-21T13:02:50.936+00:00", "kind": "ubcp_tx", "seq": 10, "cmd": 19, "payload": "0000060105576f726c64"}
+{"t": 39382.484, "utc": "2026-11-21T13:02:50.944+00:00", "kind": "ubcp_response", "seq": 10, "cmd": 19, "payload": "00ace1913a"}
+{"t": 39382.484, "utc": "2026-11-21T13:02:50.954+00:00", "kind": "slcan_rx", "hex": "7436303135353736463732364336340d"}
+{"t": 39382.484, "utc": "2026-11-21T13:02:50.954+00:00", "kind": "slcan_line", "hex": "743630313535373646373236433634", "feedback_type": "frame_or_feedback"}
+{"t": 39382.515, "utc": "2026-11-21T13:02:50.975+00:00", "kind": "slcan_match_raw", "hex": "743630313535373646373236433634", "id": 1537}
+{"t": 39382.515, "utc": "2026-11-21T13:02:50.975+00:00", "kind": "slcan_match_decoded", "id": 1537, "dlc": 5, "data": "576f726c64", "extended": false, "rtr": false, "fd": false, "brs": false}
+{"t": 39382.515, "utc": "2026-11-21T13:02:50.975+00:00", "kind": "verdict", "round": 1, "phase": 1, "direction": 0, "ok": true}
+{"t": 39382.515, "utc": "2026-11-21T13:02:50.975+00:00", "kind": "ubcp_tx", "seq": 11, "cmd": 22, "payload": ""}
+{"t": 39382.515, "utc": "2026-11-21T13:02:50.985+00:00", "kind": "ubcp_response", "seq": 11, "cmd": 22, "payload": "00000000000000000002000100000008001000000000000000000000"}
+{"t": 39382.515, "utc": "2026-11-21T13:02:50.985+00:00", "kind": "status", "label": "after_forward", "payload": "00000000000000000002000100000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39382.515, "utc": "2026-11-21T13:02:50.985+00:00", "kind": "probe", "round": 1, "phase": 1, "rate": 250000, "direction": 1, "id": 1553, "dlc": 6, "data": "52576f726c64"}
+{"t": 39383.546, "utc": "2026-11-21T13:02:52.015+00:00", "kind": "slcan_tx", "hex": "74363131363532353736663732366336340d"}
+{"t": 39383.578, "utc": "2026-11-21T13:02:52.037+00:00", "kind": "slcan_feedback_window", "command": "t611652576f726c64", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39383.578, "utc": "2026-11-21T13:02:52.037+00:00", "kind": "ubcp_event", "payload": "000006110652576f726c6400acf23260"}
+{"t": 39383.578, "utc": "2026-11-21T13:02:52.037+00:00", "kind": "verdict", "round": 1, "phase": 1, "direction": 1, "ok": true}
+{"t": 39383.578, "utc": "2026-11-21T13:02:52.038+00:00", "kind": "ubcp_tx", "seq": 12, "cmd": 22, "payload": ""}
+{"t": 39383.578, "utc": "2026-11-21T13:02:52.046+00:00", "kind": "ubcp_response", "seq": 12, "cmd": 22, "payload": "00000000000000000002000200000008001000000000000000000000"}
+{"t": 39383.578, "utc": "2026-11-21T13:02:52.046+00:00", "kind": "status", "label": "after", "payload": "00000000000000000002000200000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39383.578, "utc": "2026-11-21T13:02:52.046+00:00", "kind": "phase_result", "round": 1, "phase": 1, "rate": 250000, "ok": true}
+{"t": 39383.578, "utc": "2026-11-21T13:02:52.046+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 39383.609, "utc": "2026-11-21T13:02:52.067+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39383.609, "utc": "2026-11-21T13:02:52.067+00:00", "kind": "ubcp_tx", "seq": 13, "cmd": 18, "payload": "06032000"}
+{"t": 39383.625, "utc": "2026-11-21T13:02:52.083+00:00", "kind": "ubcp_response", "seq": 13, "cmd": 18, "payload": "00"}
+{"t": 39383.625, "utc": "2026-11-21T13:02:52.083+00:00", "kind": "slcan_tx", "hex": "53360d"}
+{"t": 39383.656, "utc": "2026-11-21T13:02:52.114+00:00", "kind": "slcan_feedback_window", "command": "S6", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39383.656, "utc": "2026-11-21T13:02:52.114+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 39383.687, "utc": "2026-11-21T13:02:52.145+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39383.687, "utc": "2026-11-21T13:02:52.145+00:00", "kind": "slcan_tx", "hex": "4d300d"}
+{"t": 39383.718, "utc": "2026-11-21T13:02:52.186+00:00", "kind": "slcan_feedback_window", "command": "M0", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39383.718, "utc": "2026-11-21T13:02:52.186+00:00", "kind": "slcan_tx", "hex": "41310d"}
+{"t": 39383.75, "utc": "2026-11-21T13:02:52.216+00:00", "kind": "slcan_feedback_window", "command": "A1", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39383.75, "utc": "2026-11-21T13:02:52.216+00:00", "kind": "slcan_tx", "hex": "4f0d"}
+{"t": 39383.781, "utc": "2026-11-21T13:02:52.248+00:00", "kind": "slcan_feedback_window", "command": "O", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39384.781, "utc": "2026-11-21T13:02:53.242+00:00", "kind": "slcan_boundary", "discarded": [], "partial": ""}
+{"t": 39385.812, "utc": "2026-11-21T13:02:54.271+00:00", "kind": "phase_start", "round": 1, "phase": 2, "rate": 500000}
+{"t": 39385.812, "utc": "2026-11-21T13:02:54.271+00:00", "kind": "ubcp_tx", "seq": 14, "cmd": 22, "payload": ""}
+{"t": 39385.828, "utc": "2026-11-21T13:02:54.286+00:00", "kind": "ubcp_response", "seq": 14, "cmd": 22, "payload": "00000000000000000002000200000008001000000000000000000000"}
+{"t": 39385.828, "utc": "2026-11-21T13:02:54.286+00:00", "kind": "status", "label": "before", "payload": "00000000000000000002000200000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39385.828, "utc": "2026-11-21T13:02:54.286+00:00", "kind": "probe", "round": 1, "phase": 2, "rate": 500000, "direction": 0, "id": 1538, "dlc": 4, "data": "4261636b"}
+{"t": 39385.828, "utc": "2026-11-21T13:02:54.286+00:00", "kind": "ubcp_tx", "seq": 15, "cmd": 19, "payload": "00000602044261636b"}
+{"t": 39385.828, "utc": "2026-11-21T13:02:54.294+00:00", "kind": "ubcp_response", "seq": 15, "cmd": 19, "payload": "00ad14af13"}
+{"t": 39385.843, "utc": "2026-11-21T13:02:54.305+00:00", "kind": "slcan_rx", "hex": "743630323434323631363336420d"}
+{"t": 39385.843, "utc": "2026-11-21T13:02:54.305+00:00", "kind": "slcan_line", "hex": "74363032343432363136333642", "feedback_type": "frame_or_feedback"}
+{"t": 39385.859, "utc": "2026-11-21T13:02:54.326+00:00", "kind": "slcan_match_raw", "hex": "74363032343432363136333642", "id": 1538}
+{"t": 39385.859, "utc": "2026-11-21T13:02:54.326+00:00", "kind": "slcan_match_decoded", "id": 1538, "dlc": 4, "data": "4261636b", "extended": false, "rtr": false, "fd": false, "brs": false}
+{"t": 39385.859, "utc": "2026-11-21T13:02:54.326+00:00", "kind": "verdict", "round": 1, "phase": 2, "direction": 0, "ok": true}
+{"t": 39385.859, "utc": "2026-11-21T13:02:54.326+00:00", "kind": "ubcp_tx", "seq": 16, "cmd": 22, "payload": ""}
+{"t": 39385.875, "utc": "2026-11-21T13:02:54.336+00:00", "kind": "ubcp_response", "seq": 16, "cmd": 22, "payload": "00000000000000000003000200000008001000000000000000000000"}
+{"t": 39385.875, "utc": "2026-11-21T13:02:54.336+00:00", "kind": "status", "label": "after_forward", "payload": "00000000000000000003000200000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39385.875, "utc": "2026-11-21T13:02:54.336+00:00", "kind": "probe", "round": 1, "phase": 2, "rate": 500000, "direction": 1, "id": 1554, "dlc": 5, "data": "524261636b"}
+{"t": 39386.906, "utc": "2026-11-21T13:02:55.363+00:00", "kind": "slcan_tx", "hex": "7436313235353234323631363336620d"}
+{"t": 39386.937, "utc": "2026-11-21T13:02:55.405+00:00", "kind": "slcan_feedback_window", "command": "t6125524261636b", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39386.937, "utc": "2026-11-21T13:02:55.405+00:00", "kind": "ubcp_event", "payload": "0000061205524261636b00ad25294f"}
+{"t": 39386.937, "utc": "2026-11-21T13:02:55.405+00:00", "kind": "verdict", "round": 1, "phase": 2, "direction": 1, "ok": true}
+{"t": 39386.937, "utc": "2026-11-21T13:02:55.405+00:00", "kind": "ubcp_tx", "seq": 17, "cmd": 22, "payload": ""}
+{"t": 39386.953, "utc": "2026-11-21T13:02:55.416+00:00", "kind": "ubcp_response", "seq": 17, "cmd": 22, "payload": "00000000000000000003000300000008001000000000000000000000"}
+{"t": 39386.953, "utc": "2026-11-21T13:02:55.416+00:00", "kind": "status", "label": "after", "payload": "00000000000000000003000300000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39386.953, "utc": "2026-11-21T13:02:55.416+00:00", "kind": "phase_result", "round": 1, "phase": 2, "rate": 500000, "ok": true}
+{"t": 39386.953, "utc": "2026-11-21T13:02:55.416+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 39386.984, "utc": "2026-11-21T13:02:55.448+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39386.984, "utc": "2026-11-21T13:02:55.448+00:00", "kind": "ubcp_tx", "seq": 18, "cmd": 18, "payload": "06032000"}
+{"t": 39387.015, "utc": "2026-11-21T13:02:55.473+00:00", "kind": "ubcp_response", "seq": 18, "cmd": 18, "payload": "00"}
+{"t": 39387.015, "utc": "2026-11-21T13:02:55.473+00:00", "kind": "slcan_tx", "hex": "53360d"}
+{"t": 39387.046, "utc": "2026-11-21T13:02:55.505+00:00", "kind": "slcan_feedback_window", "command": "S6", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39387.046, "utc": "2026-11-21T13:02:55.505+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 39387.078, "utc": "2026-11-21T13:02:55.536+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39387.078, "utc": "2026-11-21T13:02:55.536+00:00", "kind": "slcan_tx", "hex": "4d300d"}
+{"t": 39387.109, "utc": "2026-11-21T13:02:55.568+00:00", "kind": "slcan_feedback_window", "command": "M0", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39387.109, "utc": "2026-11-21T13:02:55.568+00:00", "kind": "slcan_tx", "hex": "41310d"}
+{"t": 39387.14, "utc": "2026-11-21T13:02:55.599+00:00", "kind": "slcan_feedback_window", "command": "A1", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39387.14, "utc": "2026-11-21T13:02:55.599+00:00", "kind": "slcan_tx", "hex": "4f0d"}
+{"t": 39387.171, "utc": "2026-11-21T13:02:55.629+00:00", "kind": "slcan_feedback_window", "command": "O", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39388.171, "utc": "2026-11-21T13:02:56.635+00:00", "kind": "slcan_boundary", "discarded": [], "partial": ""}
+{"t": 39389.203, "utc": "2026-11-21T13:02:57.664+00:00", "kind": "phase_start", "round": 2, "phase": 0, "rate": 500000}
+{"t": 39389.203, "utc": "2026-11-21T13:02:57.664+00:00", "kind": "ubcp_tx", "seq": 19, "cmd": 22, "payload": ""}
+{"t": 39389.203, "utc": "2026-11-21T13:02:57.675+00:00", "kind": "ubcp_response", "seq": 19, "cmd": 22, "payload": "00000000000000000003000300000008001000000000000000000000"}
+{"t": 39389.203, "utc": "2026-11-21T13:02:57.675+00:00", "kind": "status", "label": "before", "payload": "00000000000000000003000300000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39389.218, "utc": "2026-11-21T13:02:57.676+00:00", "kind": "probe", "round": 2, "phase": 0, "rate": 500000, "direction": 0, "id": 1536, "dlc": 5, "data": "48656c6c6f"}
+{"t": 39389.218, "utc": "2026-11-21T13:02:57.676+00:00", "kind": "ubcp_tx", "seq": 20, "cmd": 19, "payload": "000006000548656c6c6f"}
+{"t": 39389.218, "utc": "2026-11-21T13:02:57.683+00:00", "kind": "ubcp_response", "seq": 20, "cmd": 19, "payload": "00ad486958"}
+{"t": 39389.234, "utc": "2026-11-21T13:02:57.694+00:00", "kind": "slcan_rx", "hex": "7436303035343836353643364336460d"}
+{"t": 39389.234, "utc": "2026-11-21T13:02:57.694+00:00", "kind": "slcan_line", "hex": "743630303534383635364336433646", "feedback_type": "frame_or_feedback"}
+{"t": 39389.25, "utc": "2026-11-21T13:02:57.715+00:00", "kind": "slcan_match_raw", "hex": "743630303534383635364336433646", "id": 1536}
+{"t": 39389.25, "utc": "2026-11-21T13:02:57.715+00:00", "kind": "slcan_match_decoded", "id": 1536, "dlc": 5, "data": "48656c6c6f", "extended": false, "rtr": false, "fd": false, "brs": false}
+{"t": 39389.25, "utc": "2026-11-21T13:02:57.715+00:00", "kind": "verdict", "round": 2, "phase": 0, "direction": 0, "ok": true}
+{"t": 39389.25, "utc": "2026-11-21T13:02:57.715+00:00", "kind": "ubcp_tx", "seq": 21, "cmd": 22, "payload": ""}
+{"t": 39389.265, "utc": "2026-11-21T13:02:57.726+00:00", "kind": "ubcp_response", "seq": 21, "cmd": 22, "payload": "00000000000000000004000300000008001000000000000000000000"}
+{"t": 39389.265, "utc": "2026-11-21T13:02:57.726+00:00", "kind": "status", "label": "after_forward", "payload": "00000000000000000004000300000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39389.265, "utc": "2026-11-21T13:02:57.726+00:00", "kind": "probe", "round": 2, "phase": 0, "rate": 500000, "direction": 1, "id": 1552, "dlc": 6, "data": "5248656c6c6f"}
+{"t": 39390.296, "utc": "2026-11-21T13:02:58.757+00:00", "kind": "slcan_tx", "hex": "74363130363532343836353663366336660d"}
+{"t": 39390.328, "utc": "2026-11-21T13:02:58.788+00:00", "kind": "slcan_feedback_window", "command": "t61065248656c6c6f", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39390.328, "utc": "2026-11-21T13:02:58.788+00:00", "kind": "ubcp_event", "payload": "00000610065248656c6c6f00ad58e37e"}
+{"t": 39390.328, "utc": "2026-11-21T13:02:58.788+00:00", "kind": "verdict", "round": 2, "phase": 0, "direction": 1, "ok": true}
+{"t": 39390.328, "utc": "2026-11-21T13:02:58.788+00:00", "kind": "ubcp_tx", "seq": 22, "cmd": 22, "payload": ""}
+{"t": 39390.328, "utc": "2026-11-21T13:02:58.796+00:00", "kind": "ubcp_response", "seq": 22, "cmd": 22, "payload": "00000000000000000004000400000008001000000000000000000000"}
+{"t": 39390.328, "utc": "2026-11-21T13:02:58.796+00:00", "kind": "status", "label": "after", "payload": "00000000000000000004000400000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39390.328, "utc": "2026-11-21T13:02:58.796+00:00", "kind": "phase_result", "round": 2, "phase": 0, "rate": 500000, "ok": true}
+{"t": 39390.328, "utc": "2026-11-21T13:02:58.796+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 39390.359, "utc": "2026-11-21T13:02:58.818+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39390.359, "utc": "2026-11-21T13:02:58.818+00:00", "kind": "ubcp_tx", "seq": 23, "cmd": 18, "payload": "05032000"}
+{"t": 39390.375, "utc": "2026-11-21T13:02:58.833+00:00", "kind": "ubcp_response", "seq": 23, "cmd": 18, "payload": "00"}
+{"t": 39390.375, "utc": "2026-11-21T13:02:58.833+00:00", "kind": "slcan_tx", "hex": "53350d"}
+{"t": 39390.406, "utc": "2026-11-21T13:02:58.864+00:00", "kind": "slcan_feedback_window", "command": "S5", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39390.406, "utc": "2026-11-21T13:02:58.864+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 39390.437, "utc": "2026-11-21T13:02:58.895+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39390.437, "utc": "2026-11-21T13:02:58.895+00:00", "kind": "slcan_tx", "hex": "4d300d"}
+{"t": 39390.468, "utc": "2026-11-21T13:02:58.926+00:00", "kind": "slcan_feedback_window", "command": "M0", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39390.468, "utc": "2026-11-21T13:02:58.926+00:00", "kind": "slcan_tx", "hex": "41310d"}
+{"t": 39390.5, "utc": "2026-11-21T13:02:58.957+00:00", "kind": "slcan_feedback_window", "command": "A1", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39390.5, "utc": "2026-11-21T13:02:58.957+00:00", "kind": "slcan_tx", "hex": "4f0d"}
+{"t": 39390.531, "utc": "2026-11-21T13:02:58.988+00:00", "kind": "slcan_feedback_window", "command": "O", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39391.531, "utc": "2026-11-21T13:02:59.994+00:00", "kind": "slcan_boundary", "discarded": [], "partial": ""}
+{"t": 39392.562, "utc": "2026-11-21T13:03:01.024+00:00", "kind": "phase_start", "round": 2, "phase": 1, "rate": 250000}
+{"t": 39392.562, "utc": "2026-11-21T13:03:01.024+00:00", "kind": "ubcp_tx", "seq": 24, "cmd": 22, "payload": ""}
+{"t": 39392.578, "utc": "2026-11-21T13:03:01.036+00:00", "kind": "ubcp_response", "seq": 24, "cmd": 22, "payload": "00000000000000000004000400000008001000000000000000000000"}
+{"t": 39392.578, "utc": "2026-11-21T13:03:01.036+00:00", "kind": "status", "label": "before", "payload": "00000000000000000004000400000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39392.578, "utc": "2026-11-21T13:03:01.036+00:00", "kind": "probe", "round": 2, "phase": 1, "rate": 250000, "direction": 0, "id": 1537, "dlc": 5, "data": "576f726c64"}
+{"t": 39392.578, "utc": "2026-11-21T13:03:01.036+00:00", "kind": "ubcp_tx", "seq": 25, "cmd": 19, "payload": "0000060105576f726c64"}
+{"t": 39392.578, "utc": "2026-11-21T13:03:01.045+00:00", "kind": "ubcp_response", "seq": 25, "cmd": 19, "payload": "00ad7bae54"}
+{"t": 39392.593, "utc": "2026-11-21T13:03:01.056+00:00", "kind": "slcan_rx", "hex": "7436303135353736463732364336340d"}
+{"t": 39392.593, "utc": "2026-11-21T13:03:01.056+00:00", "kind": "slcan_line", "hex": "743630313535373646373236433634", "feedback_type": "frame_or_feedback"}
+{"t": 39392.609, "utc": "2026-11-21T13:03:01.077+00:00", "kind": "slcan_match_raw", "hex": "743630313535373646373236433634", "id": 1537}
+{"t": 39392.609, "utc": "2026-11-21T13:03:01.077+00:00", "kind": "slcan_match_decoded", "id": 1537, "dlc": 5, "data": "576f726c64", "extended": false, "rtr": false, "fd": false, "brs": false}
+{"t": 39392.609, "utc": "2026-11-21T13:03:01.077+00:00", "kind": "verdict", "round": 2, "phase": 1, "direction": 0, "ok": true}
+{"t": 39392.609, "utc": "2026-11-21T13:03:01.077+00:00", "kind": "ubcp_tx", "seq": 26, "cmd": 22, "payload": ""}
+{"t": 39392.625, "utc": "2026-11-21T13:03:01.086+00:00", "kind": "ubcp_response", "seq": 26, "cmd": 22, "payload": "00000000000000000005000400000008001000000000000000000000"}
+{"t": 39392.625, "utc": "2026-11-21T13:03:01.086+00:00", "kind": "status", "label": "after_forward", "payload": "00000000000000000005000400000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39392.625, "utc": "2026-11-21T13:03:01.086+00:00", "kind": "probe", "round": 2, "phase": 1, "rate": 250000, "direction": 1, "id": 1553, "dlc": 6, "data": "52576f726c64"}
+{"t": 39393.656, "utc": "2026-11-21T13:03:02.115+00:00", "kind": "slcan_tx", "hex": "74363131363532353736663732366336340d"}
+{"t": 39393.687, "utc": "2026-11-21T13:03:02.148+00:00", "kind": "slcan_feedback_window", "command": "t611652576f726c64", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39393.687, "utc": "2026-11-21T13:03:02.148+00:00", "kind": "ubcp_event", "payload": "000006110652576f726c6400ad8c288c"}
+{"t": 39393.687, "utc": "2026-11-21T13:03:02.148+00:00", "kind": "verdict", "round": 2, "phase": 1, "direction": 1, "ok": true}
+{"t": 39393.687, "utc": "2026-11-21T13:03:02.148+00:00", "kind": "ubcp_tx", "seq": 27, "cmd": 22, "payload": ""}
+{"t": 39393.687, "utc": "2026-11-21T13:03:02.156+00:00", "kind": "ubcp_response", "seq": 27, "cmd": 22, "payload": "00000000000000000005000500000008001000000000000000000000"}
+{"t": 39393.687, "utc": "2026-11-21T13:03:02.156+00:00", "kind": "status", "label": "after", "payload": "00000000000000000005000500000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39393.687, "utc": "2026-11-21T13:03:02.156+00:00", "kind": "phase_result", "round": 2, "phase": 1, "rate": 250000, "ok": true}
+{"t": 39393.687, "utc": "2026-11-21T13:03:02.156+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 39393.718, "utc": "2026-11-21T13:03:02.177+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39393.718, "utc": "2026-11-21T13:03:02.177+00:00", "kind": "ubcp_tx", "seq": 28, "cmd": 18, "payload": "06032000"}
+{"t": 39393.734, "utc": "2026-11-21T13:03:02.193+00:00", "kind": "ubcp_response", "seq": 28, "cmd": 18, "payload": "00"}
+{"t": 39393.734, "utc": "2026-11-21T13:03:02.193+00:00", "kind": "slcan_tx", "hex": "53360d"}
+{"t": 39393.765, "utc": "2026-11-21T13:03:02.225+00:00", "kind": "slcan_feedback_window", "command": "S6", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39393.765, "utc": "2026-11-21T13:03:02.225+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 39393.796, "utc": "2026-11-21T13:03:02.256+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39393.796, "utc": "2026-11-21T13:03:02.256+00:00", "kind": "slcan_tx", "hex": "4d300d"}
+{"t": 39393.828, "utc": "2026-11-21T13:03:02.287+00:00", "kind": "slcan_feedback_window", "command": "M0", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39393.828, "utc": "2026-11-21T13:03:02.287+00:00", "kind": "slcan_tx", "hex": "41310d"}
+{"t": 39393.859, "utc": "2026-11-21T13:03:02.318+00:00", "kind": "slcan_feedback_window", "command": "A1", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39393.859, "utc": "2026-11-21T13:03:02.318+00:00", "kind": "slcan_tx", "hex": "4f0d"}
+{"t": 39393.89, "utc": "2026-11-21T13:03:02.350+00:00", "kind": "slcan_feedback_window", "command": "O", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39394.89, "utc": "2026-11-21T13:03:03.349+00:00", "kind": "slcan_boundary", "discarded": [], "partial": ""}
+{"t": 39395.906, "utc": "2026-11-21T13:03:04.378+00:00", "kind": "phase_start", "round": 2, "phase": 2, "rate": 500000}
+{"t": 39395.906, "utc": "2026-11-21T13:03:04.378+00:00", "kind": "ubcp_tx", "seq": 29, "cmd": 22, "payload": ""}
+{"t": 39395.921, "utc": "2026-11-21T13:03:04.386+00:00", "kind": "ubcp_response", "seq": 29, "cmd": 22, "payload": "00000000000000000005000500000008001000000000000000000000"}
+{"t": 39395.921, "utc": "2026-11-21T13:03:04.386+00:00", "kind": "status", "label": "before", "payload": "00000000000000000005000500000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39395.921, "utc": "2026-11-21T13:03:04.386+00:00", "kind": "probe", "round": 2, "phase": 2, "rate": 500000, "direction": 0, "id": 1538, "dlc": 4, "data": "4261636b"}
+{"t": 39395.921, "utc": "2026-11-21T13:03:04.386+00:00", "kind": "ubcp_tx", "seq": 30, "cmd": 19, "payload": "00000602044261636b"}
+{"t": 39395.921, "utc": "2026-11-21T13:03:04.394+00:00", "kind": "ubcp_response", "seq": 30, "cmd": 19, "payload": "00adaecc33"}
+{"t": 39395.937, "utc": "2026-11-21T13:03:04.405+00:00", "kind": "slcan_rx", "hex": "743630323434323631363336420d"}
+{"t": 39395.937, "utc": "2026-11-21T13:03:04.405+00:00", "kind": "slcan_line", "hex": "74363032343432363136333642", "feedback_type": "frame_or_feedback"}
+{"t": 39395.953, "utc": "2026-11-21T13:03:04.415+00:00", "kind": "slcan_match_raw", "hex": "74363032343432363136333642", "id": 1538}
+{"t": 39395.953, "utc": "2026-11-21T13:03:04.415+00:00", "kind": "slcan_match_decoded", "id": 1538, "dlc": 4, "data": "4261636b", "extended": false, "rtr": false, "fd": false, "brs": false}
+{"t": 39395.953, "utc": "2026-11-21T13:03:04.415+00:00", "kind": "verdict", "round": 2, "phase": 2, "direction": 0, "ok": true}
+{"t": 39395.953, "utc": "2026-11-21T13:03:04.415+00:00", "kind": "ubcp_tx", "seq": 31, "cmd": 22, "payload": ""}
+{"t": 39395.968, "utc": "2026-11-21T13:03:04.426+00:00", "kind": "ubcp_response", "seq": 31, "cmd": 22, "payload": "00000000000000000006000500000008001000000000000000000000"}
+{"t": 39395.968, "utc": "2026-11-21T13:03:04.426+00:00", "kind": "status", "label": "after_forward", "payload": "00000000000000000006000500000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39395.968, "utc": "2026-11-21T13:03:04.426+00:00", "kind": "probe", "round": 2, "phase": 2, "rate": 500000, "direction": 1, "id": 1554, "dlc": 5, "data": "524261636b"}
+{"t": 39396.984, "utc": "2026-11-21T13:03:05.456+00:00", "kind": "slcan_tx", "hex": "7436313235353234323631363336620d"}
+{"t": 39397.015, "utc": "2026-11-21T13:03:05.477+00:00", "kind": "slcan_feedback_window", "command": "t6125524261636b", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39397.015, "utc": "2026-11-21T13:03:05.484+00:00", "kind": "ubcp_event", "payload": "0000061205524261636b00adbf6d7e"}
+{"t": 39397.015, "utc": "2026-11-21T13:03:05.485+00:00", "kind": "verdict", "round": 2, "phase": 2, "direction": 1, "ok": true}
+{"t": 39397.015, "utc": "2026-11-21T13:03:05.485+00:00", "kind": "ubcp_tx", "seq": 32, "cmd": 22, "payload": ""}
+{"t": 39397.031, "utc": "2026-11-21T13:03:05.495+00:00", "kind": "ubcp_response", "seq": 32, "cmd": 22, "payload": "00000000000000000006000600000008001000000000000000000000"}
+{"t": 39397.031, "utc": "2026-11-21T13:03:05.496+00:00", "kind": "status", "label": "after", "payload": "00000000000000000006000600000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39397.031, "utc": "2026-11-21T13:03:05.496+00:00", "kind": "phase_result", "round": 2, "phase": 2, "rate": 500000, "ok": true}
+{"t": 39397.031, "utc": "2026-11-21T13:03:05.496+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 39397.062, "utc": "2026-11-21T13:03:05.528+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39397.062, "utc": "2026-11-21T13:03:05.528+00:00", "kind": "ubcp_tx", "seq": 33, "cmd": 18, "payload": "06032000"}
+{"t": 39397.093, "utc": "2026-11-21T13:03:05.553+00:00", "kind": "ubcp_response", "seq": 33, "cmd": 18, "payload": "00"}
+{"t": 39397.093, "utc": "2026-11-21T13:03:05.553+00:00", "kind": "slcan_tx", "hex": "53360d"}
+{"t": 39397.125, "utc": "2026-11-21T13:03:05.584+00:00", "kind": "slcan_feedback_window", "command": "S6", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39397.125, "utc": "2026-11-21T13:03:05.584+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 39397.156, "utc": "2026-11-21T13:03:05.616+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39397.156, "utc": "2026-11-21T13:03:05.616+00:00", "kind": "slcan_tx", "hex": "4d300d"}
+{"t": 39397.187, "utc": "2026-11-21T13:03:05.648+00:00", "kind": "slcan_feedback_window", "command": "M0", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39397.187, "utc": "2026-11-21T13:03:05.648+00:00", "kind": "slcan_tx", "hex": "41310d"}
+{"t": 39397.218, "utc": "2026-11-21T13:03:05.679+00:00", "kind": "slcan_feedback_window", "command": "A1", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39397.218, "utc": "2026-11-21T13:03:05.679+00:00", "kind": "slcan_tx", "hex": "4f0d"}
+{"t": 39397.25, "utc": "2026-11-21T13:03:05.710+00:00", "kind": "slcan_feedback_window", "command": "O", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39398.25, "utc": "2026-11-21T13:03:06.711+00:00", "kind": "slcan_boundary", "discarded": [], "partial": ""}
+{"t": 39399.281, "utc": "2026-11-21T13:03:07.741+00:00", "kind": "phase_start", "round": 3, "phase": 0, "rate": 500000}
+{"t": 39399.281, "utc": "2026-11-21T13:03:07.741+00:00", "kind": "ubcp_tx", "seq": 34, "cmd": 22, "payload": ""}
+{"t": 39399.296, "utc": "2026-11-21T13:03:07.756+00:00", "kind": "ubcp_response", "seq": 34, "cmd": 22, "payload": "00000000000000000006000600000008001000000000000000000000"}
+{"t": 39399.296, "utc": "2026-11-21T13:03:07.756+00:00", "kind": "status", "label": "before", "payload": "00000000000000000006000600000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39399.296, "utc": "2026-11-21T13:03:07.756+00:00", "kind": "probe", "round": 3, "phase": 0, "rate": 500000, "direction": 0, "id": 1536, "dlc": 5, "data": "48656c6c6f"}
+{"t": 39399.296, "utc": "2026-11-21T13:03:07.756+00:00", "kind": "ubcp_tx", "seq": 35, "cmd": 19, "payload": "000006000548656c6c6f"}
+{"t": 39399.296, "utc": "2026-11-21T13:03:07.764+00:00", "kind": "ubcp_response", "seq": 35, "cmd": 19, "payload": "00ade23850"}
+{"t": 39399.312, "utc": "2026-11-21T13:03:07.774+00:00", "kind": "slcan_rx", "hex": "7436303035343836353643364336460d"}
+{"t": 39399.312, "utc": "2026-11-21T13:03:07.774+00:00", "kind": "slcan_line", "hex": "743630303534383635364336433646", "feedback_type": "frame_or_feedback"}
+{"t": 39399.328, "utc": "2026-11-21T13:03:07.785+00:00", "kind": "slcan_match_raw", "hex": "743630303534383635364336433646", "id": 1536}
+{"t": 39399.328, "utc": "2026-11-21T13:03:07.785+00:00", "kind": "slcan_match_decoded", "id": 1536, "dlc": 5, "data": "48656c6c6f", "extended": false, "rtr": false, "fd": false, "brs": false}
+{"t": 39399.328, "utc": "2026-11-21T13:03:07.785+00:00", "kind": "verdict", "round": 3, "phase": 0, "direction": 0, "ok": true}
+{"t": 39399.328, "utc": "2026-11-21T13:03:07.785+00:00", "kind": "ubcp_tx", "seq": 36, "cmd": 22, "payload": ""}
+{"t": 39399.328, "utc": "2026-11-21T13:03:07.796+00:00", "kind": "ubcp_response", "seq": 36, "cmd": 22, "payload": "00000000000000000007000600000008001000000000000000000000"}
+{"t": 39399.328, "utc": "2026-11-21T13:03:07.796+00:00", "kind": "status", "label": "after_forward", "payload": "00000000000000000007000600000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39399.328, "utc": "2026-11-21T13:03:07.796+00:00", "kind": "probe", "round": 3, "phase": 0, "rate": 500000, "direction": 1, "id": 1552, "dlc": 6, "data": "5248656c6c6f"}
+{"t": 39400.359, "utc": "2026-11-21T13:03:08.825+00:00", "kind": "slcan_tx", "hex": "74363130363532343836353663366336660d"}
+{"t": 39400.39, "utc": "2026-11-21T13:03:08.857+00:00", "kind": "slcan_feedback_window", "command": "t61065248656c6c6f", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39400.39, "utc": "2026-11-21T13:03:08.857+00:00", "kind": "ubcp_event", "payload": "00000610065248656c6c6f00adf2b27f"}
+{"t": 39400.39, "utc": "2026-11-21T13:03:08.857+00:00", "kind": "verdict", "round": 3, "phase": 0, "direction": 1, "ok": true}
+{"t": 39400.39, "utc": "2026-11-21T13:03:08.857+00:00", "kind": "ubcp_tx", "seq": 37, "cmd": 22, "payload": ""}
+{"t": 39400.406, "utc": "2026-11-21T13:03:08.866+00:00", "kind": "ubcp_response", "seq": 37, "cmd": 22, "payload": "00000000000000000007000700000008001000000000000000000000"}
+{"t": 39400.406, "utc": "2026-11-21T13:03:08.866+00:00", "kind": "status", "label": "after", "payload": "00000000000000000007000700000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39400.406, "utc": "2026-11-21T13:03:08.866+00:00", "kind": "phase_result", "round": 3, "phase": 0, "rate": 500000, "ok": true}
+{"t": 39400.406, "utc": "2026-11-21T13:03:08.866+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 39400.437, "utc": "2026-11-21T13:03:08.897+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39400.437, "utc": "2026-11-21T13:03:08.897+00:00", "kind": "ubcp_tx", "seq": 38, "cmd": 18, "payload": "05032000"}
+{"t": 39400.453, "utc": "2026-11-21T13:03:08.913+00:00", "kind": "ubcp_response", "seq": 38, "cmd": 18, "payload": "00"}
+{"t": 39400.453, "utc": "2026-11-21T13:03:08.913+00:00", "kind": "slcan_tx", "hex": "53350d"}
+{"t": 39400.484, "utc": "2026-11-21T13:03:08.944+00:00", "kind": "slcan_feedback_window", "command": "S5", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39400.484, "utc": "2026-11-21T13:03:08.944+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 39400.515, "utc": "2026-11-21T13:03:08.975+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39400.515, "utc": "2026-11-21T13:03:08.975+00:00", "kind": "slcan_tx", "hex": "4d300d"}
+{"t": 39400.546, "utc": "2026-11-21T13:03:09.006+00:00", "kind": "slcan_feedback_window", "command": "M0", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39400.546, "utc": "2026-11-21T13:03:09.006+00:00", "kind": "slcan_tx", "hex": "41310d"}
+{"t": 39400.578, "utc": "2026-11-21T13:03:09.038+00:00", "kind": "slcan_feedback_window", "command": "A1", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39400.578, "utc": "2026-11-21T13:03:09.038+00:00", "kind": "slcan_tx", "hex": "4f0d"}
+{"t": 39400.609, "utc": "2026-11-21T13:03:09.069+00:00", "kind": "slcan_feedback_window", "command": "O", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39401.609, "utc": "2026-11-21T13:03:10.070+00:00", "kind": "slcan_boundary", "discarded": [], "partial": ""}
+{"t": 39402.64, "utc": "2026-11-21T13:03:11.101+00:00", "kind": "phase_start", "round": 3, "phase": 1, "rate": 250000}
+{"t": 39402.64, "utc": "2026-11-21T13:03:11.101+00:00", "kind": "ubcp_tx", "seq": 39, "cmd": 22, "payload": ""}
+{"t": 39402.656, "utc": "2026-11-21T13:03:11.116+00:00", "kind": "ubcp_response", "seq": 39, "cmd": 22, "payload": "00000000000000000007000700000008001000000000000000000000"}
+{"t": 39402.656, "utc": "2026-11-21T13:03:11.116+00:00", "kind": "status", "label": "before", "payload": "00000000000000000007000700000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39402.656, "utc": "2026-11-21T13:03:11.116+00:00", "kind": "probe", "round": 3, "phase": 1, "rate": 250000, "direction": 0, "id": 1537, "dlc": 5, "data": "576f726c64"}
+{"t": 39402.656, "utc": "2026-11-21T13:03:11.116+00:00", "kind": "ubcp_tx", "seq": 40, "cmd": 19, "payload": "0000060105576f726c64"}
+{"t": 39402.656, "utc": "2026-11-21T13:03:11.124+00:00", "kind": "ubcp_response", "seq": 40, "cmd": 19, "payload": "00ae157d52"}
+{"t": 39402.671, "utc": "2026-11-21T13:03:11.134+00:00", "kind": "slcan_rx", "hex": "7436303135353736463732364336340d"}
+{"t": 39402.671, "utc": "2026-11-21T13:03:11.134+00:00", "kind": "slcan_line", "hex": "743630313535373646373236433634", "feedback_type": "frame_or_feedback"}
+{"t": 39402.687, "utc": "2026-11-21T13:03:11.154+00:00", "kind": "slcan_match_raw", "hex": "743630313535373646373236433634", "id": 1537}
+{"t": 39402.687, "utc": "2026-11-21T13:03:11.154+00:00", "kind": "slcan_match_decoded", "id": 1537, "dlc": 5, "data": "576f726c64", "extended": false, "rtr": false, "fd": false, "brs": false}
+{"t": 39402.687, "utc": "2026-11-21T13:03:11.154+00:00", "kind": "verdict", "round": 3, "phase": 1, "direction": 0, "ok": true}
+{"t": 39402.687, "utc": "2026-11-21T13:03:11.154+00:00", "kind": "ubcp_tx", "seq": 41, "cmd": 22, "payload": ""}
+{"t": 39402.703, "utc": "2026-11-21T13:03:11.166+00:00", "kind": "ubcp_response", "seq": 41, "cmd": 22, "payload": "00000000000000000008000700000008001000000000000000000000"}
+{"t": 39402.703, "utc": "2026-11-21T13:03:11.166+00:00", "kind": "status", "label": "after_forward", "payload": "00000000000000000008000700000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39402.703, "utc": "2026-11-21T13:03:11.166+00:00", "kind": "probe", "round": 3, "phase": 1, "rate": 250000, "direction": 1, "id": 1553, "dlc": 6, "data": "52576f726c64"}
+{"t": 39403.734, "utc": "2026-11-21T13:03:12.195+00:00", "kind": "slcan_tx", "hex": "74363131363532353736663732366336340d"}
+{"t": 39403.765, "utc": "2026-11-21T13:03:12.227+00:00", "kind": "slcan_feedback_window", "command": "t611652576f726c64", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39403.765, "utc": "2026-11-21T13:03:12.228+00:00", "kind": "ubcp_event", "payload": "000006110652576f726c6400ae25f77e"}
+{"t": 39403.765, "utc": "2026-11-21T13:03:12.228+00:00", "kind": "verdict", "round": 3, "phase": 1, "direction": 1, "ok": true}
+{"t": 39403.765, "utc": "2026-11-21T13:03:12.228+00:00", "kind": "ubcp_tx", "seq": 42, "cmd": 22, "payload": ""}
+{"t": 39403.781, "utc": "2026-11-21T13:03:12.246+00:00", "kind": "ubcp_response", "seq": 42, "cmd": 22, "payload": "00000000000000000008000800000008001000000000000000000000"}
+{"t": 39403.781, "utc": "2026-11-21T13:03:12.246+00:00", "kind": "status", "label": "after", "payload": "00000000000000000008000800000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39403.781, "utc": "2026-11-21T13:03:12.246+00:00", "kind": "phase_result", "round": 3, "phase": 1, "rate": 250000, "ok": true}
+{"t": 39403.781, "utc": "2026-11-21T13:03:12.246+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 39403.812, "utc": "2026-11-21T13:03:12.278+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39403.812, "utc": "2026-11-21T13:03:12.278+00:00", "kind": "ubcp_tx", "seq": 43, "cmd": 18, "payload": "06032000"}
+{"t": 39403.843, "utc": "2026-11-21T13:03:12.303+00:00", "kind": "ubcp_response", "seq": 43, "cmd": 18, "payload": "00"}
+{"t": 39403.843, "utc": "2026-11-21T13:03:12.304+00:00", "kind": "slcan_tx", "hex": "53360d"}
+{"t": 39403.875, "utc": "2026-11-21T13:03:12.335+00:00", "kind": "slcan_feedback_window", "command": "S6", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39403.875, "utc": "2026-11-21T13:03:12.335+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 39403.906, "utc": "2026-11-21T13:03:12.367+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39403.906, "utc": "2026-11-21T13:03:12.367+00:00", "kind": "slcan_tx", "hex": "4d300d"}
+{"t": 39403.937, "utc": "2026-11-21T13:03:12.399+00:00", "kind": "slcan_feedback_window", "command": "M0", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39403.937, "utc": "2026-11-21T13:03:12.399+00:00", "kind": "slcan_tx", "hex": "41310d"}
+{"t": 39403.968, "utc": "2026-11-21T13:03:12.430+00:00", "kind": "slcan_feedback_window", "command": "A1", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39403.968, "utc": "2026-11-21T13:03:12.430+00:00", "kind": "slcan_tx", "hex": "4f0d"}
+{"t": 39404.0, "utc": "2026-11-21T13:03:12.461+00:00", "kind": "slcan_feedback_window", "command": "O", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39405.0, "utc": "2026-11-21T13:03:13.467+00:00", "kind": "slcan_boundary", "discarded": [], "partial": ""}
+{"t": 39406.031, "utc": "2026-11-21T13:03:14.494+00:00", "kind": "phase_start", "round": 3, "phase": 2, "rate": 500000}
+{"t": 39406.031, "utc": "2026-11-21T13:03:14.494+00:00", "kind": "ubcp_tx", "seq": 44, "cmd": 22, "payload": ""}
+{"t": 39406.046, "utc": "2026-11-21T13:03:14.506+00:00", "kind": "ubcp_response", "seq": 44, "cmd": 22, "payload": "00000000000000000008000800000008001000000000000000000000"}
+{"t": 39406.046, "utc": "2026-11-21T13:03:14.506+00:00", "kind": "status", "label": "before", "payload": "00000000000000000008000800000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39406.046, "utc": "2026-11-21T13:03:14.506+00:00", "kind": "probe", "round": 3, "phase": 2, "rate": 500000, "direction": 0, "id": 1538, "dlc": 4, "data": "4261636b"}
+{"t": 39406.046, "utc": "2026-11-21T13:03:14.506+00:00", "kind": "ubcp_tx", "seq": 45, "cmd": 19, "payload": "00000602044261636b"}
+{"t": 39406.046, "utc": "2026-11-21T13:03:14.514+00:00", "kind": "ubcp_response", "seq": 45, "cmd": 19, "payload": "00ae49377b"}
+{"t": 39406.062, "utc": "2026-11-21T13:03:14.524+00:00", "kind": "slcan_rx", "hex": "743630323434323631363336420d"}
+{"t": 39406.062, "utc": "2026-11-21T13:03:14.524+00:00", "kind": "slcan_line", "hex": "74363032343432363136333642", "feedback_type": "frame_or_feedback"}
+{"t": 39406.078, "utc": "2026-11-21T13:03:14.544+00:00", "kind": "slcan_match_raw", "hex": "74363032343432363136333642", "id": 1538}
+{"t": 39406.078, "utc": "2026-11-21T13:03:14.544+00:00", "kind": "slcan_match_decoded", "id": 1538, "dlc": 4, "data": "4261636b", "extended": false, "rtr": false, "fd": false, "brs": false}
+{"t": 39406.078, "utc": "2026-11-21T13:03:14.544+00:00", "kind": "verdict", "round": 3, "phase": 2, "direction": 0, "ok": true}
+{"t": 39406.078, "utc": "2026-11-21T13:03:14.544+00:00", "kind": "ubcp_tx", "seq": 46, "cmd": 22, "payload": ""}
+{"t": 39406.093, "utc": "2026-11-21T13:03:14.556+00:00", "kind": "ubcp_response", "seq": 46, "cmd": 22, "payload": "00000000000000000009000800000008001000000000000000000000"}
+{"t": 39406.093, "utc": "2026-11-21T13:03:14.556+00:00", "kind": "status", "label": "after_forward", "payload": "00000000000000000009000800000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39406.093, "utc": "2026-11-21T13:03:14.556+00:00", "kind": "probe", "round": 3, "phase": 2, "rate": 500000, "direction": 1, "id": 1554, "dlc": 5, "data": "524261636b"}
+{"t": 39407.125, "utc": "2026-11-21T13:03:15.585+00:00", "kind": "slcan_tx", "hex": "7436313235353234323631363336620d"}
+{"t": 39407.156, "utc": "2026-11-21T13:03:15.617+00:00", "kind": "slcan_feedback_window", "command": "t6125524261636b", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39407.156, "utc": "2026-11-21T13:03:15.617+00:00", "kind": "ubcp_event", "payload": "0000061205524261636b00ae59b1af"}
+{"t": 39407.156, "utc": "2026-11-21T13:03:15.617+00:00", "kind": "verdict", "round": 3, "phase": 2, "direction": 1, "ok": true}
+{"t": 39407.156, "utc": "2026-11-21T13:03:15.617+00:00", "kind": "ubcp_tx", "seq": 47, "cmd": 22, "payload": ""}
+{"t": 39407.156, "utc": "2026-11-21T13:03:15.626+00:00", "kind": "ubcp_response", "seq": 47, "cmd": 22, "payload": "00000000000000000009000900000008001000000000000000000000"}
+{"t": 39407.156, "utc": "2026-11-21T13:03:15.626+00:00", "kind": "status", "label": "after", "payload": "00000000000000000009000900000008001000000000000000000000", "bus": 0, "tec": 0, "rec": 0}
+{"t": 39407.156, "utc": "2026-11-21T13:03:15.626+00:00", "kind": "phase_result", "round": 3, "phase": 2, "rate": 500000, "ok": true}
+{"t": 39407.156, "utc": "2026-11-21T13:03:15.626+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 39407.187, "utc": "2026-11-21T13:03:15.646+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39407.187, "utc": "2026-11-21T13:03:15.646+00:00", "kind": "cleanup", "action": "peer_stop", "ok": true}
+{"t": 39407.187, "utc": "2026-11-21T13:03:15.646+00:00", "kind": "ubcp_tx", "seq": 48, "cmd": 18, "payload": "06032000"}
+{"t": 39407.203, "utc": "2026-11-21T13:03:15.663+00:00", "kind": "ubcp_response", "seq": 48, "cmd": 18, "payload": "00"}
+{"t": 39407.203, "utc": "2026-11-21T13:03:15.663+00:00", "kind": "cleanup", "action": "dut_restore", "ok": true}
+{"t": 39407.203, "utc": "2026-11-21T13:03:15.663+00:00", "kind": "slcan_tx", "hex": "53360d"}
+{"t": 39407.234, "utc": "2026-11-21T13:03:15.694+00:00", "kind": "slcan_feedback_window", "command": "S6", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39407.234, "utc": "2026-11-21T13:03:15.694+00:00", "kind": "cleanup", "action": "peer_restore", "ok": true}
+{"t": 39407.234, "utc": "2026-11-21T13:03:15.694+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 39407.265, "utc": "2026-11-21T13:03:15.726+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39407.265, "utc": "2026-11-21T13:03:15.726+00:00", "kind": "cleanup", "action": "peer_restore_y2", "ok": true}
+{"t": 39407.265, "utc": "2026-11-21T13:03:15.726+00:00", "kind": "ubcp_tx", "seq": 49, "cmd": 17, "payload": ""}
+{"t": 39407.343, "utc": "2026-11-21T13:03:15.813+00:00", "kind": "ubcp_response", "seq": 49, "cmd": 17, "payload": "00"}
+{"t": 39407.343, "utc": "2026-11-21T13:03:15.813+00:00", "kind": "cleanup", "action": "dut_close", "ok": true}
+{"t": 39407.343, "utc": "2026-11-21T13:03:15.813+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 39407.375, "utc": "2026-11-21T13:03:15.834+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 39407.375, "utc": "2026-11-21T13:03:15.834+00:00", "kind": "cleanup", "action": "peer_close", "ok": true}
+{"t": 39407.375, "utc": "2026-11-21T13:03:15.837+00:00", "kind": "resource_close", "name": "canable_serial", "ok": true}
+{"t": 39407.375, "utc": "2026-11-21T13:03:15.838+00:00", "kind": "resource_close", "name": "mcp_serial", "ok": true}
+{"t": 39407.375, "utc": "2026-11-21T13:03:15.838+00:00", "kind": "result", "ok": true, "bench": "isolated-bench", "scope": "minimum_switch_gate_only", "full_suite_run": false, "minimum_switch_gate_pass": true}

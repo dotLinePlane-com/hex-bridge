@@ -1,0 +1,67 @@
+{"t": 33698.875, "utc": "2026-11-21T11:28:07.342+00:00", "kind": "session", "mode": "direct250", "mcp": "COM3", "canable": "COM9", "restore_rate": 500000, "bench": "original-bench", "purpose": "diagnostic", "data_timeout": 1.0, "control_feedback_window": 0.02, "correlation": "original fixed ID/data; matching background traffic cannot be distinguished"}
+{"t": 33698.875, "utc": "2026-11-21T11:28:07.342+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 33698.906, "utc": "2026-11-21T11:28:07.364+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 33698.906, "utc": "2026-11-21T11:28:07.364+00:00", "kind": "ubcp_tx", "seq": 1, "cmd": 17, "payload": ""}
+{"t": 33698.921, "utc": "2026-11-21T11:28:07.379+00:00", "kind": "ubcp_response", "seq": 1, "cmd": 17, "payload": "05"}
+{"t": 33698.921, "utc": "2026-11-21T11:28:07.379+00:00", "kind": "ubcp_tx", "seq": 2, "cmd": 16, "payload": "00"}
+{"t": 33698.984, "utc": "2026-11-21T11:28:07.449+00:00", "kind": "ubcp_response", "seq": 2, "cmd": 16, "payload": "00000010000000030008"}
+{"t": 33698.984, "utc": "2026-11-21T11:28:07.449+00:00", "kind": "ubcp_tx", "seq": 3, "cmd": 18, "payload": "05032000"}
+{"t": 33699.0, "utc": "2026-11-21T11:28:07.469+00:00", "kind": "ubcp_response", "seq": 3, "cmd": 18, "payload": "00"}
+{"t": 33699.0, "utc": "2026-11-21T11:28:07.469+00:00", "kind": "slcan_tx", "hex": "53350d"}
+{"t": 33699.031, "utc": "2026-11-21T11:28:07.490+00:00", "kind": "slcan_feedback_window", "command": "S5", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 33699.031, "utc": "2026-11-21T11:28:07.490+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 33699.062, "utc": "2026-11-21T11:28:07.523+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 33699.062, "utc": "2026-11-21T11:28:07.523+00:00", "kind": "slcan_tx", "hex": "4d300d"}
+{"t": 33699.093, "utc": "2026-11-21T11:28:07.554+00:00", "kind": "slcan_feedback_window", "command": "M0", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 33699.093, "utc": "2026-11-21T11:28:07.554+00:00", "kind": "slcan_tx", "hex": "41310d"}
+{"t": 33699.125, "utc": "2026-11-21T11:28:07.584+00:00", "kind": "slcan_feedback_window", "command": "A1", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 33699.125, "utc": "2026-11-21T11:28:07.584+00:00", "kind": "slcan_tx", "hex": "4f0d"}
+{"t": 33699.156, "utc": "2026-11-21T11:28:07.616+00:00", "kind": "slcan_feedback_window", "command": "O", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 33700.156, "utc": "2026-11-21T11:28:08.616+00:00", "kind": "slcan_boundary", "discarded": [], "partial": ""}
+{"t": 33700.156, "utc": "2026-11-21T11:28:08.616+00:00", "kind": "ubcp_boundary_event", "cmd": 24, "channel": 3, "payload": "690068ff"}
+{"t": 33700.156, "utc": "2026-11-21T11:28:08.616+00:00", "kind": "ubcp_boundary_event", "cmd": 24, "channel": 3, "payload": "400080ff"}
+{"t": 33700.156, "utc": "2026-11-21T11:28:08.616+00:00", "kind": "ubcp_boundary_event", "cmd": 23, "channel": 3, "payload": "01000080"}
+{"t": 33701.187, "utc": "2026-11-21T11:28:09.645+00:00", "kind": "phase_start", "round": 1, "phase": 0, "rate": 250000}
+{"t": 33701.187, "utc": "2026-11-21T11:28:09.645+00:00", "kind": "ubcp_tx", "seq": 4, "cmd": 22, "payload": ""}
+{"t": 33701.203, "utc": "2026-11-21T11:28:09.662+00:00", "kind": "ubcp_response", "seq": 4, "cmd": 22, "payload": "00010080000000000000000000000008001000010000000000010001"}
+{"t": 33701.203, "utc": "2026-11-21T11:28:09.662+00:00", "kind": "status", "label": "before", "payload": "00010080000000000000000000000008001000010000000000010001", "bus": 1, "tec": 0, "rec": 128}
+{"t": 33701.203, "utc": "2026-11-21T11:28:09.662+00:00", "kind": "status_error", "label": "before", "note": "recorded; continuing diagnostic"}
+{"t": 33701.203, "utc": "2026-11-21T11:28:09.662+00:00", "kind": "probe", "round": 1, "phase": 0, "rate": 250000, "direction": 0, "id": 1537, "dlc": 5, "data": "576f726c64"}
+{"t": 33701.203, "utc": "2026-11-21T11:28:09.662+00:00", "kind": "ubcp_tx", "seq": 5, "cmd": 19, "payload": "0000060105576f726c64"}
+{"t": 33701.203, "utc": "2026-11-21T11:28:09.670+00:00", "kind": "ubcp_response", "seq": 5, "cmd": 19, "payload": "005a401d44"}
+{"t": 33702.203, "utc": "2026-11-21T11:28:10.667+00:00", "kind": "verdict", "round": 1, "phase": 0, "direction": 0, "ok": false, "error": "no exact SLCAN receive"}
+{"t": 33702.203, "utc": "2026-11-21T11:28:10.667+00:00", "kind": "ubcp_tx", "seq": 6, "cmd": 22, "payload": ""}
+{"t": 33702.218, "utc": "2026-11-21T11:28:10.682+00:00", "kind": "ubcp_response", "seq": 6, "cmd": 22, "payload": "00010080000000000001000000000008001000010000000000010001"}
+{"t": 33702.218, "utc": "2026-11-21T11:28:10.682+00:00", "kind": "status", "label": "after_forward", "payload": "00010080000000000001000000000008001000010000000000010001", "bus": 1, "tec": 0, "rec": 128}
+{"t": 33702.218, "utc": "2026-11-21T11:28:10.682+00:00", "kind": "status_error", "label": "after_forward", "note": "recorded; continuing diagnostic"}
+{"t": 33702.218, "utc": "2026-11-21T11:28:10.682+00:00", "kind": "probe", "round": 1, "phase": 0, "rate": 250000, "direction": 1, "id": 1553, "dlc": 6, "data": "52576f726c64"}
+{"t": 33703.25, "utc": "2026-11-21T11:28:11.709+00:00", "kind": "slcan_tx", "hex": "74363131363532353736663732366336340d"}
+{"t": 33703.281, "utc": "2026-11-21T11:28:11.740+00:00", "kind": "slcan_feedback_window", "command": "t611652576f726c64", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 33704.312, "utc": "2026-11-21T11:28:12.770+00:00", "kind": "ubcp_event", "payload": null}
+{"t": 33704.312, "utc": "2026-11-21T11:28:12.770+00:00", "kind": "verdict", "round": 1, "phase": 0, "direction": 1, "ok": false, "error": "no exact CAN_RECV"}
+{"t": 33704.312, "utc": "2026-11-21T11:28:12.770+00:00", "kind": "ubcp_tx", "seq": 7, "cmd": 22, "payload": ""}
+{"t": 33704.312, "utc": "2026-11-21T11:28:12.782+00:00", "kind": "ubcp_response", "seq": 7, "cmd": 22, "payload": "00010080000000000001000000000008001000010000000000010001"}
+{"t": 33704.312, "utc": "2026-11-21T11:28:12.782+00:00", "kind": "status", "label": "after", "payload": "00010080000000000001000000000008001000010000000000010001", "bus": 1, "tec": 0, "rec": 128}
+{"t": 33704.312, "utc": "2026-11-21T11:28:12.782+00:00", "kind": "status_error", "label": "after", "note": "recorded; continuing diagnostic"}
+{"t": 33704.312, "utc": "2026-11-21T11:28:12.782+00:00", "kind": "phase_result", "round": 1, "phase": 0, "rate": 250000, "ok": false}
+{"t": 33704.312, "utc": "2026-11-21T11:28:12.782+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 33704.343, "utc": "2026-11-21T11:28:12.804+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 33704.343, "utc": "2026-11-21T11:28:12.804+00:00", "kind": "cleanup", "action": "peer_stop", "ok": true}
+{"t": 33704.343, "utc": "2026-11-21T11:28:12.804+00:00", "kind": "ubcp_tx", "seq": 8, "cmd": 18, "payload": "06032000"}
+{"t": 33704.875, "utc": "2026-11-21T11:28:13.339+00:00", "kind": "ubcp_response", "seq": 8, "cmd": 18, "payload": "00"}
+{"t": 33704.875, "utc": "2026-11-21T11:28:13.339+00:00", "kind": "cleanup", "action": "dut_restore", "ok": true}
+{"t": 33704.875, "utc": "2026-11-21T11:28:13.339+00:00", "kind": "slcan_tx", "hex": "53360d"}
+{"t": 33704.906, "utc": "2026-11-21T11:28:13.371+00:00", "kind": "slcan_feedback_window", "command": "S6", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 33704.906, "utc": "2026-11-21T11:28:13.371+00:00", "kind": "cleanup", "action": "peer_restore", "ok": true}
+{"t": 33704.906, "utc": "2026-11-21T11:28:13.371+00:00", "kind": "slcan_tx", "hex": "59320d"}
+{"t": 33704.937, "utc": "2026-11-21T11:28:13.403+00:00", "kind": "slcan_feedback_window", "command": "Y2", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 33704.937, "utc": "2026-11-21T11:28:13.403+00:00", "kind": "cleanup", "action": "peer_restore_y2", "ok": true}
+{"t": 33704.937, "utc": "2026-11-21T11:28:13.403+00:00", "kind": "ubcp_tx", "seq": 9, "cmd": 17, "payload": ""}
+{"t": 33704.984, "utc": "2026-11-21T11:28:13.449+00:00", "kind": "ubcp_response", "seq": 9, "cmd": 17, "payload": "00"}
+{"t": 33704.984, "utc": "2026-11-21T11:28:13.449+00:00", "kind": "cleanup", "action": "dut_close", "ok": true}
+{"t": 33704.984, "utc": "2026-11-21T11:28:13.449+00:00", "kind": "slcan_tx", "hex": "430d"}
+{"t": 33705.015, "utc": "2026-11-21T11:28:13.479+00:00", "kind": "slcan_feedback_window", "command": "C", "note": "raw feedback only; silence does not prove acceptance"}
+{"t": 33705.015, "utc": "2026-11-21T11:28:13.479+00:00", "kind": "cleanup", "action": "peer_close", "ok": true}
+{"t": 33705.015, "utc": "2026-11-21T11:28:13.483+00:00", "kind": "resource_close", "name": "canable_serial", "ok": true}
+{"t": 33705.015, "utc": "2026-11-21T11:28:13.483+00:00", "kind": "resource_close", "name": "mcp_serial", "ok": true}
+{"t": 33705.015, "utc": "2026-11-21T11:28:13.483+00:00", "kind": "result", "ok": false, "bench": "original-bench", "scope": "minimum_switch_gate_only", "full_suite_run": false, "minimum_switch_gate_pass": false}

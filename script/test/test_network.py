@@ -363,7 +363,8 @@ def test_net_07():
 def test_net_08():
     """NET-08: NET_CONFIG �?无效 InterfaceIndex"""
     print('\n--- NET-08: Invalid InterfaceIndex ---')
-    expect_status(CMD_NET_CONFIG, b'\x02\x00', 0, ERR_CHANNEL_INVALID, 'NET-08')
+    # InterfaceIndex is a payload parameter; Wi-Fi STA supports index 0 only.
+    expect_status(CMD_NET_CONFIG, b'\x02\x00', 0, ERR_PARAM, 'NET-08')
 
 
 def test_net_09():
@@ -937,18 +938,19 @@ def test_tcp_28():
 
 
 def test_tcp_29():
-    """TCP-29: TCP OPEN/CONNECT �?�?IP 时的标准行为"""
+    """TCP-29: Wi-Fi rejects TCP OPEN/CONNECT without a usable IPv4 address."""
     print('\n--- TCP-29: Operation when no IP ---')
     _, has_ip, _ = get_link_status()
     if has_ip:
         skip_('TCP-29', 'Device has IP, cannot test no-IP scenario')
         return
-    # TCP_SERVER_OPEN: bind(INADDR_ANY) succeeds without IP
     payload = struct.pack('>HBBB', 9501, 1, 0x01, 0)
-    f = expect_status(CMD_TCP_SERVER_OPEN, payload, 0, ERR_SUCCESS, 'TCP-29 server', timeout=3.0)
-    # TCP_CLIENT_CONNECT: connect() fails when link is down
+    expect_status(CMD_TCP_SERVER_OPEN, payload, 0, ERR_NET_NO_IP,
+                  'TCP-29 server', timeout=3.0)
     payload = struct.pack('>IHBB', 0x0A0A0A0A, 8080, 2, 0)
-    f2 = expect_status(CMD_TCP_CLIENT_CONNECT, payload, 0, ERR_NET_CONN_REFUSED, 'TCP-29 client', timeout=3.0)
+    expect_status(CMD_TCP_CLIENT_CONNECT, payload, 0, ERR_NET_NO_IP,
+                  'TCP-29 client', timeout=3.0)
+
 
 
 def test_udp_11():
@@ -1001,17 +1003,19 @@ def test_udp_13():
 
 
 def test_udp_14():
-    """UDP-14: UDP OPEN/CREATE �?�?IP 时的标准行为"""
+    """UDP-14: Wi-Fi rejects UDP OPEN/CREATE without a usable IPv4 address."""
     print('\n--- UDP-14: UDP operation when no IP ---')
     _, has_ip, _ = get_link_status()
     if has_ip:
         skip_('UDP-14', 'Device has IP, cannot test no-IP scenario')
         return
     payload = struct.pack('>HB4s', 9502, 0, b'\x00\x00\x00\x00')
-    f = expect_status(CMD_UDP_SERVER_OPEN, payload, 0, ERR_SUCCESS, 'UDP-14 server', timeout=3.0)
-    test_ip = ip_to_u32('192.168.1.200')
-    payload2 = test_ip + struct.pack('>HH', 8083, 0)
-    f2 = expect_status(CMD_UDP_CLIENT_CREATE, payload2, 0, ERR_SUCCESS, 'UDP-14 client', timeout=3.0)
+    expect_status(CMD_UDP_SERVER_OPEN, payload, 0, ERR_NET_NO_IP,
+                  'UDP-14 server', timeout=3.0)
+    payload = ip_to_u32('192.168.1.200') + struct.pack('>HH', 8083, 0)
+    expect_status(CMD_UDP_CLIENT_CREATE, payload, 0, ERR_NET_NO_IP,
+                  'UDP-14 client', timeout=3.0)
+
 
 
 def test_ws_14():
@@ -1046,14 +1050,20 @@ def test_ws_17():
 
 
 def test_ws_18():
-    """WS-18: WS OPEN/CONNECT �?�?IP 时的标准行为"""
+    """WS-18: Wi-Fi rejects WS OPEN/CONNECT without a usable IPv4 address."""
     print('\n--- WS-18: WS operation when no IP ---')
     _, has_ip, _ = get_link_status()
     if has_ip:
-        skip_('WS-18', 'Device has IP (expected); no-IP scenario not testable')
+        skip_('WS-18', 'Device has IP, cannot test no-IP scenario')
         return
-    payload = struct.pack('>HBB', 9504, 1, 3) + b'/ws' + b'\x00'
-    f = expect_status(CMD_WS_SERVER_OPEN, payload, 0, ERR_SUCCESS, 'WS-18 open', timeout=3.0)
+    path = b'/ws'
+    payload = struct.pack('>HBB', 9504, 1, len(path)) + path + b'\x00'
+    expect_status(CMD_WS_SERVER_OPEN, payload, 0, ERR_NET_NO_IP,
+                  'WS-18 server', timeout=3.0)
+    payload = ip_to_u32('192.168.1.200') + struct.pack('>HB', 8084, len(path)) + path + b'\x00'
+    expect_status(CMD_WS_CLIENT_CONNECT, payload, 0, ERR_NET_NO_IP,
+                  'WS-18 client', timeout=3.0)
+
 
 
 def test_stress_07():
@@ -1086,23 +1096,30 @@ def test_stress_08():
     """STR-08: 并发命令流水�?"""
     print('\n--- STR-08: Command pipeline test ---')
     # Send 5 NET_STATUS commands without waiting
-    transports = []
+    expected = {}
     for _ in range(5):
-        wire = UBCPBuilder.build_request(next_seq(), CMD_NET_STATUS, 0, b'\x00')
+        seq = next_seq()
+        wire = UBCPBuilder.build_request(seq, CMD_NET_STATUS, 0, b'\x00')
         transport.send(wire)
-        transports.append(wire)
-    # Now collect responses
-    for i in range(5):
-        f = transport.recv_frame(timeout=3.0)
+        expected[seq] = CMD_NET_STATUS
+    pending = set(expected)
+    deadline = time.monotonic() + 3.0
+    while pending:
+        remaining = deadline - time.monotonic()
+        f = transport.recv_frame(timeout=max(0, remaining)) if remaining > 0 else None
         if f is None:
-            fail_(f'STR-08 response #{i+1}', 'no response')
+            fail_('STR-08', f'missing NET_STATUS responses seq={sorted(pending)}')
             return
-        if f.payload[0] != ERR_SUCCESS:
-            fail_(f'STR-08 response #{i+1}', f'Status={f.payload[0]:#04x}')
+        # Prior DNS replies and unsolicited events do not belong to this batch.
+        if f.is_event or f.seq_num not in expected:
+            continue
+        if not f.is_response or f.cmd_code != expected[f.seq_num] or f.channel_id != 0:
+            fail_('STR-08', f'invalid matching response seq={f.seq_num} cmd={f.cmd_code:#04x}')
             return
-        if f.cmd_code != CMD_NET_STATUS:
-            fail_(f'STR-08 response #{i+1}', f'Wrong CmdCode={f.cmd_code:#04x}')
+        if not f.payload or f.payload[0] != ERR_SUCCESS:
+            fail_('STR-08', f'unsuccessful/empty response seq={f.seq_num}')
             return
+        pending.discard(f.seq_num)  # duplicates never satisfy another request
     pass_('STR-08: All 5 pipelined responses OK')
 
 

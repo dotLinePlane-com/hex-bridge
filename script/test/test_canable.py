@@ -107,13 +107,24 @@ def assert_bool(name, cond, info=''):
 def send_cmd(transport, seq, cmd, payload=b'', channel=CAN_CHANNEL):
     wire = UBCPBuilder.build_request(seq, cmd, channel, payload)
     transport.send(wire)
-    return transport.recv_response(seq_num=seq, timeout=3.0)
+    f = transport.recv_response(cmd_code=cmd, seq_num=seq, timeout=3.0)
+    if f is not None and (not f.is_response or f.is_event or
+                          (f.seq_num, f.cmd_code, f.channel_id) != (seq, cmd, channel)):
+        return None
+    return f
 
 
 def expect_status(transport, seq, cmd, payload, channel, expected, name=''):
     f = send_cmd(transport, seq, cmd, payload, channel)
     if f is None:
         fail_(name or f'cmd=0x{cmd:02X}', 'no response')
+        return None
+    if not f.payload:
+        fail_(name or f'cmd=0x{cmd:02X}', 'empty STATUS response')
+        return None
+    success_size = {CMD_CAN_CONFIG: 1, CMD_CAN_SEND: 5}.get(cmd)
+    if f.payload[0] == ERR_SUCCESS and success_size is not None and len(f.payload) != success_size:
+        fail_(name or f'cmd=0x{cmd:02X}', 'invalid success response length')
         return None
     assert_eq(name or f'cmd=0x{cmd:02X}', f.payload[0], expected)
     return f
@@ -188,7 +199,75 @@ def can_filter(transport, seq, idx, mask, code, enable=1,
 
 # ── Canable helpers ────────────────────────────────────────────────────────
 
+def wait_matching(receive, matches, timeout):
+    """Ignore other bus traffic without extending the total observation window."""
+    deadline = time.monotonic() + timeout
+    while (remaining := deadline - time.monotonic()) > 0:
+        item = receive(timeout=remaining)
+        if item is None:
+            return None
+        if matches(item):
+            return item
+    return None
+
+
+def recv_canable(can, can_id, timeout=1.0):
+    # Assert all flags after matching the ID: a wrong type must fail, not vanish.
+    return wait_matching(can.recv, lambda msg: msg.id == can_id, timeout)
+
+
+def event_id(frame):
+    if frame.channel_id != CAN_CHANNEL or len(frame.payload) < 10:
+        raise ValueError('Malformed CAN_RECV event or wrong CAN channel')
+    raw = struct.unpack_from('>I', frame.payload)[0]
+    if len(frame.payload) != 10 + frame.payload[4]:
+        raise ValueError('CAN_RECV length does not match DLC/data/flags/timestamp')
+    return raw & (CAN_ID_EXT_MAX if raw & CAN_FLAG_EXT else 0x7FF)
+
+
+def recv_can_event(transport, can_id, timeout=2.0):
+    return wait_matching(lambda timeout: transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=timeout),
+                         lambda frame: event_id(frame) == can_id, timeout)
+
+
+def check_canable(name, msg, can_id, data, *, extended=False, rtr=False, fd=False, brs=False):
+    if msg is None:
+        fail_(name, f'no frame for ID {can_id:#x}')
+        return
+    assert_eq(name + ' ID', msg.id, can_id)
+    assert_eq(name + ' EXT', msg.is_extended, extended)
+    assert_eq(name + ' RTR', msg.is_rtr, rtr)
+    assert_eq(name + ' FD', msg.is_fd, fd)
+    assert_eq(name + ' BRS', msg.is_brs, brs)
+    assert_eq(name + ' DLC', msg.dlc, len(data))
+    assert_eq(name + ' data', msg.data, data)
+
+
+def check_event(name, frame, can_id, data, *, extended=False, fd=False, brs=False):
+    if frame is None:
+        fail_(name, f'no event for ID {can_id:#x}')
+        return
+    event_id(frame)
+    expected_raw = can_id | (CAN_FLAG_EXT if extended else 0) | (CAN_FLAG_FD if fd else 0)
+    if brs and not extended:
+        expected_raw |= CAN_FLAG_BRS
+    assert_eq(name + ' CanID/flags', struct.unpack_from('>I', frame.payload)[0], expected_raw)
+    assert_eq(name + ' DLC', frame.payload[4], len(data))
+    assert_eq(name + ' data', frame.payload[5:5 + frame.payload[4]], data)
+    assert_eq(name + ' RxFlags', frame.payload[5 + frame.payload[4]], 0x08 if brs else 0)
+
+
+def drain_events(transport, timeout=0.2):
+    deadline = time.monotonic() + timeout
+    while (remaining := deadline - time.monotonic()) > 0:
+        if transport.recv_event(timeout=remaining) is None:
+            break
+
+
 def canable_setup(can, baud=500000, data_baud=2000000, silent=False):
+    # S/Y commands are only valid while closed. This helper is also used to
+    # restore a channel that previous tests have left open.
+    can.cmd_close()
     can.set_bitrate(baud)
     can.set_data_bitrate(data_baud)
     can.set_silent(silent)
@@ -233,12 +312,7 @@ def test_can_send_std(transport, seq, can):
     can.recv_all(timeout=0.2)
     f = can_send(transport, seq, 0x123, b'\x01\x02\x03'); seq += 1
     time.sleep(0.3)
-    msg = can.recv(timeout=1.0)
-    if msg:
-        assert_eq('canable ID', msg.id, 0x123)
-        assert_eq('canable data', msg.data, b'\x01\x02\x03')
-    else:
-        fail_('canable recv', 'no frame')
+    check_canable('standard TX', recv_canable(can, 0x123), 0x123, b'\x01\x02\x03')
     return seq
 
 
@@ -249,13 +323,7 @@ def test_can_send_ext(transport, seq, can):
     data = bytes(range(8))
     can_send(transport, seq, 0x567, data, is_ext=True); seq += 1
     time.sleep(0.3)
-    msg = can.recv(timeout=1.0)
-    if msg:
-        assert_bool('EXT flag', msg.is_extended)
-        assert_eq('ext ID', msg.id, 0x567)
-        assert_eq('data', msg.data, data)
-    else:
-        fail_('canable recv', 'no frame')
+    check_canable('extended TX', recv_canable(can, 0x567), 0x567, data, extended=True)
     return seq
 
 
@@ -265,11 +333,7 @@ def test_can_send_rtr(transport, seq, can):
     can.recv_all(timeout=0.2)
     can_send(transport, seq, 0x100, b'', is_rtr=True); seq += 1
     time.sleep(0.3)
-    msg = can.recv(timeout=1.0)
-    if msg:
-        assert_bool('RTR flag', msg.is_rtr)
-    else:
-        fail_('canable recv', 'no RTR frame')
+    check_canable('RTR TX', recv_canable(can, 0x100), 0x100, b'', rtr=True)
     return seq
 
 
@@ -278,13 +342,7 @@ def test_can_recv_std(transport, seq, can):
     print('\n--- RECV standard ---')
     transport.flush_input()
     can.send(0x456, b'\xAA\xBB\xCC')
-    f = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=2.0)
-    if f is None:
-        fail_('RECV', 'no event'); return seq
-    p = f.payload
-    assert_eq('CanID', struct.unpack('>I', p[0:4])[0], 0x456)
-    assert_eq('DLC', p[4], 3)
-    assert_eq('Data', p[5:8], b'\xAA\xBB\xCC')
+    check_event('standard RX', recv_can_event(transport, 0x456), 0x456, b'\xAA\xBB\xCC')
     return seq
 
 
@@ -293,12 +351,8 @@ def test_can_recv_ext(transport, seq, can):
     print('\n--- RECV extended ---')
     transport.flush_input()
     can.send(0x1ABCDEF, b'\x01\x02\x03\x04\x05', is_extended=True)
-    f = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=2.0)
-    if f is None:
-        fail_('RECV ext', 'no event'); return seq
-    cid = struct.unpack('>I', f.payload[0:4])[0]
-    assert_bool('EXT bit', bool(cid & CAN_FLAG_EXT))
-    assert_eq('ID', cid & CAN_ID_EXT_MAX, 0x1ABCDEF)
+    check_event('extended RX', recv_can_event(transport, 0x1ABCDEF), 0x1ABCDEF,
+                b'\x01\x02\x03\x04\x05', extended=True)
     return seq
 
 
@@ -310,16 +364,31 @@ def test_can_multi_frame(transport, seq, can):
     for i in range(20):
         can_send(transport, seq, 0x700 + i, struct.pack('>B', (i * 3) & 0xFF))
         seq += 1
-        can.send(0x800 + i, struct.pack('>B', (i * 5) & 0xFF))
+        # Standard identifiers must fit in eleven bits.
+        can.send(0x500 + i, struct.pack('>B', (i * 5) & 0xFF))
         time.sleep(0.002)
     time.sleep(0.3)
-    evt_cnt = 0
-    for _ in range(40):
-        f = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=0.1)
-        if f: evt_cnt += 1
-        else: break
-    can_msgs = can.recv_all(timeout=0.3, max_count=30)
-    pass_(f'RxEvt={evt_cnt}, canable got {len(can_msgs)} frames')
+    expected_rx = set(range(0x500, 0x514))
+    expected_tx = set(range(0x700, 0x714))
+    deadline = time.monotonic() + 2.0
+    while expected_rx and (remaining := deadline - time.monotonic()) > 0:
+        frame = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=remaining)
+        if frame is None:
+            break
+        cid = event_id(frame)
+        if cid in expected_rx:
+            check_event(f'multi RX {cid:#x}', frame, cid, bytes([(cid - 0x500) * 5]))
+            expected_rx.remove(cid)
+    deadline = time.monotonic() + 2.0
+    while expected_tx and (remaining := deadline - time.monotonic()) > 0:
+        msg = can.recv(timeout=remaining)
+        if msg is None:
+            break
+        if msg.id in expected_tx:
+            check_canable(f'multi TX {msg.id:#x}', msg, msg.id, bytes([(msg.id - 0x700) * 3]))
+            expected_tx.remove(msg.id)
+    assert_eq('multi missing RX IDs', sorted(expected_rx), [])
+    assert_eq('multi missing TX IDs', sorted(expected_tx), [])
     return seq
 
 
@@ -331,12 +400,12 @@ def test_can_filter(transport, seq, can):
     transport.flush_input()
     can.send(0x123, b'\x01')
     time.sleep(0.1)
-    f1 = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=1.0)
-    assert_bool('ID 0x123 passes filter', f1 is not None)
+    f1 = recv_can_event(transport, 0x123, timeout=1.0)
+    check_event('ID 0x123 passes filter', f1, 0x123, b'\x01')
     transport.flush_input()
     can.send(0x200, b'\x02')
     time.sleep(0.1)
-    f2 = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=0.5)
+    f2 = recv_can_event(transport, 0x200, timeout=0.5)
     assert_bool('ID 0x200 blocked', f2 is None)
     can_filter(transport, seq, 0, 0, 0, enable=0)
     seq += 1
@@ -351,17 +420,17 @@ def test_can_filter_both(transport, seq, can):
     transport.flush_input()
     can.send(0x100, b'\x01')
     time.sleep(0.1)
-    f1 = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=1.0)
-    assert_bool('Std 0x100 passes Both', f1 is not None)
+    f1 = recv_can_event(transport, 0x100, timeout=1.0)
+    check_event('Std 0x100 passes Both', f1, 0x100, b'\x01')
     transport.flush_input()
     can.send(0x100, b'\x02', is_extended=True)
     time.sleep(0.1)
-    f2 = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=1.0)
-    assert_bool('Ext 0x100 passes Both', f2 is not None)
+    f2 = recv_can_event(transport, 0x100, timeout=1.0)
+    check_event('Ext 0x100 passes Both', f2, 0x100, b'\x02', extended=True)
     transport.flush_input()
     can.send(0x200, b'\x03')
     time.sleep(0.1)
-    f3 = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=0.5)
+    f3 = recv_can_event(transport, 0x200, timeout=0.5)
     assert_bool('Std 0x200 blocked', f3 is None)
     can_filter(transport, seq, 0, 0, 0, enable=0)
     seq += 1
@@ -386,48 +455,54 @@ def test_can_loopback(transport, seq):
     transport.flush_input()
     data = b'\x01\x02\x03'
     can_send(transport, seq, 0x100, data); seq += 1
-    f = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=1.0)
-    if f:
-        assert_eq('Loopback CanID', struct.unpack('>I', f.payload[0:4])[0], 0x100)
-        dlc = f.payload[4]
-        assert_eq('Loopback data', f.payload[5:5+dlc], data)
-    else:
-        fail_('Loopback self-recv', 'no RECV event')
+    check_event('Loopback self-recv', recv_can_event(transport, 0x100, timeout=1.0), 0x100, data)
     return seq
 
 
-def test_can_baud_switch(transport, seq, can):
-    """Baud switch 500k -> 250k -> 500k with canable"""
+def test_can_baud_switch(transport, seq, can, base_baud=500000, base_index=0x06):
+    """Switch both peers to 250k and back to the selected baseline."""
+    if {250000: 0x05, 500000: 0x06, 1000000: 0x08}.get(base_baud) != base_index:
+        raise ValueError('Baseline bitrate/index must match a supported suite rate')
     print('\n--- Baud switch ---')
-    can_send(transport, seq, 0x600, b'Hello'); seq += 1
-    can_config(transport, seq, 0x05, flags=0x03); seq += 1
-    time.sleep(0.3)
-    # switch canable to 250k
+    def check_transfer(name, ident, data, seq):
+        can_send(transport, seq, ident, data)
+        if ident != 0x600:
+            time.sleep(0.3)
+        msg = recv_canable(can, ident)
+        check_canable(name, msg, ident, data)
+        if ident == 0x601 and msg is None:
+            print('  Hint: set all active bus nodes to 250k or isolate the test peers; '
+                  'this is a diagnostic suggestion, not a conclusion about the cause.')
+
+    # Discard old host-side observations before the first probe as well.
+    # SEND success only acknowledges enqueueing; the exact peer frame is proof
+    # of this transfer. A bad matching-ID frame must fail rather than be skipped.
+    can.recv_all(timeout=0.2)
+    check_transfer('Hello before switch', 0x600, b'Hello', seq); seq += 1
+    # Close the adapter before changing either peer's timing.
     can.cmd_close()
-    time.sleep(0.3)
-    can.set_bitrate(250000)
-    can.set_data_bitrate(2000000)
+    configured = can_config(transport, seq, 0x05, flags=0x03); seq += 1
+    if configured is None or configured.payload != bytes([ERR_SUCCESS]):
+        fail_('250k CONFIG', 'unconfirmed configuration; skipping World and restoring baseline')
+    else:
+        can.set_bitrate(250000)
+        can.set_data_bitrate(2000000)
+        can.cmd_open()
+        time.sleep(0.3)
+        can.recv_all(timeout=0.2)
+        check_transfer('World at 250k', 0x601, b'World', seq); seq += 1
+    # back to the selected baseline, while the adapter is closed
+    can.cmd_close()
+    configured = can_config(transport, seq, base_index, flags=0x03); seq += 1
+    if configured is None or configured.payload != bytes([ERR_SUCCESS]):
+        # Unknown controller timing is fatal. Leave the adapter closed and let
+        # the suite finally block own cleanup rather than issuing commands here.
+        raise RuntimeError('Baseline CONFIG failed; bitrate transfer checks cannot run')
+    can.set_bitrate(base_baud)
     can.cmd_open()
     time.sleep(0.3)
     can.recv_all(timeout=0.2)
-    can_send(transport, seq, 0x601, b'World'); seq += 1
-    time.sleep(0.3)
-    msg = can.recv(timeout=1.0)
-    assert_bool('World at 250k', msg is not None and msg.id == 0x601,
-                f'got {msg}')
-    # back to 500k
-    can_config(transport, seq, 0x06, flags=0x03); seq += 1
-    time.sleep(0.3)
-    can.cmd_close()
-    time.sleep(0.3)
-    can.set_bitrate(500000)
-    can.cmd_open()
-    time.sleep(0.3)
-    can.recv_all(timeout=0.2)
-    can_send(transport, seq, 0x602, b'Back'); seq += 1
-    time.sleep(0.3)
-    msg = can.recv(timeout=1.0)
-    assert_bool('Back at 500k', msg is not None and msg.id == 0x602)
+    check_transfer(f'Back at {base_baud}', 0x602, b'Back', seq); seq += 1
     return seq
 
 
@@ -460,12 +535,7 @@ def test_fd_send_64(transport, seq, can):
     data = bytes(range(64))
     can_send(transport, seq, 0x100, data, is_fd=True); seq += 1
     time.sleep(0.3)
-    msg = can.recv(timeout=1.0)
-    if msg:
-        assert_eq('FD len', len(msg.data), 64)
-        assert_eq('FD data', msg.data, data)
-    else:
-        fail_('canable recv', 'no FD frame')
+    check_canable('FD TX 64B', recv_canable(can, 0x100), 0x100, data, fd=True)
     return seq
 
 
@@ -479,24 +549,25 @@ def test_fd_send_brs(transport, seq, can):
     """
     print('\n--- FD SEND+BRS (bus ACK verification) ---')
     # Clear pending events
-    while transport.recv_event(timeout=0.1):
-        pass
+    drain_events(transport)
     data = bytes([0xAA] * 16)
     can_send(transport, seq, 0x100, data, is_fd=True, is_brs=True); seq += 1
     time.sleep(0.3)
     # Check MCP error state: if frame was ACKed, TEC=0 and no ack errors
     f = send_cmd(transport, seq, CMD_CAN_STATUS)
-    if f and len(f.payload) >= 28:
+    if f and len(f.payload) >= 28 and f.payload[0] == ERR_SUCCESS:
         tec = f.payload[2]
         ack = struct.unpack('>H', f.payload[22:24])[0]
         assert_bool('FD+BRS frame ACKed (TEC=0, AckErr=0)',
                     tec == 0 and ack == 0,
                     f'TEC={tec} AckErr={ack}')
+    else:
+        fail_('FD+BRS ACK status', 'missing, short, or unsuccessful STATUS response')
     seq += 1
     # Try to read from canable (may fail due to canable2 slcan BRS limitation)
-    msg = can.recv(timeout=0.5)
+    msg = recv_canable(can, 0x100, timeout=0.5)
     if msg:
-        assert_bool('BRS flag (if canable forwarded)', msg.is_brs)
+        check_canable('BRS forwarded frame', msg, 0x100, data, fd=True, brs=True)
     else:
         skip_('canable BRS RX', 'canable2 slcan does not forward FD+BRS frames')
     return seq
@@ -508,14 +579,7 @@ def test_fd_recv_64(transport, seq, can):
     transport.flush_input()
     data = bytes(range(64))
     can.send(0x200, data, is_fd=True)
-    f = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=2.0)
-    if f is None:
-        fail_('FD RECV', 'no event'); return seq
-    cid = struct.unpack('>I', f.payload[0:4])[0]
-    assert_bool('FD bit', bool(cid & CAN_FLAG_FD))
-    dlc = f.payload[4]
-    rxd = f.payload[5:5+dlc]
-    assert_eq('FD data', rxd, data)
+    check_event('FD RX 64B', recv_can_event(transport, 0x200), 0x200, data, fd=True)
     return seq
 
 
@@ -525,12 +589,7 @@ def test_fd_recv_brs(transport, seq, can):
     transport.flush_input()
     data = bytes([0x55] * 16)
     can.send(0x301, data, is_fd=True, is_brs=True)
-    f = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=2.0)
-    if f is None:
-        fail_('FD BRS RECV', 'no event'); return seq
-    dlc = f.payload[4]
-    rxflags = f.payload[5 + dlc] if len(f.payload) > 5 + dlc else 0
-    assert_bool('RxFlags FdBRS', bool(rxflags & 0x08), f'RxFlags=0x{rxflags:02X}')
+    check_event('FD BRS RX', recv_can_event(transport, 0x301), 0x301, data, fd=True, brs=True)
     return seq
 
 
@@ -543,11 +602,8 @@ def test_fd_dlc_map(transport, seq, can):
         can.recv_all(timeout=0.2)
         can_send(transport, seq, 0x200, data, is_fd=True); seq += 1
         time.sleep(0.2)
-        msg = can.recv(timeout=0.8)
-        if msg:
-            assert_eq(f'FD DLC={dlc_code} len', len(msg.data), expected_len)
-        else:
-            fail_(f'FD DLC={dlc_code}', 'no frame')
+        check_canable(f'FD DLC={dlc_code}', recv_canable(can, 0x200, timeout=0.8),
+                      0x200, data, fd=True)
     return seq
 
 
@@ -561,14 +617,8 @@ def test_fd_loopback(transport, seq):
     transport.flush_input()
     data = bytes(range(64))
     can_send(transport, seq, 0x100, data, is_fd=True, is_brs=True); seq += 1
-    f = transport.recv_event(cmd_code=CMD_CAN_RECV, timeout=1.0)
-    if f:
-        cid = struct.unpack('>I', f.payload[0:4])[0]
-        assert_bool('FD bit', bool(cid & CAN_FLAG_FD))
-        dlc = f.payload[4]
-        assert_eq('FD loopback data', f.payload[5:5+dlc], data)
-    else:
-        fail_('FD loopback', 'no RECV event')
+    check_event('FD loopback', recv_can_event(transport, 0x100, timeout=1.0),
+                0x100, data, fd=True, brs=True)
     return seq
 
 
@@ -585,11 +635,12 @@ def main():
     ap.add_argument('--canable', default='COM6', help='CANable serial port')
     ap.add_argument('--canable-baud', type=int, default=115200,
                     help='CANable serial baud')
-    ap.add_argument('--baud', default='500k', help='CAN nominal baud')
+    ap.add_argument('--baud', default='500k', choices=('500k', '250k', '1M'), help='CAN nominal baud')
     ap.add_argument('--no-fd', action='store_true', help='Skip FD tests')
     args = ap.parse_args()
 
     baud_nominal = {'500k': 500000, '250k': 250000, '1M': 1000000}[args.baud]
+    baud_index = {'500k': 0x06, '250k': 0x05, '1M': 0x08}[args.baud]
 
     print('=' * 60)
     print('HEX-Bridge CAN Tests via CANable 2.0')
@@ -630,7 +681,7 @@ def main():
         print('=' * 60)
 
         canable_setup(can, baud=baud_nominal, data_baud=2000000)
-        seq = mcp_open_classic(transport, seq, baud_idx=0x06)
+        seq = mcp_open_classic(transport, seq, baud_idx=baud_index)
 
         seq = test_can_send_std(transport, seq, can)
         seq = test_can_send_ext(transport, seq, can)
@@ -645,10 +696,10 @@ def main():
         seq = test_can_error_paths(transport, seq, can)
 
         # restore open state
-        seq = mcp_open_classic(transport, seq, baud_idx=0x06)
+        seq = mcp_open_classic(transport, seq, baud_idx=baud_index)
         canable_setup(can, baud=baud_nominal, data_baud=2000000)
 
-        seq = test_can_baud_switch(transport, seq, can)
+        seq = test_can_baud_switch(transport, seq, can, baud_nominal, baud_index)
 
         # ═══ CAN FD ═══
         if not args.no_fd:
@@ -656,7 +707,7 @@ def main():
             print('CAN FD Tests')
             print('=' * 60)
 
-            seq = mcp_open_fd(transport, seq, baud_idx=0x06, fd_baud=0x02)
+            seq = mcp_open_fd(transport, seq, baud_idx=baud_index, fd_baud=0x02)
             canable_setup(can, baud=baud_nominal, data_baud=2000000)
 
             seq = test_fd_send_64(transport, seq, can)
@@ -667,20 +718,20 @@ def main():
             seq = test_fd_loopback(transport, seq)
 
     except KeyboardInterrupt:
-        print('\n[ABORT] Interrupted')
+        fail_('Suite interrupted', 'remaining tests did not run')
     except Exception as e:
         import traceback
-        print(f'\n[ERROR] {e}')
+        fail_('Suite exception', str(e))
         traceback.print_exc()
     finally:
         try:
             send_cmd(transport, 9999, CMD_CAN_CLOSE, b'', CAN_CHANNEL)
-        except Exception:
-            pass
+        except Exception as exc:
+            fail_('MCP cleanup', str(exc))
         try:
             can.cmd_close()
-        except Exception:
-            pass
+        except Exception as exc:
+            fail_('CANable cleanup', str(exc))
         transport.close()
         can.close()
         print('[OK] Resources released')

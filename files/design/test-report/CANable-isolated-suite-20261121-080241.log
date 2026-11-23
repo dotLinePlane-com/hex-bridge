@@ -1,0 +1,478 @@
+﻿============================================================
+HEX-Bridge CAN Tests via CANable 2.0
+MCP: COM3 @ 115200
+CANable: COM9 @ 115200
+Baud: 500k (FD enabled)
+============================================================
+[OK] CANable: 16e7497-dirty github.com/normaldotcom/canable2.git
+
+============================================================
+Classic CAN 2.0 Tests
+============================================================
+  [PASS] OPEN mode=0: 0
+  [PASS] CONFIG baud=0x06 flags=0x03: 0
+
+--- SEND standard ---
+  [PASS] SEND ID=0x123: 0
+  [PASS] standard TX ID: 291
+  [PASS] standard TX EXT: False
+  [PASS] standard TX RTR: False
+  [PASS] standard TX FD: False
+  [PASS] standard TX BRS: False
+  [PASS] standard TX DLC: 3
+  [PASS] standard TX data: b'\x01\x02\x03'
+
+--- SEND extended ---
+  [PASS] SEND ID=0x567: 0
+  [PASS] extended TX ID: 1383
+  [PASS] extended TX EXT: True
+  [PASS] extended TX RTR: False
+  [PASS] extended TX FD: False
+  [PASS] extended TX BRS: False
+  [PASS] extended TX DLC: 8
+  [PASS] extended TX data: b'\x00\x01\x02\x03\x04\x05\x06\x07'
+
+--- SEND RTR ---
+  [PASS] SEND ID=0x100: 0
+  [PASS] RTR TX ID: 256
+  [PASS] RTR TX EXT: False
+  [PASS] RTR TX RTR: True
+  [PASS] RTR TX FD: False
+  [PASS] RTR TX BRS: False
+  [PASS] RTR TX DLC: 0
+  [PASS] RTR TX data: b''
+
+--- RECV standard ---
+  [PASS] standard RX CanID/flags: 1110
+  [PASS] standard RX DLC: 3
+  [PASS] standard RX data: b'\xaa\xbb\xcc'
+  [PASS] standard RX RxFlags: 0
+
+--- RECV extended ---
+  [PASS] extended RX CanID/flags: 2175520239
+  [PASS] extended RX DLC: 5
+  [PASS] extended RX data: b'\x01\x02\x03\x04\x05'
+  [PASS] extended RX RxFlags: 0
+
+--- Multi-frame ---
+  [PASS] SEND ID=0x700: 0
+  [PASS] SEND ID=0x701: 0
+  [PASS] SEND ID=0x702: 0
+  [PASS] SEND ID=0x703: 0
+  [PASS] SEND ID=0x704: 0
+  [PASS] SEND ID=0x705: 0
+  [PASS] SEND ID=0x706: 0
+  [PASS] SEND ID=0x707: 0
+  [PASS] SEND ID=0x708: 0
+  [PASS] SEND ID=0x709: 0
+  [PASS] SEND ID=0x70a: 0
+  [PASS] SEND ID=0x70b: 0
+  [PASS] SEND ID=0x70c: 0
+  [PASS] SEND ID=0x70d: 0
+  [PASS] SEND ID=0x70e: 0
+  [PASS] SEND ID=0x70f: 0
+  [PASS] SEND ID=0x710: 0
+  [PASS] SEND ID=0x711: 0
+  [PASS] SEND ID=0x712: 0
+  [PASS] SEND ID=0x713: 0
+  [PASS] multi RX 0x500 CanID/flags: 1280
+  [PASS] multi RX 0x500 DLC: 1
+  [PASS] multi RX 0x500 data: b'\x00'
+  [PASS] multi RX 0x500 RxFlags: 0
+  [PASS] multi RX 0x501 CanID/flags: 1281
+  [PASS] multi RX 0x501 DLC: 1
+  [PASS] multi RX 0x501 data: b'\x05'
+  [PASS] multi RX 0x501 RxFlags: 0
+  [PASS] multi RX 0x502 CanID/flags: 1282
+  [PASS] multi RX 0x502 DLC: 1
+  [PASS] multi RX 0x502 data: b'\n'
+  [PASS] multi RX 0x502 RxFlags: 0
+  [PASS] multi RX 0x503 CanID/flags: 1283
+  [PASS] multi RX 0x503 DLC: 1
+  [PASS] multi RX 0x503 data: b'\x0f'
+  [PASS] multi RX 0x503 RxFlags: 0
+  [PASS] multi RX 0x504 CanID/flags: 1284
+  [PASS] multi RX 0x504 DLC: 1
+  [PASS] multi RX 0x504 data: b'\x14'
+  [PASS] multi RX 0x504 RxFlags: 0
+  [PASS] multi RX 0x505 CanID/flags: 1285
+  [PASS] multi RX 0x505 DLC: 1
+  [PASS] multi RX 0x505 data: b'\x19'
+  [PASS] multi RX 0x505 RxFlags: 0
+  [PASS] multi RX 0x506 CanID/flags: 1286
+  [PASS] multi RX 0x506 DLC: 1
+  [PASS] multi RX 0x506 data: b'\x1e'
+  [PASS] multi RX 0x506 RxFlags: 0
+  [PASS] multi RX 0x507 CanID/flags: 1287
+  [PASS] multi RX 0x507 DLC: 1
+  [PASS] multi RX 0x507 data: b'#'
+  [PASS] multi RX 0x507 RxFlags: 0
+  [PASS] multi RX 0x508 CanID/flags: 1288
+  [PASS] multi RX 0x508 DLC: 1
+  [PASS] multi RX 0x508 data: b'('
+  [PASS] multi RX 0x508 RxFlags: 0
+  [PASS] multi RX 0x509 CanID/flags: 1289
+  [PASS] multi RX 0x509 DLC: 1
+  [PASS] multi RX 0x509 data: b'-'
+  [PASS] multi RX 0x509 RxFlags: 0
+  [PASS] multi RX 0x50a CanID/flags: 1290
+  [PASS] multi RX 0x50a DLC: 1
+  [PASS] multi RX 0x50a data: b'2'
+  [PASS] multi RX 0x50a RxFlags: 0
+  [PASS] multi RX 0x50b CanID/flags: 1291
+  [PASS] multi RX 0x50b DLC: 1
+  [PASS] multi RX 0x50b data: b'7'
+  [PASS] multi RX 0x50b RxFlags: 0
+  [PASS] multi RX 0x50c CanID/flags: 1292
+  [PASS] multi RX 0x50c DLC: 1
+  [PASS] multi RX 0x50c data: b'<'
+  [PASS] multi RX 0x50c RxFlags: 0
+  [PASS] multi RX 0x50d CanID/flags: 1293
+  [PASS] multi RX 0x50d DLC: 1
+  [PASS] multi RX 0x50d data: b'A'
+  [PASS] multi RX 0x50d RxFlags: 0
+  [PASS] multi RX 0x50e CanID/flags: 1294
+  [PASS] multi RX 0x50e DLC: 1
+  [PASS] multi RX 0x50e data: b'F'
+  [PASS] multi RX 0x50e RxFlags: 0
+  [PASS] multi RX 0x50f CanID/flags: 1295
+  [PASS] multi RX 0x50f DLC: 1
+  [PASS] multi RX 0x50f data: b'K'
+  [PASS] multi RX 0x50f RxFlags: 0
+  [PASS] multi RX 0x510 CanID/flags: 1296
+  [PASS] multi RX 0x510 DLC: 1
+  [PASS] multi RX 0x510 data: b'P'
+  [PASS] multi RX 0x510 RxFlags: 0
+  [PASS] multi RX 0x511 CanID/flags: 1297
+  [PASS] multi RX 0x511 DLC: 1
+  [PASS] multi RX 0x511 data: b'U'
+  [PASS] multi RX 0x511 RxFlags: 0
+  [PASS] multi RX 0x512 CanID/flags: 1298
+  [PASS] multi RX 0x512 DLC: 1
+  [PASS] multi RX 0x512 data: b'Z'
+  [PASS] multi RX 0x512 RxFlags: 0
+  [PASS] multi RX 0x513 CanID/flags: 1299
+  [PASS] multi RX 0x513 DLC: 1
+  [PASS] multi RX 0x513 data: b'_'
+  [PASS] multi RX 0x513 RxFlags: 0
+  [PASS] multi TX 0x700 ID: 1792
+  [PASS] multi TX 0x700 EXT: False
+  [PASS] multi TX 0x700 RTR: False
+  [PASS] multi TX 0x700 FD: False
+  [PASS] multi TX 0x700 BRS: False
+  [PASS] multi TX 0x700 DLC: 1
+  [PASS] multi TX 0x700 data: b'\x00'
+  [PASS] multi TX 0x701 ID: 1793
+  [PASS] multi TX 0x701 EXT: False
+  [PASS] multi TX 0x701 RTR: False
+  [PASS] multi TX 0x701 FD: False
+  [PASS] multi TX 0x701 BRS: False
+  [PASS] multi TX 0x701 DLC: 1
+  [PASS] multi TX 0x701 data: b'\x03'
+  [PASS] multi TX 0x702 ID: 1794
+  [PASS] multi TX 0x702 EXT: False
+  [PASS] multi TX 0x702 RTR: False
+  [PASS] multi TX 0x702 FD: False
+  [PASS] multi TX 0x702 BRS: False
+  [PASS] multi TX 0x702 DLC: 1
+  [PASS] multi TX 0x702 data: b'\x06'
+  [PASS] multi TX 0x703 ID: 1795
+  [PASS] multi TX 0x703 EXT: False
+  [PASS] multi TX 0x703 RTR: False
+  [PASS] multi TX 0x703 FD: False
+  [PASS] multi TX 0x703 BRS: False
+  [PASS] multi TX 0x703 DLC: 1
+  [PASS] multi TX 0x703 data: b'\t'
+  [PASS] multi TX 0x704 ID: 1796
+  [PASS] multi TX 0x704 EXT: False
+  [PASS] multi TX 0x704 RTR: False
+  [PASS] multi TX 0x704 FD: False
+  [PASS] multi TX 0x704 BRS: False
+  [PASS] multi TX 0x704 DLC: 1
+  [PASS] multi TX 0x704 data: b'\x0c'
+  [PASS] multi TX 0x705 ID: 1797
+  [PASS] multi TX 0x705 EXT: False
+  [PASS] multi TX 0x705 RTR: False
+  [PASS] multi TX 0x705 FD: False
+  [PASS] multi TX 0x705 BRS: False
+  [PASS] multi TX 0x705 DLC: 1
+  [PASS] multi TX 0x705 data: b'\x0f'
+  [PASS] multi TX 0x706 ID: 1798
+  [PASS] multi TX 0x706 EXT: False
+  [PASS] multi TX 0x706 RTR: False
+  [PASS] multi TX 0x706 FD: False
+  [PASS] multi TX 0x706 BRS: False
+  [PASS] multi TX 0x706 DLC: 1
+  [PASS] multi TX 0x706 data: b'\x12'
+  [PASS] multi TX 0x707 ID: 1799
+  [PASS] multi TX 0x707 EXT: False
+  [PASS] multi TX 0x707 RTR: False
+  [PASS] multi TX 0x707 FD: False
+  [PASS] multi TX 0x707 BRS: False
+  [PASS] multi TX 0x707 DLC: 1
+  [PASS] multi TX 0x707 data: b'\x15'
+  [PASS] multi TX 0x708 ID: 1800
+  [PASS] multi TX 0x708 EXT: False
+  [PASS] multi TX 0x708 RTR: False
+  [PASS] multi TX 0x708 FD: False
+  [PASS] multi TX 0x708 BRS: False
+  [PASS] multi TX 0x708 DLC: 1
+  [PASS] multi TX 0x708 data: b'\x18'
+  [PASS] multi TX 0x709 ID: 1801
+  [PASS] multi TX 0x709 EXT: False
+  [PASS] multi TX 0x709 RTR: False
+  [PASS] multi TX 0x709 FD: False
+  [PASS] multi TX 0x709 BRS: False
+  [PASS] multi TX 0x709 DLC: 1
+  [PASS] multi TX 0x709 data: b'\x1b'
+  [PASS] multi TX 0x70a ID: 1802
+  [PASS] multi TX 0x70a EXT: False
+  [PASS] multi TX 0x70a RTR: False
+  [PASS] multi TX 0x70a FD: False
+  [PASS] multi TX 0x70a BRS: False
+  [PASS] multi TX 0x70a DLC: 1
+  [PASS] multi TX 0x70a data: b'\x1e'
+  [PASS] multi TX 0x70b ID: 1803
+  [PASS] multi TX 0x70b EXT: False
+  [PASS] multi TX 0x70b RTR: False
+  [PASS] multi TX 0x70b FD: False
+  [PASS] multi TX 0x70b BRS: False
+  [PASS] multi TX 0x70b DLC: 1
+  [PASS] multi TX 0x70b data: b'!'
+  [PASS] multi TX 0x70c ID: 1804
+  [PASS] multi TX 0x70c EXT: False
+  [PASS] multi TX 0x70c RTR: False
+  [PASS] multi TX 0x70c FD: False
+  [PASS] multi TX 0x70c BRS: False
+  [PASS] multi TX 0x70c DLC: 1
+  [PASS] multi TX 0x70c data: b'$'
+  [PASS] multi TX 0x70d ID: 1805
+  [PASS] multi TX 0x70d EXT: False
+  [PASS] multi TX 0x70d RTR: False
+  [PASS] multi TX 0x70d FD: False
+  [PASS] multi TX 0x70d BRS: False
+  [PASS] multi TX 0x70d DLC: 1
+  [PASS] multi TX 0x70d data: b"'"
+  [PASS] multi TX 0x70e ID: 1806
+  [PASS] multi TX 0x70e EXT: False
+  [PASS] multi TX 0x70e RTR: False
+  [PASS] multi TX 0x70e FD: False
+  [PASS] multi TX 0x70e BRS: False
+  [PASS] multi TX 0x70e DLC: 1
+  [PASS] multi TX 0x70e data: b'*'
+  [PASS] multi TX 0x70f ID: 1807
+  [PASS] multi TX 0x70f EXT: False
+  [PASS] multi TX 0x70f RTR: False
+  [PASS] multi TX 0x70f FD: False
+  [PASS] multi TX 0x70f BRS: False
+  [PASS] multi TX 0x70f DLC: 1
+  [PASS] multi TX 0x70f data: b'-'
+  [PASS] multi TX 0x710 ID: 1808
+  [PASS] multi TX 0x710 EXT: False
+  [PASS] multi TX 0x710 RTR: False
+  [PASS] multi TX 0x710 FD: False
+  [PASS] multi TX 0x710 BRS: False
+  [PASS] multi TX 0x710 DLC: 1
+  [PASS] multi TX 0x710 data: b'0'
+  [PASS] multi TX 0x711 ID: 1809
+  [PASS] multi TX 0x711 EXT: False
+  [PASS] multi TX 0x711 RTR: False
+  [PASS] multi TX 0x711 FD: False
+  [PASS] multi TX 0x711 BRS: False
+  [PASS] multi TX 0x711 DLC: 1
+  [PASS] multi TX 0x711 data: b'3'
+  [PASS] multi TX 0x712 ID: 1810
+  [PASS] multi TX 0x712 EXT: False
+  [PASS] multi TX 0x712 RTR: False
+  [PASS] multi TX 0x712 FD: False
+  [PASS] multi TX 0x712 BRS: False
+  [PASS] multi TX 0x712 DLC: 1
+  [PASS] multi TX 0x712 data: b'6'
+  [PASS] multi TX 0x713 ID: 1811
+  [PASS] multi TX 0x713 EXT: False
+  [PASS] multi TX 0x713 RTR: False
+  [PASS] multi TX 0x713 FD: False
+  [PASS] multi TX 0x713 BRS: False
+  [PASS] multi TX 0x713 DLC: 1
+  [PASS] multi TX 0x713 data: b'9'
+  [PASS] multi missing RX IDs: []
+  [PASS] multi missing TX IDs: []
+
+--- FILTER standard ---
+  [PASS] FILTER idx=0: 0
+  [PASS] ID 0x123 passes filter CanID/flags: 291
+  [PASS] ID 0x123 passes filter DLC: 1
+  [PASS] ID 0x123 passes filter data: b'\x01'
+  [PASS] ID 0x123 passes filter RxFlags: 0
+  [PASS] ID 0x200 blocked
+  [PASS] FILTER idx=0: 0
+
+--- FILTER Both ---
+  [PASS] FILTER idx=0: 0
+  [PASS] Std 0x100 passes Both CanID/flags: 256
+  [PASS] Std 0x100 passes Both DLC: 1
+  [PASS] Std 0x100 passes Both data: b'\x01'
+  [PASS] Std 0x100 passes Both RxFlags: 0
+  [PASS] Ext 0x100 passes Both CanID/flags: 2147483904
+  [PASS] Ext 0x100 passes Both DLC: 1
+  [PASS] Ext 0x100 passes Both data: b'\x02'
+  [PASS] Ext 0x100 passes Both RxFlags: 0
+  [PASS] Std 0x200 blocked
+  [PASS] FILTER idx=0: 0
+
+--- STATUS ---
+  [PASS] STATUS.Status: 0
+  [PASS] BusState=0, TEC=0, REC=0, Tx=23, Rx=25
+
+--- Loopback self-recv ---
+  [PASS] CLOSE: 0
+  [PASS] OPEN mode=2: 0
+  [PASS] CONFIG baud=0x06 flags=0x03: 0
+  [PASS] SEND ID=0x100: 0
+  [PASS] Loopback self-recv CanID/flags: 256
+  [PASS] Loopback self-recv DLC: 3
+  [PASS] Loopback self-recv data: b'\x01\x02\x03'
+  [PASS] Loopback self-recv RxFlags: 0
+
+--- Error paths ---
+  [PASS] OPEN ch=0xFF: 10
+  [PASS] OPEN ch=1(UART): 22
+  [PASS] RECV host cmd: 6
+  [PASS] CLOSE: 0
+  [PASS] CONFIG baud=0x06 flags=0x03: 5
+  [PASS] OPEN mode=0: 0
+  [PASS] CONFIG baud=0x06 flags=0x03: 0
+
+--- Baud switch ---
+  [PASS] SEND ID=0x600: 0
+  [PASS] Hello before switch ID: 1536
+  [PASS] Hello before switch EXT: False
+  [PASS] Hello before switch RTR: False
+  [PASS] Hello before switch FD: False
+  [PASS] Hello before switch BRS: False
+  [PASS] Hello before switch DLC: 5
+  [PASS] Hello before switch data: b'Hello'
+  [PASS] CONFIG baud=0x05 flags=0x03: 0
+  [PASS] SEND ID=0x601: 0
+  [PASS] World at 250k ID: 1537
+  [PASS] World at 250k EXT: False
+  [PASS] World at 250k RTR: False
+  [PASS] World at 250k FD: False
+  [PASS] World at 250k BRS: False
+  [PASS] World at 250k DLC: 5
+  [PASS] World at 250k data: b'World'
+  [PASS] CONFIG baud=0x06 flags=0x03: 0
+  [PASS] SEND ID=0x602: 0
+  [PASS] Back at 500000 ID: 1538
+  [PASS] Back at 500000 EXT: False
+  [PASS] Back at 500000 RTR: False
+  [PASS] Back at 500000 FD: False
+  [PASS] Back at 500000 BRS: False
+  [PASS] Back at 500000 DLC: 4
+  [PASS] Back at 500000 data: b'Back'
+
+============================================================
+CAN FD Tests
+============================================================
+  [PASS] OPEN mode=0: 0
+  [PASS] CONFIG baud=0x06 flags=0x07: 0
+
+--- FD SEND 64B ---
+  [PASS] SEND ID=0x100: 0
+  [PASS] FD TX 64B ID: 256
+  [PASS] FD TX 64B EXT: False
+  [PASS] FD TX 64B RTR: False
+  [PASS] FD TX 64B FD: True
+  [PASS] FD TX 64B BRS: False
+  [PASS] FD TX 64B DLC: 64
+  [PASS] FD TX 64B data: b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&\'()*+,-./0123456789:;<=>?'
+
+--- FD SEND+BRS (bus ACK verification) ---
+  [PASS] SEND ID=0x100: 0
+  [PASS] FD+BRS frame ACKed (TEC=0, AckErr=0)
+  [SKIP] canable BRS RX: canable2 slcan does not forward FD+BRS frames
+
+--- FD RECV 64B ---
+  [PASS] FD RX 64B CanID/flags: 536871424
+  [PASS] FD RX 64B DLC: 64
+  [PASS] FD RX 64B data: b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&\'()*+,-./0123456789:;<=>?'
+  [PASS] FD RX 64B RxFlags: 0
+
+--- FD RECV BRS ---
+  [PASS] FD BRS RX CanID/flags: 805307137
+  [PASS] FD BRS RX DLC: 16
+  [PASS] FD BRS RX data: b'UUUUUUUUUUUUUUUU'
+  [PASS] FD BRS RX RxFlags: 8
+
+--- FD DLC mapping ---
+  [PASS] SEND ID=0x200: 0
+  [PASS] FD DLC=9 ID: 512
+  [PASS] FD DLC=9 EXT: False
+  [PASS] FD DLC=9 RTR: False
+  [PASS] FD DLC=9 FD: True
+  [PASS] FD DLC=9 BRS: False
+  [PASS] FD DLC=9 DLC: 12
+  [PASS] FD DLC=9 data: b'\x00\x07\x0e\x15\x1c#*18?FM'
+  [PASS] SEND ID=0x200: 0
+  [PASS] FD DLC=10 ID: 512
+  [PASS] FD DLC=10 EXT: False
+  [PASS] FD DLC=10 RTR: False
+  [PASS] FD DLC=10 FD: True
+  [PASS] FD DLC=10 BRS: False
+  [PASS] FD DLC=10 DLC: 16
+  [PASS] FD DLC=10 data: b'\x00\x07\x0e\x15\x1c#*18?FMT[bi'
+  [PASS] SEND ID=0x200: 0
+  [PASS] FD DLC=11 ID: 512
+  [PASS] FD DLC=11 EXT: False
+  [PASS] FD DLC=11 RTR: False
+  [PASS] FD DLC=11 FD: True
+  [PASS] FD DLC=11 BRS: False
+  [PASS] FD DLC=11 DLC: 20
+  [PASS] FD DLC=11 data: b'\x00\x07\x0e\x15\x1c#*18?FMT[bipw~\x85'
+  [PASS] SEND ID=0x200: 0
+  [PASS] FD DLC=12 ID: 512
+  [PASS] FD DLC=12 EXT: False
+  [PASS] FD DLC=12 RTR: False
+  [PASS] FD DLC=12 FD: True
+  [PASS] FD DLC=12 BRS: False
+  [PASS] FD DLC=12 DLC: 24
+  [PASS] FD DLC=12 data: b'\x00\x07\x0e\x15\x1c#*18?FMT[bipw~\x85\x8c\x93\x9a\xa1'
+  [PASS] SEND ID=0x200: 0
+  [PASS] FD DLC=13 ID: 512
+  [PASS] FD DLC=13 EXT: False
+  [PASS] FD DLC=13 RTR: False
+  [PASS] FD DLC=13 FD: True
+  [PASS] FD DLC=13 BRS: False
+  [PASS] FD DLC=13 DLC: 32
+  [PASS] FD DLC=13 data: b'\x00\x07\x0e\x15\x1c#*18?FMT[bipw~\x85\x8c\x93\x9a\xa1\xa8\xaf\xb6\xbd\xc4\xcb\xd2\xd9'
+  [PASS] SEND ID=0x200: 0
+  [PASS] FD DLC=14 ID: 512
+  [PASS] FD DLC=14 EXT: False
+  [PASS] FD DLC=14 RTR: False
+  [PASS] FD DLC=14 FD: True
+  [PASS] FD DLC=14 BRS: False
+  [PASS] FD DLC=14 DLC: 48
+  [PASS] FD DLC=14 data: b'\x00\x07\x0e\x15\x1c#*18?FMT[bipw~\x85\x8c\x93\x9a\xa1\xa8\xaf\xb6\xbd\xc4\xcb\xd2\xd9\xe0\xe7\xee\xf5\xfc\x03\n\x11\x18\x1f&-4;BI'
+  [PASS] SEND ID=0x200: 0
+  [PASS] FD DLC=15 ID: 512
+  [PASS] FD DLC=15 EXT: False
+  [PASS] FD DLC=15 RTR: False
+  [PASS] FD DLC=15 FD: True
+  [PASS] FD DLC=15 BRS: False
+  [PASS] FD DLC=15 DLC: 64
+  [PASS] FD DLC=15 data: b'\x00\x07\x0e\x15\x1c#*18?FMT[bipw~\x85\x8c\x93\x9a\xa1\xa8\xaf\xb6\xbd\xc4\xcb\xd2\xd9\xe0\xe7\xee\xf5\xfc\x03\n\x11\x18\x1f&-4;BIPW^elsz\x81\x88\x8f\x96\x9d\xa4\xab\xb2\xb9'
+
+--- FD Loopback ---
+  [PASS] CLOSE: 0
+  [PASS] OPEN mode=2: 0
+  [PASS] CONFIG baud=0x06 flags=0x07: 0
+  [PASS] SEND ID=0x100: 0
+  [PASS] FD loopback CanID/flags: 805306624
+  [PASS] FD loopback DLC: 64
+  [PASS] FD loopback data: b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&\'()*+,-./0123456789:;<=>?'
+  [PASS] FD loopback RxFlags: 8
+[OK] Resources released
+
+============================================================
+Results: 421 PASS, 0 FAIL, 1 SKIP
+============================================================

@@ -41,6 +41,8 @@
 | 0x00 | 默认接口（Wi-Fi 板为 STA，旧板为 ETH0） |
 | 0x01 | 保留（Wi-Fi 板仅有接口 0） |
 
+Wi-Fi 固件的 NET_CONFIG 仅接受接口 0。其他 InterfaceIndex 属于无效载荷参数，返回 `0x02`（ERR_PARAM）；该字段不是帧头 ChannelID，不使用旧以太网测试中的 `0x0A`（ERR_CHANNEL_INVALID）。
+
 ### ConfigType 定义
 
 | 值 | 含义 | 载荷 |

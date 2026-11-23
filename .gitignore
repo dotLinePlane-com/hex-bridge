@@ -16,9 +16,9 @@ __pycache__/
 .vscode/
 .idea/
 
-# Kilo
-.kilo/skills/esp32-build-flash
-.dotlineplane/
+# Local skills and workspace settings
+skills/
+/.dotlineplane/
 
 # Scripts (local only)
 script/push-to-github.ps1

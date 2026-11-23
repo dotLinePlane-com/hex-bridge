@@ -1101,7 +1101,7 @@ network-monitor-mcp_read_network_buffer
 
 **请求载荷**: InterfaceIndex=`0x02` (不存在), ConfigType=`0x00` (DHCP)
 
-**预期响应**: Status=`0x0A` (ERR_CHANNEL_INVALID)
+**预期响应**: Status=`0x02` (ERR_PARAM)。当前 Wi-Fi STA 仅支持接口 0；载荷中的 InterfaceIndex 无效属于参数错误，与帧头 ChannelID 不同。
 
 ---
 
@@ -1749,18 +1749,17 @@ network-monitor-mcp_read_network_buffer
 
 ---
 
-## TCP-24: TCP_SERVER_OPEN — 网线拔出时创建
+## TCP-24: TCP_SERVER_OPEN — Wi-Fi 无有效 IP 时创建
 
 | 项目 | 值 |
 |:---|:---|
 | **CmdCode** | `0x50` |
 
-**前置**: 网线已拔出, NET_STATUS 显示 LinkState=Down
+**前置**: Wi-Fi STA 已断开，NET_STATUS 显示无有效 IPv4。
 
-> **固件标准行为**: `bind(INADDR_ANY)` 不依赖接口 IP 是否已分配，因此 Server Open 在无 IP 时也能成功（socket 已绑定，待链路恢复后自动生效）。
-> 但此时无法接受任何客户端连接，实际连接尝试会因链路不可达而失败。
+> **Wi-Fi 固件标准行为**: 有效 IP 是创建监听的前提；在 socket 创建前返回 NET_NO_IP。恢复联网后主机重新创建所需服务。
 
-**预期响应**: Status=`0x00` (OK, Server 创建成功但链路 DOWN)
+**预期响应**: Status=`0x47` (ERR_NET_NO_IP)，不分配服务句柄；脚本对应覆盖见 TCP-29。
 
 ---
 
@@ -1845,16 +1844,15 @@ network-monitor-mcp_read_network_buffer
 |:---|:---|
 | **CmdCode** | `0x50`, `0x52` |
 
-**前置**: 拔出网线, NET_STATUS 确认 IpAddr=0x00000000
+**前置**: Wi-Fi STA 无有效 IPv4，NET_STATUS 确认 IpAddr=0x00000000；可通过 WIFI_LEAVE 暂停联网，随后恢复已有已保存参数，勿清除凭据。
 
-> **固件标准行为**: `bind(INADDR_ANY)` 不依赖接口 IP。Server Open 在无 IP 时仍可成功；
-> Client Connect 会走到 socket `connect()` 但因链路不通而自然失败。
+> **Wi-Fi 固件标准行为**: 网络就绪检查在 socket 创建之前进行。无有效 IPv4 时不分配监听或连接句柄，返回 NET_NO_IP。
 
 **测试步骤**:
-1. TCP_SERVER_OPEN(Port=9501) → 预期: Status=`0x00` (OK, socket 绑定到 INADDR_ANY 成功)
-2. TCP_CLIENT_CONNECT(任意IP, 任意Port) → 预期: Status=`0x41` (ERR_NET_CONN_REFUSED) 或 `0x42` (ERR_NET_TIMEOUT)
+1. TCP_SERVER_OPEN(Port=9501, MaxConn=1, AcceptMode=1, KeepAlive=0) → Status=`0x47` (ERR_NET_NO_IP)
+2. TCP_CLIENT_CONNECT(10.10.10.10:8080, TimeoutSec=2, KeepAlive=0) → Status=`0x47`
 
-**判定**: PASS — Server 创建成功, Client 连接因链路不可达被拒绝
+**判定**: PASS — 两条请求均使用合法参数并返回 NET_NO_IP，没有新句柄。
 
 ---
 
@@ -2211,16 +2209,15 @@ network-monitor-mcp_read_network_buffer
 |:---|:---|
 | **CmdCode** | `0x60`, `0x62` |
 
-**前置**: 拔出网线, NET_STATUS 确认 IpAddr=0x00000000
+**前置**: Wi-Fi STA 无有效 IPv4，NET_STATUS 确认 IpAddr=0x00000000；暂时断开可用 WIFI_LEAVE，勿清除凭据。
 
-> **固件标准行为**: UDP Server/Client 创建仅做 `socket()` + `bind(INADDR_ANY)`，不依赖接口 IP；
-> 实际数据收发在链路 UP 后自动生效。
+> **Wi-Fi 固件标准行为**: 无有效 IPv4 时，在创建 socket 前返回 NET_NO_IP。
 
 **测试步骤**:
-1. UDP_SERVER_OPEN(Port=9502) → 预期: Status=`0x00` (OK, socket 绑定成功)
-2. UDP_CLIENT_CREATE(任意IP, 任意Port) → 预期: Status=`0x00` (OK, socket 创建成功)
+1. UDP_SERVER_OPEN(Port=9502, Broadcast=0, Multicast=0) → Status=`0x47` (ERR_NET_NO_IP)
+2. UDP_CLIENT_CREATE(192.168.1.200:8083, LocalPort=0) → Status=`0x47`
 
-**判定**: PASS — Server 和 Client 均可正常创建
+**判定**: PASS — 两条合法请求均返回 NET_NO_IP，没有新句柄。
 
 ---
 
@@ -2552,16 +2549,15 @@ network-monitor-mcp_read_network_buffer
 |:---|:---|
 | **CmdCode** | `0x70`, `0x72` |
 
-**前置**: 拔出网线, NET_STATUS 确认 IpAddr=0x00000000
+**前置**: Wi-Fi STA 无有效 IPv4，NET_STATUS 确认 IpAddr=0x00000000；暂时断开可用 WIFI_LEAVE，勿清除凭据。
 
-> **固件标准行为**: WS Server Open 使用 `bind(INADDR_ANY)`，不依赖接口 IP；
-> WS Client Connect 会先走 TCP 连接再 WS 握手，因链路不通而失败。
+> **Wi-Fi 固件标准行为**: 无有效 IPv4 时，在创建 socket 或开始握手前返回 NET_NO_IP。
 
 **测试步骤**:
-1. WS_SERVER_OPEN(Port=9504, Path="/ws") → 预期: Status=`0x00` (OK, socket 绑定成功)
-2. WS_CLIENT_CONNECT(任意IP, 任意Port) → 预期: Status=`0x41` (ERR_NET_CONN_REFUSED) 或 `0x49` (ERR_NET_WS_HANDSHAKE)
+1. WS_SERVER_OPEN(Port=9504, MaxConn=1, PathLen=3, Path="/ws", Flags=0) → Status=`0x47` (ERR_NET_NO_IP)
+2. WS_CLIENT_CONNECT(192.168.1.200:8084, PathLen=3, Path="/ws", HeaderLen=0) → Status=`0x47`
 
-**判定**: PASS — Server 创建成功, Client 连接因链路不可达失败
+**判定**: PASS — 两条合法请求均返回 NET_NO_IP，没有新句柄。
 
 ---
 
@@ -2842,10 +2838,9 @@ python script/test/test_network.py --mcp COM4 --mcp-baud 921600
 | 错误码 | 名称 | 覆盖用例 |
 |:---|:---|:---|
 | `0x00` | SUCCESS | 所有正常流程用例 |
-| `0x02` | ERR_PARAM | NET-05, NET-09, STR-05, STR-10 |
+| `0x02` | ERR_PARAM | NET-05, NET-08, NET-09, STR-05, STR-10 |
 | `0x03` | ERR_TIMEOUT | — |
 | `0x06` | ERR_NOT_SUPPORT | STR-06, STR-09 |
-| `0x0A` | ERR_CHANNEL_INVALID | NET-08 |
 | `0x40` | ERR_NET_DISCONNECTED | TCP-16, TCP-24 |
 | `0x41` | ERR_NET_CONN_REFUSED | TCP-10 |
 | `0x42` | ERR_NET_TIMEOUT | TCP-09 |

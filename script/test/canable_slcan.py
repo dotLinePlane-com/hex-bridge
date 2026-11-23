@@ -241,23 +241,34 @@ class CanableChannel:
 
     def recv(self, timeout=1.0):
         """Read one CAN message. Returns CanableMessage or None."""
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            data = self.ser.read(200)
+        deadline = time.monotonic() + timeout
+        while (remaining := deadline - time.monotonic()) > 0:
+            # A previous serial read can contain many complete frames. Consume
+            # those first instead of paying another serial timeout per frame.
+            msg = self._parse_buffer()
+            if msg is not None:
+                return msg
+            original_timeout = self.ser.timeout
+            self.ser.timeout = min(original_timeout, remaining) if original_timeout is not None else remaining
+            try:
+                data = self.ser.read(200)
+            finally:
+                self.ser.timeout = original_timeout
             if data:
                 self._rx_buf += data
             # Always attempt to parse buffered frames, even with no new data
             msg = self._parse_buffer()
             if msg:
                 return msg
-            time.sleep(0.005)
+            if not data:
+                time.sleep(min(0.005, max(0, deadline - time.monotonic())))
         return None
 
     def recv_all(self, timeout=0.5, max_count=100):
         msgs = []
-        end = time.time() + timeout
-        while len(msgs) < max_count and time.time() < end:
-            msg = self.recv(timeout=0.05)
+        end = time.monotonic() + timeout
+        while len(msgs) < max_count and (remaining := end - time.monotonic()) > 0:
+            msg = self.recv(timeout=min(0.05, remaining))
             if msg is None:
                 break
             msgs.append(msg)
@@ -266,8 +277,11 @@ class CanableChannel:
     def _parse_buffer(self):
         """Extract a complete slcan frame from the RX buffer."""
         while len(self._rx_buf) > 0:
+            before = len(self._rx_buf)
             frame = self._extract_frame()
             if frame is None:
+                if len(self._rx_buf) < before:
+                    continue
                 break
             msg = self._decode_frame(frame)
             if msg is not None:
@@ -289,9 +303,9 @@ class CanableChannel:
                 end = i
                 break
         if end < 0:
-            if len(buf) > 40:  # malformed, drop first byte
-                self._rx_buf = buf[1:]
-                return None
+            # Extended FD 64-byte frames occupy 138 characters before CR.
+            if len(buf) > 138:
+                raise ValueError('Overlong slcan frame without terminator')
             return None  # wait for more
         frame = buf[:end]
         self._rx_buf = buf[end+1:]
@@ -309,15 +323,18 @@ class CanableChannel:
         if c in 'tTrRdDbB':
             msg_id = int(txt[1:4], 16) if c in 'trdb' else int(txt[1:9], 16)
             dlc_code = int(txt[4] if c in 'trdb' else txt[9], 16)
+            actual = FD_DLC_LEN.get(dlc_code, dlc_code) if c in 'dbDB' else dlc_code
+            if c not in 'dbDB' and dlc_code > 8:
+                raise ValueError('Classic CAN DLC exceeds eight')
             if c in 'rR':
                 data = b''
+                if len(txt) != (5 if c == 'r' else 10):
+                    raise ValueError('RTR slcan frame contains unexpected data')
             else:
                 data = bytes.fromhex(txt[5:] if c in 'trdb' else txt[10:])
-                # slcan may zero-pad data for FD; trim to actual length
-                if c in 'dbDB':
-                    actual = FD_DLC_LEN.get(dlc_code, dlc_code)
-                    data = data[:actual]
-            return CanableMessage(
+                if len(data) != actual:
+                    raise ValueError('slcan frame data length does not match DLC')
+            message = CanableMessage(
                 msg_id=msg_id,
                 data=data,
                 is_extended=(c in 'TRDB'),
@@ -325,6 +342,8 @@ class CanableChannel:
                 is_brs=(c in 'bB'),
                 is_rtr=(c in 'rR'),
             )
+            message.dlc = actual
+            return message
         return None
 
 
