@@ -81,7 +81,7 @@ int main(void) {
     profile_init();assert(state.phase==IDLE && profile_enabled(PF_DAP));
     /* Oversized and unsupported requests cannot mutate revision or storage. */
     fresh();unsigned untouched=state.revision;
-    uint8_t bad[2]={6,DESCRIBE};ubcp_frame_t req={.payload=bad,.payload_len=2};
+    uint8_t bad[2]={0xff,DESCRIBE};ubcp_frame_t req={.payload=bad,.payload_len=2};
     profile_command(&req);assert(reply[0]==UBCP_ERR_VERSION && !disk_len);
     bad[0]=2;req.payload_len=2049;profile_command(&req);
     assert(reply[0]==UBCP_ERR_PARAM && state.revision==untouched && !disk_len);

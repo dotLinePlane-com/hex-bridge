@@ -1,18 +1,18 @@
-#include <string.h>
-#include <stddef.h>
 #include "core/device_profile.h"
 #include "core/msg_bus.h"
-#include "modules/mod_network.h"
-#include "transport/mcp_transport.h"
-#include "hex_config.h"
-#include "esp_system.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
-#include "nvs_flash.h"
+#include "hex_config.h"
+#include "modules/mod_network.h"
 #include "nvs.h"
+#include "nvs_flash.h"
+#include "transport/mcp_transport.h"
+#include <stddef.h>
+#include <string.h>
 
 enum
 {
@@ -127,6 +127,17 @@ typedef struct
     uint8_t external2_enabled, external2_host, external2_cs;
     uint8_t uart1_business;
     uint8_t role[2], slave_cs[2];
+} extended_v5_t;
+typedef struct
+{
+    mapping_t legacy;
+    spi_mapping_t bus[2];
+    uint8_t external_enabled, external_host, external_cs, mcp_host;
+    uint8_t external2_enabled, external2_host, external2_cs;
+    uint8_t uart1_business;
+    uint8_t role[2], slave_cs[2];
+    profile_i2c_t i2c[2];
+    profile_gpio_t gpio[14];
 } extended_t;
 /* v1 disk layout is frozen, including ABI padding. */
 typedef struct
@@ -170,11 +181,18 @@ typedef struct
 {
     uint32_t revision, candidate_id, confirmed_id, saved_from;
     uint8_t version, phase;
+    extended_v5_t confirmed, candidate;
+    uint32_t confirmed_checksum, candidate_checksum, checksum;
+} record_v5_t;
+typedef struct
+{
+    uint32_t revision, candidate_id, confirmed_id, saved_from;
+    uint8_t version, phase;
     extended_t confirmed, candidate;
     uint32_t confirmed_checksum, candidate_checksum, checksum;
 } record_t;
-_Static_assert(sizeof(extended_t) == 37, "Frozen v5 mapping ABI");
-_Static_assert(sizeof(record_t) == 104, "Frozen v5 NVS ABI");
+_Static_assert(sizeof(extended_v5_t) == 37, "Frozen v5 mapping ABI");
+_Static_assert(sizeof(record_v5_t) == 104, "Frozen v5 NVS ABI");
 static record_t state;
 static extended_t active;
 static SemaphoreHandle_t lock;
@@ -190,10 +208,42 @@ bool profile_is_trial(void)
     return trial;
 }
 #define TRIAL_US (120LL * 1000000)
-static uint16_t mask(const mapping_t *m) { return ((uint16_t)m->mask_hi << 8) | m->mask_lo; }
+static uint16_t mask(const mapping_t *m)
+{
+    return ((uint16_t)m->mask_hi << 8) | m->mask_lo;
+}
+static void stage2_defaults(extended_t *e)
+{
+    for (int i = 0; i < 2; i++)
+        e->i2c[i] = (profile_i2c_t){0, 255, 255, 0, 3, 232};
+    for (int i = 0; i < 14; i++)
+        e->gpio[i] = (profile_gpio_t){255, 0, 0, 0, 0};
+}
+const profile_i2c_t *profile_i2c(int i)
+{
+    return i >= 0 && i < 2 ? &active.i2c[i] : NULL;
+}
+const profile_gpio_t *profile_gpio(int i)
+{
+    return i >= 0 && i < 14 ? &active.gpio[i] : NULL;
+}
+bool profile_gpio_capable(int pin, int mode, int pull, int trigger)
+{
+    if (pin < 0 || pin >= 40 || mode < 0 || mode > 2 || pull < 0 || pull > 3)
+        return false;
+    if (board[pin] != FLEX && board[pin] != INPUT_ONLY)
+        return false;
+    if (board[pin] == INPUT_ONLY && (mode || pull))
+        return false;
+    if (trigger && (mode || pin == 36 || pin == 39))
+        return false;
+    return trigger == 0 || trigger == 1 || trigger == 2 || trigger == 3 || trigger == 4 ||
+           trigger == 8;
+}
 static extended_t extend(const mapping_t *old)
 {
     extended_t e = {0};
+    stage2_defaults(&e);
     e.legacy = *old;
     e.bus[0] = (spi_mapping_t){1,
                                4,
@@ -219,21 +269,39 @@ static void sync_legacy(extended_t *e)
 }
 bool profile_enabled(enum profile_feature feature)
 {
+    if (feature == PF_I2C)
+        return active.i2c[0].enabled || active.i2c[1].enabled;
+    if (feature == PF_GPIO)
+    {
+        for (int i = 0; i < 14; i++)
+            if (active.gpio[i].flags & 1)
+                return true;
+        return false;
+    }
     return feature == PF_SPI ? active.external_enabled || active.external2_enabled ||
-                                  profile_spi_slave(2) || profile_spi_slave(3) :
-                              (mask(&active.legacy) & feature) != 0;
+                                   profile_spi_slave(2) || profile_spi_slave(3)
+                             : (mask(&active.legacy) & feature) != 0;
 }
-bool profile_uart1_business_enabled(void) { return active.uart1_business != 0; }
+bool profile_uart1_business_enabled(void)
+{
+    return active.uart1_business != 0;
+}
 int profile_pin(enum profile_signal signal)
 {
     return signal < SIG_COUNT ? active.legacy.pin[signal] : -1;
 }
-int profile_spi_host(bool can) { return can ? active.mcp_host : active.external_host; }
+int profile_spi_host(bool can)
+{
+    return can ? active.mcp_host : active.external_host;
+}
 int profile_spi_pin(int host, int index)
 {
     return host >= 2 && host <= 3 && index >= 0 && index < 5 ? active.bus[host - 2].pin[index] : -1;
 }
-int profile_spi_width(int host) { return host >= 2 && host <= 3 ? active.bus[host - 2].width : 0; }
+int profile_spi_width(int host)
+{
+    return host >= 2 && host <= 3 ? active.bus[host - 2].width : 0;
+}
 bool profile_spi_enabled(int host)
 {
     return host >= 2 && host <= 3 && active.bus[host - 2].enabled;
@@ -246,7 +314,10 @@ int profile_spi_slave_cs(int host)
 {
     return host >= 2 && host <= 3 ? active.slave_cs[host - 2] : 255;
 }
-int profile_spi_cs(bool can) { return can ? profile_pin(SIG_CAN_CS) : active.external_cs; }
+int profile_spi_cs(bool can)
+{
+    return can ? profile_pin(SIG_CAN_CS) : active.external_cs;
+}
 bool profile_spi_device_enabled(int instance)
 {
     return instance == 0 ? active.external_enabled : instance == 1 && active.external2_enabled;
@@ -259,7 +330,10 @@ int profile_spi_device_cs(int instance)
 {
     return instance == 0 ? active.external_cs : instance == 1 ? active.external2_cs : 255;
 }
-uint32_t profile_spi_clock(bool can) { return can ? 10000000 : 1000000; }
+uint32_t profile_spi_clock(bool can)
+{
+    return can ? 10000000 : 1000000;
+}
 void profile_boot_ready(void)
 {
     xSemaphoreTake(lock, portMAX_DELAY);
@@ -276,8 +350,8 @@ bool profile_wifi_forget_allowed(void)
 {
     xSemaphoreTake(lock, portMAX_DELAY);
     /* A temporary serial trial must preserve the confirmed Wi-Fi rollback path. */
-    bool allowed = (mask(&active.legacy) & PF_SERIAL) &&
-                   (mask(&state.confirmed.legacy) & PF_SERIAL);
+    bool allowed =
+        (mask(&active.legacy) & PF_SERIAL) && (mask(&state.confirmed.legacy) & PF_SERIAL);
     xSemaphoreGive(lock);
     return allowed;
 }
@@ -300,6 +374,7 @@ static void encode(uint8_t *p, const extended_t *e)
 static extended_t decode(const uint8_t *p)
 {
     extended_t e = {0};
+    stage2_defaults(&e);
     e.legacy.mask_hi = p[0];
     e.legacy.mask_lo = p[1];
     e.legacy.pin[0] = p[2];
@@ -364,6 +439,27 @@ static extended_t decode5(const uint8_t *p)
     }
     return e;
 }
+static void encode6(uint8_t *p, const extended_t *e)
+{
+    encode5(p, e);
+    memcpy(p + 34, e->i2c, 12);
+    memcpy(p + 46, e->gpio, 70);
+}
+static extended_t decode6(const uint8_t *p)
+{
+    extended_t e = decode5(p);
+    memcpy(e.i2c, p + 34, 12);
+    memcpy(e.gpio, p + 46, 70);
+    return e;
+}
+static bool v5_compatible(const extended_t *e)
+{
+    extended_t d = {0};
+    stage2_defaults(&d);
+    return !memcmp(e->i2c, d.i2c, sizeof(e->i2c)) && !memcmp(e->gpio, d.gpio, sizeof(e->gpio));
+}
+_Static_assert(14 + 2 * 116 <= 256, "Profile dual snapshot capacity");
+_Static_assert(52 + 116 <= 256, "Profile describe capacity");
 static uint32_t crc(const void *data, size_t n)
 {
     const uint8_t *p = data;
@@ -378,13 +474,14 @@ static uint32_t crc(const void *data, size_t n)
 }
 static uint32_t mapping_checksum(const extended_t *e)
 {
-    uint8_t p[34];
-    encode5(p, e);
+    uint8_t p[116];
+    encode6(p, e);
     return crc(p, sizeof(p));
 }
 static extended_t upgrade_v2(const extended_v2_t *old)
 {
     extended_t e = {0};
+    stage2_defaults(&e);
     memcpy(&e, old, sizeof(*old));
     e.external2_host = 2;
     e.external2_cs = 255;
@@ -405,6 +502,7 @@ static uint32_t v2_checksum(const record_v2_t *old)
 static extended_t upgrade_v3(const extended_v3_t *old)
 {
     extended_t e = {0};
+    stage2_defaults(&e);
     memcpy(&e, old, sizeof(*old));
     e.slave_cs[0] = e.slave_cs[1] = 255;
     return e;
@@ -423,6 +521,7 @@ static uint32_t v3_checksum(const record_v3_t *old)
 static extended_t upgrade_v4(const extended_v4_t *old)
 {
     extended_t e = {0};
+    stage2_defaults(&e);
     memcpy(&e, old, sizeof(*old));
     e.slave_cs[0] = e.slave_cs[1] = 255;
     return e;
@@ -453,6 +552,8 @@ static uint32_t checksum(const record_t *r)
 /* Diagnostics: [reason, signal or feature bit index, gpio, conflicting signal]. */
 static void issue(uint8_t *out, uint8_t reason, uint8_t id, uint8_t pin, uint8_t other)
 {
+    if (out[1] >= (256 - 2) / 4)
+        return;
     uint8_t *dst = out + 2 + 4 * out[1]++;
     dst[0] = reason;
     dst[1] = id;
@@ -508,8 +609,7 @@ static bool valid(const extended_t *e, bool check_credentials, uint8_t *out)
         for (int i = 0; i < 5; i++)
             if (i < 3 || b->width == 4)
                 check_pin(out, used, 4 + 5 * h + i, b->pin[i],
-                          b->width == 1 && (e->role[h] == 1 ? i < 2 : i == 2), false,
-                          b->enabled);
+                          b->width == 1 && (e->role[h] == 1 ? i < 2 : i == 2), false, b->enabled);
         if (e->slave_cs[h] != 255 || (b->enabled && e->role[h] == 1))
             check_pin(out, used, 19 + h, e->slave_cs[h], true, false,
                       b->enabled && e->role[h] == 1);
@@ -556,6 +656,42 @@ static bool valid(const extended_t *e, bool check_credentials, uint8_t *out)
             issue(out, 9, 17, e->external2_host, 15);
         if (e->external_enabled && e->external2_host == e->external_host)
             issue(out, 9, 17, e->external2_host, 14);
+    }
+    for (int i = 0; i < 2; i++)
+    {
+        const profile_i2c_t *b = &e->i2c[i];
+        int timeout = (b->timeout_hi << 8) | b->timeout_lo;
+        if (b->enabled > 1 || b->speed > 1 || timeout < 1 || timeout > 1000)
+            issue(out, 7, 41 + i, 255, 255);
+        if (b->enabled || b->scl != 255)
+            check_pin(out, used, 23 + 2 * i, b->scl, false, false, b->enabled);
+        if (b->enabled || b->sda != 255)
+            check_pin(out, used, 24 + 2 * i, b->sda, false, false, b->enabled);
+    }
+    for (int i = 0; i < 14; i++)
+    {
+        const profile_gpio_t *g = &e->gpio[i];
+        int mode = (g->flags >> 1) & 3;
+        bool on = g->flags & 1;
+        bool enums = !(g->flags & 0xf0) && mode <= 2 && g->pull <= 3 &&
+                     ((g->trigger == 0 && g->debounce == 0) ||
+                      ((g->trigger == 1 || g->trigger == 2 || g->trigger == 3 || g->trigger == 4 ||
+                        g->trigger == 8) &&
+                       g->debounce));
+        if (!enums)
+            issue(out, 7, 27 + i, g->pin, 255);
+        else if (g->pin != 255 || on)
+        {
+            if (!profile_gpio_capable(g->pin, mode, g->pull, g->trigger))
+                issue(out, 5, 27 + i, g->pin, 255);
+            else if (on)
+            {
+                if (used[g->pin] != 255)
+                    issue(out, 6, 27 + i, g->pin, used[g->pin]);
+                else
+                    used[g->pin] = 27 + i;
+            }
+        }
     }
     return !out[1];
 }
@@ -626,7 +762,7 @@ void profile_init(void)
     active = extend(&defaults);
     boot_ready = network_ready = driver_failed = writable = false;
     deadline = 0;
-    state = (record_t){.version = 5, .revision = 1, .confirmed = active};
+    state = (record_t){.version = 6, .revision = 1, .confirmed = active};
     lock = xSemaphoreCreateMutex();
     ESP_ERROR_CHECK(lock ? ESP_OK : ESP_ERR_NO_MEM);
     if (nvs_flash_init_partition("profile") != ESP_OK ||
@@ -636,11 +772,13 @@ void profile_init(void)
         return;
     }
     writable = true;
-    record_t saved;
+    record_t saved = {0};
     bool migrated = false;
-    size_t len = sizeof(saved);
+    size_t len = 0;
     uint8_t errors[256];
-    esp_err_t err = nvs_get_blob(storage, "record", &saved, &len);
+    esp_err_t err = nvs_get_blob(storage, "record", NULL, &len);
+    if (err == ESP_OK && len <= sizeof(saved))
+        err = nvs_get_blob(storage, "record", &saved, &len);
     if (err == ESP_ERR_NVS_NOT_FOUND)
         return;
     if (err == ESP_OK && len == sizeof(legacy_record_t))
@@ -658,7 +796,7 @@ void profile_init(void)
         saved.candidate_id = old.candidate_id;
         saved.confirmed_id = old.confirmed_id;
         saved.saved_from = old.saved_from;
-        saved.version = 5;
+        saved.version = 6;
         saved.phase = old.phase;
         saved.confirmed = extend(&old.confirmed);
         saved.candidate = extend(&old.candidate);
@@ -680,7 +818,7 @@ void profile_init(void)
         saved.candidate_id = old.candidate_id;
         saved.confirmed_id = old.confirmed_id;
         saved.saved_from = old.saved_from;
-        saved.version = 5;
+        saved.version = 6;
         saved.phase = old.phase;
         saved.confirmed = upgrade_v2(&old.confirmed);
         saved.candidate = upgrade_v2(&old.candidate);
@@ -688,9 +826,8 @@ void profile_init(void)
         if (!v2_compatible(&saved.confirmed))
             return;
         if (old.checksum != v2_checksum(&old) ||
-            (old.candidate_id &&
-             (old.candidate_checksum != v2_mapping_checksum(&old.candidate) ||
-              !v2_compatible(&saved.candidate))))
+            (old.candidate_id && (old.candidate_checksum != v2_mapping_checksum(&old.candidate) ||
+                                  !v2_compatible(&saved.candidate))))
         {
             saved.phase = IDLE;
             saved.candidate_id = 0;
@@ -714,7 +851,7 @@ void profile_init(void)
         saved.candidate_id = old.candidate_id;
         saved.confirmed_id = old.confirmed_id;
         saved.saved_from = old.saved_from;
-        saved.version = 5;
+        saved.version = 6;
         saved.phase = old.phase;
         saved.confirmed = upgrade_v3(&old.confirmed);
         saved.candidate = upgrade_v3(&old.candidate);
@@ -743,7 +880,7 @@ void profile_init(void)
         saved.candidate_id = old.candidate_id;
         saved.confirmed_id = old.confirmed_id;
         saved.saved_from = old.saved_from;
-        saved.version = 5;
+        saved.version = 6;
         saved.phase = old.phase;
         saved.confirmed = upgrade_v4(&old.confirmed);
         saved.candidate = upgrade_v4(&old.candidate);
@@ -761,7 +898,45 @@ void profile_init(void)
         len = sizeof(saved);
         migrated = true;
     }
-    if (err != ESP_OK || len != sizeof(saved) || saved.version != 5 || !saved.revision ||
+    else if (err == ESP_OK && len == sizeof(record_v5_t) && saved.version == 5)
+    {
+        record_v5_t old;
+        memcpy(&old, &saved, sizeof(old));
+        extended_t confirmed = {0}, candidate = {0};
+        stage2_defaults(&confirmed);
+        stage2_defaults(&candidate);
+        memcpy(&confirmed, &old.confirmed, sizeof(old.confirmed));
+        memcpy(&candidate, &old.candidate, sizeof(old.candidate));
+        uint8_t wire[34];
+        encode5(wire, &confirmed);
+        if (!old.revision || old.confirmed_checksum != crc(wire, 34))
+            return;
+        encode5(wire, &candidate);
+        bool bad = old.checksum != crc(&old, offsetof(record_v5_t, checksum)) ||
+                   (old.candidate_id && old.candidate_checksum != crc(wire, 34));
+        memset(&saved, 0, sizeof(saved));
+        saved.revision = old.revision;
+        saved.candidate_id = old.candidate_id;
+        saved.confirmed_id = old.confirmed_id;
+        saved.saved_from = old.saved_from;
+        saved.version = 6;
+        saved.phase = old.phase;
+        saved.confirmed = confirmed;
+        saved.candidate = candidate;
+        if (bad)
+        {
+            saved.phase = IDLE;
+            saved.candidate_id = 0;
+            if (!++saved.revision)
+                saved.revision = 1;
+        }
+        saved.confirmed_checksum = mapping_checksum(&saved.confirmed);
+        saved.candidate_checksum = mapping_checksum(&saved.candidate);
+        saved.checksum = checksum(&saved);
+        len = sizeof(saved);
+        migrated = true;
+    }
+    if (err != ESP_OK || len != sizeof(saved) || saved.version != 6 || !saved.revision ||
         saved.confirmed_checksum != mapping_checksum(&saved.confirmed) ||
         !valid(&saved.confirmed, true, errors))
     {
@@ -830,17 +1005,18 @@ static size_t execute(const ubcp_frame_t *req, uint8_t *out, bool *restart)
 {
     const uint8_t *p = req->payload;
     size_t n = req->payload_len;
-    if (req->channel_id || n < 2 || p[0] < 1 || p[0] > 5 || n > 2048)
+    if (req->channel_id || n < 2 || p[0] < 1 || p[0] > 6 || n > 2048)
     {
-        out[0] = n && (p[0] < 1 || p[0] > 5) ? UBCP_ERR_VERSION : UBCP_ERR_PARAM;
+        out[0] = n && (p[0] < 1 || p[0] > 6) ? UBCP_ERR_VERSION : UBCP_ERR_PARAM;
         return 1;
     }
     uint8_t op = p[1];
     bool v2 = p[0] >= 2;
     bool v3 = p[0] >= 3;
     bool v4 = p[0] >= 4;
-    bool v5 = p[0] == 5;
-    size_t mapping_len = v5 ? 34 : v4 ? 30 : v3 ? 29 : v2 ? 26 : sizeof(mapping_t);
+    bool v5 = p[0] >= 5;
+    bool v6 = p[0] == 6;
+    size_t mapping_len = v6 ? 116 : v5 ? 34 : v4 ? 30 : v3 ? 29 : v2 ? 26 : sizeof(mapping_t);
     if (op == DESCRIBE && n == 2)
     {
         if (v2)
@@ -848,12 +1024,14 @@ static size_t execute(const ubcp_frame_t *req, uint8_t *out, bool *restart)
             out[1] = p[0];
             memcpy(out + 2, HEX_MODEL_ID, 4);
             memset(out + 6, 0, 4);
-            out[8] = v5 ? 1 : 0;
+            out[8] = v6 ? 7 : v5 ? 1 : 0;
             out[9] = v5 ? 255 : v4 ? 127 : v3 ? 63 : 15;
             out[10] = 0;
             out[11] = mapping_len;
             extended_t d = extend(&defaults);
-            if (v5)
+            if (v6)
+                encode6(out + 12, &d);
+            else if (v5)
                 encode5(out + 12, &d);
             else if (v4)
                 encode4(out + 12, &d);
@@ -879,7 +1057,9 @@ static size_t execute(const ubcp_frame_t *req, uint8_t *out, bool *restart)
         put32(out + 2, state.revision);
         put32(out + 6, state.candidate_id);
         put32(out + 10, state.confirmed_id);
-        if (v5)
+        if (v6)
+            encode6(out + 14, &active);
+        else if (v5)
             encode5(out + 14, &active);
         else if (v4)
             encode4(out + 14, &active);
@@ -891,7 +1071,9 @@ static size_t execute(const ubcp_frame_t *req, uint8_t *out, bool *restart)
             memcpy(out + 14, &active.legacy, sizeof(mapping_t));
         if (!state.candidate_id)
             return 14 + mapping_len;
-        if (v5)
+        if (v6)
+            encode6(out + 14 + mapping_len, &state.candidate);
+        else if (v5)
             encode5(out + 14 + mapping_len, &state.candidate);
         else if (v4)
             encode4(out + 14 + mapping_len, &state.candidate);
@@ -912,6 +1094,13 @@ static size_t execute(const ubcp_frame_t *req, uint8_t *out, bool *restart)
     record_t next = state;
     /* Older schemas may inspect a projection, but must never overwrite or apply
      * state they cannot represent, including the confirmed rollback snapshot. */
+    if (!v6 && (op == CHECK || op == SAVE || op == CANCEL || op == APPLY || op == CONFIRM) &&
+        (!v5_compatible(&active) || !v5_compatible(&state.confirmed) ||
+         (state.candidate_id && !v5_compatible(&state.candidate))))
+    {
+        out[0] = UBCP_ERR_NOT_SUPPORT;
+        return 1;
+    }
     if (!v5 && (op == CHECK || op == SAVE || op == CANCEL || op == APPLY || op == CONFIRM) &&
         (!v4_compatible(&active) || !v4_compatible(&state.confirmed) ||
          (state.candidate_id && !v4_compatible(&state.candidate))))
@@ -923,9 +1112,9 @@ static size_t execute(const ubcp_frame_t *req, uint8_t *out, bool *restart)
         (active.uart1_business || state.confirmed.uart1_business ||
          (state.candidate_id && state.candidate.uart1_business) ||
          (!v3 && (v2 ? (!v2_compatible(&active) || !v2_compatible(&state.confirmed) ||
-               (state.candidate_id && !v2_compatible(&state.candidate))) :
-              (!v1_compatible(&active) || !v1_compatible(&state.confirmed) ||
-               (state.candidate_id && !v1_compatible(&state.candidate)))))))
+                        (state.candidate_id && !v2_compatible(&state.candidate)))
+                     : (!v1_compatible(&active) || !v1_compatible(&state.confirmed) ||
+                        (state.candidate_id && !v1_compatible(&state.candidate)))))))
     {
         out[0] = UBCP_ERR_NOT_SUPPORT;
         return 1;
@@ -933,7 +1122,9 @@ static size_t execute(const ubcp_frame_t *req, uint8_t *out, bool *restart)
     if ((op == SAVE || op == CHECK) && n == 6 + mapping_len)
     {
         extended_t m;
-        if (v5)
+        if (v6)
+            m = decode6(p + 6);
+        else if (v5)
             m = decode5(p + 6);
         else if (v4)
             m = decode4(p + 6);

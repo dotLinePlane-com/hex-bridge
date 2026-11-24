@@ -60,7 +60,7 @@
 | 1.3 | `main/main.c`，`main/modules/mod_network.c`，`main/transport/mcp_transport.{c,h}`，`script/test/host/test_ubcp_sessions.c`，`script/test/test_ubcp_sessions{,_host}.py` |
 | 1.4 | `main/core/spi_bus_manager.{c,h}`，`main/modules/{mod_spi,mod_can,mod_system,mcp2518fd}.c`，`main/modules/mcp2518fd.h`，`main/core/msg_bus.c`，`main/CMakeLists.txt`，`script/test/test_spi_{host,smoke}.py`，`script/test/test_canable{,_switch_host}.py` |
 | 1.5 | `script/hexbridge_profile.py`，`script/cli/hex-bridge-profile.py`，`script/test/test_profile_cli_host.py`，`script/test/test_profile_board.py` |
-| 1.6 | `tool/funcitonPinMap/{app,backend,test_app,verify_readonly}.py`，`tool/funcitonPinMap/DESIGN.md` |
+| 1.6 | `tool/funcitonPinMap/{app,backend,test_app,verify_readonly}.py`，`tool/funcitonPinMap/design/DESIGN.md` |
 
 同步中英文 README、板级接线、设备配置功能、SPI 功能/协议、CAN 模块、Wi-Fi 协议及网络验收说明。网络回归脚本另更新 `script/test/test_network.py`、`script/test/test_cli_network_e2e.py` 和 `script/test/test_network_timing_host.py`。
 

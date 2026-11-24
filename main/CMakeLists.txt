@@ -19,6 +19,8 @@ idf_component_register(
         "modules/mod_ws.c"
         "modules/mod_can.c"
         "modules/mod_spi.c"
+        "modules/mod_i2c.c"
+        "modules/mod_gpio.c"
         "modules/mcp2518fd.c"
     INCLUDE_DIRS
         "."
@@ -26,6 +28,7 @@ idf_component_register(
         driver
         esp_driver_gpio
         esp_driver_uart
+        esp_driver_i2c
         esp_driver_spi
         esp_timer
         esp_rom

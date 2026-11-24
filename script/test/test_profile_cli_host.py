@@ -130,6 +130,7 @@ class ProfileCLI(unittest.TestCase):
 
         module = types.ModuleType("mcp_transport")
         module.MCPTransport = Transport
+        self.transport_factory = Transport
         self.patch = patch.dict(sys.modules, {"mcp_transport": module})
         self.patch.start()
         self.addCleanup(self.patch.stop)
@@ -150,6 +151,75 @@ class ProfileCLI(unittest.TestCase):
 
     def write(self, config=None):
         self.path.write_text(json.dumps(config or self.config), encoding="utf-8")
+
+    def test_v6_auto_negotiation_two_i2c_and_gpio_transaction(self):
+        self.version = 'auto'
+        self.cli('export', self.path)
+        self.config = json.loads(self.path.read_text())
+        self.assertEqual(self.config['schema'], 6)
+        self.assertEqual(self.config['capabilities'], 0x7ff)
+        self.assertEqual(set(self.config['i2c']), {'0', '1'})
+        self.assertEqual(set(self.config['gpio_lines']), set(map(str, range(14))))
+        for feature in ('can', 'uart', 'dap'):
+            self.config['features'][feature] = False
+        for bus in self.config['spi'].values():
+            bus['enabled'] = False
+        for attachment in ('external', 'external2'):
+            self.config[attachment]['enabled'] = False
+        self.config['i2c']['0'].update(enabled=True, scl=18, sda=19)
+        self.config['i2c']['1'].update(enabled=True, scl=21, sda=22, clock_hz=400000)
+        self.config['gpio_lines']['0'].update(enabled=True, pin=25, mode='open_drain', initial_level=1)
+        self.config['gpio_lines']['13'].update(enabled=True, pin=35, trigger='both', debounce_ms=10)
+        self.write()
+        self.assertIn('OK', self.cli('check', self.path))
+        saved = self.cli('save', self.path)
+        candidate = int(saved.split('=')[1])
+        staged = self.pins()
+        self.assertEqual(staged['active']['i2c']['0']['enabled'], False)
+        self.assertEqual(staged['candidate']['gpio_lines']['0']['mode'], 'open_drain')
+        self.cli('apply', candidate)
+        self.line('B')
+        trial = self.pins()
+        self.assertEqual(trial['phase'], 'trial')
+        self.assertEqual(trial['active']['i2c']['1']['clock_hz'], 400000)
+        self.cli('confirm', candidate)
+        self.assertEqual(self.pins()['phase'], 'confirmed')
+
+    def test_v6_tk_edit_and_check_against_actual_profile_handler(self):
+        import tkinter as tk
+        import time
+        gui_path = str(MAIN.parent / 'tool/funcitonPinMap')
+        with patch.object(sys, 'path', [gui_path, *sys.path]):
+            import backend
+            import app
+        service = backend.ProfileService(transport_factory=self.transport_factory,
+                                         identity_reader=lambda device:'compiled-HXB1')
+        root = tk.Tk()
+        gui = app.ProfileApp(root, service)
+        root.geometry('980x650')
+        self.addCleanup(lambda: root.destroy() if root.winfo_exists() else None)
+        def pump():
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                root.update()
+                if not gui.busy:
+                    return
+                time.sleep(0.01)
+            self.fail('Tk worker did not finish')
+        gui.port_var.set('compiled')
+        gui.buttons['read'].invoke()
+        pump()
+        self.assertEqual(gui.view['descriptor']['schema'],6)
+        gui.notebook.select(gui.stage2.tab)
+        gui.stage2.fields[('i2c1','timeout_ms')].set('750')
+        gui.stage2.edit(('i2c1','timeout_ms'))
+        pump()
+        self.assertEqual(service.draft['i2c']['1']['timeout_ms'],750)
+        self.assertEqual(service.snapshot['active']['i2c']['1']['timeout_ms'],1000)
+        gui.buttons['check'].invoke()
+        pump()
+        self.assertIn('完成',gui.status_var.get())
+        self.assertEqual(service.snapshot['active']['i2c']['1']['timeout_ms'],1000)
 
     def pins(self):
         return json.loads(self.cli("pins", "--json"))

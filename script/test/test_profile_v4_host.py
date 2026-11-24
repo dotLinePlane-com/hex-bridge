@@ -105,7 +105,7 @@ static void migrate_v3(void) {
     memcpy(disk,&old,sizeof(old));disk_len=sizeof(old);profile_init();
     assert(state.revision==21&&!active.uart1_business&&profile_spi_width(2)==1);
     /* Old 96-byte v3 and current 96-byte v4 records are distinguished by version. */
-    assert(state.version==5);
+    assert(state.version==6);
     old.phase=STAGED;old.candidate_id=90;old.saved_from=21;
     old.candidate=old.confirmed;old.candidate.external_cs=255;
     old.candidate_checksum=v3_mapping_checksum(&old.candidate);old.checksum=v3_checksum(&old);

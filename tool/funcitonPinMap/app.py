@@ -10,6 +10,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from backend import ProfileService, ApplyOutcomeUnknown, SIGNALS
 from overview import PinOverview
+from stage2 import Stage2Pane
 
 APP_VERSION = (Path(__file__).resolve().parents[2] / "version.txt").read_text(encoding="ascii").strip()
 
@@ -71,8 +72,20 @@ def state_difference(active, candidate, draft):
     return " / ".join(details)
 
 
+def invalid_pin_text(row):
+    signal = row["signal"]
+    if row["gpio"] == 255:
+        if signal.startswith("gpio."):
+            return f"GPIO 逻辑路 {signal.split('.')[1]} 已启用，请为该路选择物理引脚"
+        if signal.startswith("i2c"):
+            return f"{signal.upper()} 尚未分配，请选择物理引脚"
+        if signal.endswith(".slave_cs"):
+            return f"{SIGNAL_NAMES.get(signal, signal)} 尚未分配，请选择从机片选输入 GPIO"
+    return f"{SIGNAL_NAMES.get(signal, signal)} 的 GPIO{row['gpio']} 不符合板型或方向要求"
+
+
 class ProfileApp(ttk.Frame):
-    """All service calls run on one worker; only the Tk thread changes widgets."""
+    """Serialize device I/O on a worker and keep local edits on the Tk thread."""
 
     def __init__(self, root, service=None):
         super().__init__(root, padding=14)
@@ -83,6 +96,7 @@ class ProfileApp(ttk.Frame):
         self._closed = False
         self._rendering = False
         self._results = queue.Queue()
+        self._worker_lock = threading.Lock()
         self.history = deque(maxlen=8)
         self.feature_vars = {}
         self.pin_vars = {}
@@ -103,6 +117,7 @@ class ProfileApp(ttk.Frame):
         root.minsize(980, 650)
         self.pack(fill="both", expand=True)
         self._build()
+        self.stage2 = Stage2Pane(self)
         self.port_var.trace_add("write", lambda *_: self._update_controls())
         self.baud_var.trace_add("write", lambda *_: self._update_controls())
         root.protocol("WM_DELETE_WINDOW", self.close)
@@ -294,7 +309,11 @@ class ProfileApp(ttk.Frame):
 
     def _render_catalog(self, view):
         extended = bool(view and view["descriptor"]["schema"] >= 2 and view["descriptor"].get("capabilities", 0) & 4)
-        signature = (bool(view), extended)
+        caps = view['descriptor'].get('capabilities', 0) if view else 0
+        stage2 = bool(view and view['descriptor']['schema'] >= 6)
+        supported_i2c = stage2 and bool(caps & 0x200)
+        supported_gpio = stage2 and bool(caps & 0x400)
+        signature = (bool(view), extended, supported_i2c, supported_gpio)
         if getattr(self, "_catalog_signature", None) == signature:
             return
         self._catalog_signature = signature
@@ -304,8 +323,8 @@ class ProfileApp(ttk.Frame):
         self.twai_check.pack_forget()
         self.planned_widgets = {"twai": self.twai_check}
         groups = [
-            ("总线与设备", ([] if extended else [("spi2", "SPI2"), ("spi3", "SPI3"), ("external", "普通 SPI 业务")]) + [("twai", "片上经典 CAN / TWAI"), ("i2c0", "I2C0"), ("i2c1", "I2C1")]),
-            ("数字接口、波形与计数", [("gpio", "通用 GPIO"), ("ledc", "LEDC PWM（最多 16 路）"), ("mcpwm", "MCPWM（两组）"), ("pcnt", "PCNT（最多 8 个单元）")]),
+            ("总线与设备", ([] if extended else [("spi2", "SPI2"), ("spi3", "SPI3"), ("external", "普通 SPI 业务")]) + [("twai", "片上经典 CAN / TWAI")] + ([] if supported_i2c else [("i2c0", "I2C0"), ("i2c1", "I2C1")])),
+            ("数字接口、波形与计数", ([] if supported_gpio else [("gpio", "通用 GPIO")]) + [("ledc", "LEDC PWM（最多 16 路）"), ("mcpwm", "MCPWM（两组）"), ("pcnt", "PCNT（最多 8 个单元）")]),
             ("有线网络", [("ethernet", "以太网（EMAC 与外部 PHY）")]),
         ]
         count = sum(len(entries) for _, entries in groups)
@@ -466,9 +485,7 @@ class ProfileApp(ttk.Frame):
                 for owner in row["owners"]:
                     add(self._signal_device(owner), text)
         for row in preview.get("invalid_pins", []):
-            text = (f"{SIGNAL_NAMES.get(row['signal'], row['signal'])} 需要选择输入 GPIO" if row['signal'].endswith('.slave_cs') and row['gpio'] == 255 else
-                    f"{SIGNAL_NAMES.get(row['signal'], row['signal'])} 的 GPIO{row['gpio']} 不符合板型或方向要求")
-            add(self._signal_device(row["signal"]), text)
+            add(self._signal_device(row["signal"]), invalid_pin_text(row))
         for row in preview.get("attachment_conflicts", []):
             names = {"external": "普通 SPI 设备 1", "external2": "普通 SPI 设备 2", "mcp2518fd": "MCP2518FD"}
             text = f"SPI{row['host']} 上无 CS 的{names.get(row['device'], row['device'])}与{names.get(row['peer'], row['peer'])}冲突；请启用 CS，或更换主机并重新接线。"
@@ -629,6 +646,8 @@ class ProfileApp(ttk.Frame):
             messagebox.showinfo("设备详情", details, parent=self.root)
 
     def _update_controls(self):
+        if hasattr(self, "stage2") and self.view:
+            self.stage2.render(self.view)
         ready = bool(self.view) and not self.busy and self._connection_matches()
         phase = self.view["snapshot"]["phase"] if self.view else None
         candidate = self.view and self.view["snapshot"].get("candidate") is not None
@@ -673,15 +692,35 @@ class ProfileApp(ttk.Frame):
         if self.view and not self._connection_matches() and not self.busy:
             self.status_var.set("连接地址已更改；请读取新设备后再编辑或操作。旧草稿仍保留。")
 
-    def _submit(self, label, operation, *, preview_mode=None):
-        if self.busy:
+    def _edit_local_draft(self, label, operation):
+        if self.busy or self._closed or self._rendering:
             return
+        try:
+            self.view = operation()
+        except ValueError as exc:
+            self._render(self.view)
+            self.status_var.set(f"{label}失败：{exc}")
+            return
+        self.overview.mode_var.set("draft")
+        self._render(self.view)
+        self._update_controls()
+        self.status_var.set(label + "完成")
+
+    def _submit(self, label, operation, *, preview_mode=None):
+        if self.busy or self._closed:
+            return
+        close_business = hasattr(self, "stage2") and label in ("读取设备", "预检草稿", "保存候选", "取消设备候选", "重启并试用", "确认试用配置")
         self.busy = True
         self.status_var.set(label + "…")
         self._update_controls()
         def work():
             try:
-                result = operation()
+                with self._worker_lock:
+                    if self._closed:
+                        return
+                    if close_business:
+                        self.stage2.disconnect()
+                    result = operation()
                 self._results.put((label, result, None, preview_mode))
             except Exception as exc:
                 self._results.put((label, None, exc, None))
@@ -695,13 +734,16 @@ class ProfileApp(ttk.Frame):
                 label, view, error, preview_mode = self._results.get_nowait()
                 self.busy = False
                 if error is not None:
-                    if isinstance(error, ApplyOutcomeUnknown):
+                    if self.service.snapshot is not None:
                         self.view = self.service.view()
                     self.status_var.set(f"{label}失败：" + " ".join(str(error).splitlines()))
                     self.history.append(f"{label}失败：{error}")
                     if self.view:
                         self._render(self.view)
+                    self._update_controls()
                     messagebox.showerror("操作失败 · 草稿已保留", f"{label}失败\n\n{error}\n\n请修正草稿或重新读取设备。", parent=self.root)
+                    if self._closed:
+                        return
                 else:
                     self.view = view
                     if preview_mode is not None:
@@ -711,12 +753,13 @@ class ProfileApp(ttk.Frame):
                     self.history.append(label + "完成")
                     if label == "重启并试用":
                         self.status_var.set("已发起重启；请等待设备恢复后点击读取。仅设备显示“试用中”才能确认，确认期限为 120 秒。")
-                self._update_controls()
+                    self._update_controls()
         except queue.Empty:
             pass
         self._poll_id = self.root.after(60, self._poll_queue)
 
     def _render(self, view):
+        self.stage2.render(view)
         self.overview.set_view(view)
         self._rendering = True
         desc, snap, draft = view["descriptor"], view["snapshot"], view["draft"]
@@ -761,7 +804,7 @@ class ProfileApp(ttk.Frame):
                 choices[f"GPIO {choice['gpio']}  ·  {usage}"] = choice["gpio"]
             gpio = row["candidate_gpio"]
             selected = next((label for label, pin in choices.items() if pin == gpio),
-                            ('待分配从机 CS' if signal.endswith('.slave_cs') else gpio_text(gpio)) if gpio == 255 else f"GPIO {gpio}  ·  无效映射，待修正")
+                            ('待分配从机 CS' if signal.endswith('.slave_cs') else '未分配' if signal.startswith(('i2c', 'gpio.')) else gpio_text(gpio)) if gpio == 255 else f"GPIO {gpio}  ·  无效映射，待修正")
             self._pin_choices[signal] = choices
             self.pin_boxes[signal]["values"] = tuple(choices)
             self.pin_vars[signal].set(selected)
@@ -785,7 +828,7 @@ class ProfileApp(ttk.Frame):
             owners = proposed_owners.get(gpio, [])
             problem = f"⚠ GPIO{gpio} 同时用于 " + " 和 ".join(SIGNAL_NAMES.get(owner, owner) for owner in owners) if enabled and len(owners) > 1 else ""
             if enabled and signal in invalid_signals:
-                problem = "⚠ 请选择从机片选输入 GPIO" if signal.endswith(".slave_cs") and gpio == 255 else f"⚠ GPIO{gpio} 不符合板型或方向要求"
+                problem = "⚠ " + invalid_pin_text(invalid_signals[signal])
             if enabled and not problem and preview.get("role_conflicts") and self._signal_device(signal) in self.conflicting_devices:
                 problem = "⚠ 从机不能挂载设备；请停用或迁移设备"
             self.conflict_labels[signal].configure(text=problem)
@@ -832,7 +875,7 @@ class ProfileApp(ttk.Frame):
         if conflicts:
             warnings.append("草稿引脚冲突：GPIO " + "、".join(conflicts))
         for invalid in preview.get("invalid_pins", []):
-            warnings.append(f"{SIGNAL_NAMES.get(invalid['signal'], invalid['signal'])} 的 GPIO {invalid['gpio']} 不符合板型或方向要求")
+            warnings.append(invalid_pin_text(invalid))
         if snap["phase"] == "trial":
             warnings.append("设备处于试用阶段：请在重启后 120 秒内确认；超时或再次复位可能回退。请重新读取核对最新阶段。")
         self.warning_var.set("；".join(warnings))
@@ -867,7 +910,12 @@ class ProfileApp(ttk.Frame):
         if not self._rendering and self._connection_matches():
             gpio = self._pin_choices[signal].get(self.pin_vars[signal].get())
             if gpio is not None:
-                self._submit("更新引脚草稿", lambda: self.service.set_pin(signal, gpio), preview_mode="draft")
+                def set_pin():
+                    return self.service.set_pin(signal, gpio)
+                if signal.startswith(("i2c", "gpio.")):
+                    self._edit_local_draft("更新引脚草稿", set_pin)
+                else:
+                    self._submit("更新引脚草稿", set_pin, preview_mode="draft")
 
     def import_config(self):
         if not self._connection_matches() or self.busy:
@@ -955,13 +1003,17 @@ class ProfileApp(ttk.Frame):
         self._submit(labels[name], getattr(self.service, name))
 
     def close(self):
-        if self.busy:
-            messagebox.showinfo("操作进行中", "请等待当前操作完成后关闭窗口。", parent=self.root)
+        if self._closed:
             return
-        if self.view and self.view["dirty"] and not messagebox.askyesno("关闭工具", "本地草稿尚有修改，关闭后将丢失。是否关闭？", parent=self.root):
+        if not self.busy and self.view and self.view["dirty"] and not messagebox.askyesno("关闭工具", "本地草稿尚有修改，关闭后将丢失。是否关闭？", parent=self.root):
             return
         self._closed = True
         self.root.after_cancel(self._poll_id)
+        if self.busy or self.stage2.session:
+            def disconnect_when_idle():
+                with self._worker_lock:
+                    self.stage2.disconnect()
+            threading.Thread(target=disconnect_when_idle, name="business-close", daemon=True).start()
         self.root.destroy()
 
 
@@ -972,6 +1024,16 @@ def main():
     except tk.TclError:
         ttk.Style(root).theme_use("clam")
     ProfileApp(root)
+    if root.tk.call("tk", "windowingsystem") == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        root.update_idletasks()
+        frame = wintypes.HWND(int(root.frame(), 0))
+        # Let Windows fit the height to this monitor, as on a top-border double-click.
+        wm_nclbuttondblclk = 0x00A3
+        ht_top = 12
+        ctypes.windll.user32.SendMessageW(frame, wm_nclbuttondblclk, ht_top, 0)
     root.mainloop()
 
 

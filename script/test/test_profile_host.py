@@ -36,13 +36,14 @@ static unsigned restarts;
 #define esp_restart() (++restarts)
 static int64_t clock_us;
 #define esp_timer_get_time() (clock_us)
-static unsigned char disk[256], staged[256];
+static unsigned char disk[512], staged[512];
 static size_t disk_len, staged_len;
 static bool fail_write;
 #define nvs_flash_init_partition(p) 0
 #define nvs_open_from_partition(p,n,m,h) (*(h)=1,0)
 static int nvs_get_blob(int h,const char*k,void *v,size_t*n){
     if (!disk_len) return ESP_ERR_NVS_NOT_FOUND;
+    if (!v) { *n=disk_len; return ESP_OK; }
     assert(*n>=disk_len); memcpy(v,disk,disk_len); *n=disk_len; return 0;
 }
 static int nvs_set_blob(int h,const char*k,const void*v,size_t n){
@@ -62,7 +63,7 @@ static unsigned restart_preparations;
 void mcp_transport_prepare_restart(uint32_t session) {++restart_preparations;}
 bool mod_network_has_saved_credentials(void) {return credentials;}
 bool mcp_transport_using_tcp(void) {return tcp;}
-static uint8_t reply[100];
+static uint8_t reply[256];
 static size_t length;
 void ubcp_frame_make_response(const ubcp_frame_t *r,ubcp_frame_t *s){*s=*r;}
 esp_err_t msg_bus_send_frame(const ubcp_frame_t *r){

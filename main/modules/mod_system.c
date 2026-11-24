@@ -16,6 +16,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include "modules/mod_system.h"
+#include "modules/mod_i2c.h"
+#include "modules/mod_gpio.h"
 #include "core/msg_bus.h"
 #include "core/seq_num.h"
 #include "core/topology.h"
@@ -154,6 +156,8 @@ static void handle_get_info(const ubcp_frame_t *req)
 
     /* 能力位图 */
     uint16_t caps = profile_enabled(PF_SPI) ? UBCP_CAP_SPI : 0;
+    if (mod_i2c_available()) caps |= UBCP_CAP_I2C;
+    if (mod_gpio_available()) caps |= UBCP_CAP_GPIO;
     if (profile_enabled(PF_CAN)) caps |= UBCP_CAP_CAN | UBCP_CAP_CAN_FD;
     if (profile_enabled(PF_UART) || profile_uart1_business_enabled()) caps |= UBCP_CAP_UART;
     if (profile_enabled(PF_WIFI)) caps |= UBCP_CAP_WIFI_STA;

@@ -479,7 +479,7 @@ class TkTests(unittest.TestCase):
     def test_buttons_edit_save_reconnect_confirm_and_three_tables(self):
         self.assertEqual(len(self.gui.feature_vars), 9)
         self.assertEqual(len(self.gui.pin_boxes), 9)
-        self.assertEqual(len(self.gui.notebook.tabs()), 2)
+        self.assertEqual(len(self.gui.notebook.tabs()), 3)
         self.assertEqual(len(self.gui.occupancy_tree.get_children()), 40)
         fixed = [self.gui.fixed_tree.item(i, "values") for i in self.gui.fixed_tree.get_children()]
         self.assertTrue(any("GPIO 4" in row for row in fixed))
@@ -600,7 +600,7 @@ class TkTests(unittest.TestCase):
     def test_persistent_pin_bar_shows_nine_assignable_gpio_and_all_filter_totals(self):
         overview = self.gui.overview
         self.assertNotIn(str(overview), self.gui.notebook.tabs())
-        self.assertEqual(len(self.gui.notebook.tabs()), 2)
+        self.assertEqual(len(self.gui.notebook.tabs()), 3)
         self.assertEqual(overview.mode_var.get(), "current")
         self.assertFalse(overview.show_all_var.get())
         self.assertEqual(list(overview.cards), ASSIGNABLE_GPIO)
@@ -764,7 +764,7 @@ class TkTests(unittest.TestCase):
                             tuple(sorted(overview.card_bounds.items())))
                 stable = stable + 1 if geometry == previous else 0
                 previous = geometry
-                expected_height = 180 if overview.show_all_var.get() else 44
+                expected_height = overview.card_height * (5 if overview.show_all_var.get() else 1)
                 return (stable >= 2 and geometry[0] > 1 and geometry[1] == expected_height
                         and set(overview.card_bounds) == set(overview.cards))
 
@@ -819,9 +819,9 @@ class TkTests(unittest.TestCase):
         self.pump()
         overview = self.gui.overview
         self.assertNotIn(str(overview), self.gui.notebook.tabs())
-        self.assertEqual(len(self.gui.notebook.tabs()), 2)
+        self.assertEqual(len(self.gui.notebook.tabs()), 3)
         self.assertLessEqual(overview.winfo_height(), 80)
-        self.assertLessEqual(overview.canvas.winfo_height(), 44)
+        self.assertEqual(overview.canvas.winfo_height(), overview.card_height)
         self.assertEqual(len({round(bounds[1], 1) for bounds in overview.card_bounds.values()}), 1)
         self.assertLessEqual(overview.winfo_rooty() + overview.winfo_height(), self.gui.notebook.winfo_rooty())
         before = (list(self.board.calls), list(self.board.reads))
@@ -1551,6 +1551,91 @@ class FeedbackTkTests(unittest.TestCase):
         self.assertFalse(self.board.calls)
 
 
+class LifecycleTkTests(unittest.TestCase):
+    """Closing and recovering from worker failures must leave Tk responsive."""
+    setUp = TkTests.setUp
+    pump = TkTests.pump
+    click = TkTests.click
+
+    def destroy_window(self):
+        try:
+            TkTests.destroy_window(self)
+        except tk.TclError:
+            # The lifecycle tests intentionally destroy the Tcl application.
+            pass
+
+    def assert_close_during_operation(self, error=None):
+        entered, release, finished = (threading.Event() for _ in range(3))
+        before = copy.deepcopy(self.gui.view)
+
+        def blocked_read(*args, **kwargs):
+            entered.set()
+            try:
+                if not release.wait(5):
+                    raise TimeoutError("test did not release the blocked read")
+                if error is not None:
+                    raise error
+                return before
+            finally:
+                finished.set()
+
+        self.addCleanup(release.set)
+        with patch.object(self.service, "read", side_effect=blocked_read), \
+                patch.object(app.messagebox, "showinfo") as showinfo:
+            self.gui.buttons["read"].invoke()
+            self.assertTrue(entered.wait(2), "read worker did not start")
+            worker = next(thread for thread in threading.enumerate() if thread.name == "profile-io")
+            self.assertTrue(self.gui.busy)
+            close_command = self.root.protocol("WM_DELETE_WINDOW")
+            self.dialog.reset_mock()
+            self.root.tk.call(close_command)
+            self.dialog.assert_not_called()
+            self.assertTrue(self.gui._closed)
+            self.assertFalse(finished.is_set(), "close must not wait for the operation")
+            with self.assertRaises(tk.TclError):
+                self.root.winfo_exists()
+            showinfo.assert_not_called()
+
+            # A completion arriving after destruction must never render or open
+            # a dialog against the dead Tk interpreter.
+            release.set()
+            self.assertTrue(finished.wait(2))
+            worker.join(2)
+            self.assertFalse(worker.is_alive())
+            with patch.object(self.gui, "_render") as render, \
+                    patch.object(self.gui, "_update_controls") as controls:
+                self.gui._poll_queue()
+            render.assert_not_called()
+            controls.assert_not_called()
+            self.showerror.assert_not_called()
+            self.assertFalse(self.errors)
+
+    def test_close_immediately_destroys_window_during_read(self):
+        self.assert_close_during_operation()
+
+    def test_late_failed_read_is_harmless_after_close(self):
+        self.assert_close_during_operation(OSError("serial connection lost"))
+
+    def test_failed_read_restores_serial_controls_and_allows_new_connection(self):
+        draft = copy.deepcopy(self.gui.view["draft"])
+        with patch.object(self.service, "read", side_effect=OSError("serial read failed")):
+            self.click("read")
+        self.assertTrue(self.showerror.called)
+        self.assertFalse(self.gui.busy)
+        self.assertFalse(self.gui.port_box.instate(["disabled"]))
+        self.assertFalse(self.gui.baud_box.instate(["disabled"]))
+        self.assertFalse(self.gui.buttons["read"].instate(["disabled"]))
+        self.assertEqual(self.gui.view["draft"], draft)
+
+        self.showerror.reset_mock()
+        self.gui.port_var.set("mock:B")
+        self.gui.baud_var.set("230400")
+        self.click("read")
+        self.assertEqual(self.gui.view["connection"]["port"], "mock:B")
+        self.assertEqual(self.gui.view["connection"]["baud"], 230400)
+        self.assertFalse(self.showerror.called)
+
+
 class EntryPointTests(unittest.TestCase):
     def test_entrypoint_from_unrelated_working_directory(self):
         # Match Python's direct-script search path, then run the actual main entry
@@ -1571,7 +1656,7 @@ def close_idle_window(root, *args):
     version = (Path(sys.argv[1]).resolve().parents[1] / 'version.txt').read_text().strip()
     assert root.title().startswith(f'HEX-Bridge {version} ·')
     gui = next(iter(root.children.values()))
-    assert len(gui.notebook.tabs()) == 2
+    assert len(gui.notebook.tabs()) == 3
     assert str(gui.overview) not in gui.notebook.tabs(), 'pin bar must be outside tabs'
     assert gui.overview.mode_var.get() == 'current'
     assert not gui.overview.show_all_var.get()
@@ -1590,7 +1675,7 @@ def close_idle_window(root, *args):
         stable = stable + 1 if geometry == previous else 0
         previous = geometry
         ready = (not gui.busy and gui.overview.winfo_viewable()
-                 and gui.overview.canvas.winfo_height() == 44
+                 and gui.overview.canvas.winfo_height() == gui.overview.card_height
                  and set(gui.overview.card_bounds) == set(ASSIGNABLE_GPIO)
                  and geometry[0] > 1 and stable >= 2)
         if not ready and time.monotonic() < deadline:

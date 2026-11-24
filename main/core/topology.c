@@ -11,15 +11,17 @@ void topology_init(void)
     s_count = 0;
 }
 
-void topology_register(uint8_t channel_id, uint8_t device_type, void *driver)
+esp_err_t topology_register(uint8_t channel_id, uint8_t device_type, void *driver)
 {
     if (s_count >= TOPOLOGY_MAX_ENTRIES) {
-        return;
+        return ESP_ERR_NO_MEM;
     }
+    if (topology_find(channel_id)) return ESP_ERR_INVALID_STATE;
     s_routes[s_count].channel_id   = channel_id;
     s_routes[s_count].device_type  = device_type;
     s_routes[s_count].device_driver = driver;
     s_count++;
+    return ESP_OK;
 }
 
 int topology_for_each(void (*cb)(uint8_t ch, uint8_t type, void *drv, void *ctx), void *ctx)

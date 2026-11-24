@@ -108,7 +108,7 @@ void msg_bus_dispatch(const ubcp_frame_t *frame)
     /* Recognized module families may be absent from the dispatcher by configuration. */
     static const unsigned feature_by_family[16] = {
         [1] = PF_CAN, [4] = PF_WIFI, [5] = PF_TCP, [6] = PF_UDP,
-        [7] = PF_WS, [10] = PF_UART, [2] = PF_SPI,
+        [7] = PF_WS, [10] = PF_UART, [2] = PF_SPI, [3] = PF_I2C, [8] = PF_GPIO,
     };
     unsigned feature = feature_by_family[cmd >> 4];
     bool enabled = feature && (profile_enabled(feature) || (feature == PF_UART && profile_uart1_business_enabled()));

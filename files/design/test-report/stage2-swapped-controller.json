@@ -1,0 +1,264 @@
+{
+  "identity": "2f8f828848584231",
+  "port": "socket://192.168.1.112:9500",
+  "section": "swapped",
+  "profile": {
+    "revision": 177,
+    "phase": 0,
+    "candidate_id": 0,
+    "confirmed_id": 175,
+    "active": {
+      "features": {
+        "serial": true,
+        "control_tcp": true,
+        "can": false,
+        "uart": false,
+        "wifi": true,
+        "tcp": true,
+        "udp": true,
+        "websocket": true,
+        "dap": true
+      },
+      "pins": {
+        "uart.tx": 32,
+        "uart.rx": 35,
+        "dap.swclk": 25,
+        "dap.swdio": 26
+      },
+      "spi": {
+        "2": {
+          "enabled": false,
+          "width": 1,
+          "sck": 18,
+          "mosi": 19,
+          "miso": 21,
+          "io2": 22,
+          "io3": 23,
+          "role": "slave",
+          "slave_cs": 27
+        },
+        "3": {
+          "enabled": false,
+          "width": 1,
+          "sck": 14,
+          "mosi": 13,
+          "miso": 36,
+          "io2": 22,
+          "io3": 23,
+          "role": "master",
+          "slave_cs": 255
+        }
+      },
+      "external": {
+        "enabled": false,
+        "host": 3,
+        "cs": 22
+      },
+      "mcp2518fd": {
+        "host": 3,
+        "cs": 15,
+        "int": 39
+      },
+      "external2": {
+        "enabled": false,
+        "host": 2,
+        "cs": 255
+      },
+      "uart1_business": false,
+      "i2c": {
+        "0": {
+          "enabled": true,
+          "scl": 21,
+          "sda": 22,
+          "clock_hz": 100000,
+          "timeout_ms": 200
+        },
+        "1": {
+          "enabled": true,
+          "scl": 18,
+          "sda": 19,
+          "clock_hz": 400000,
+          "timeout_ms": 200
+        }
+      },
+      "gpio_lines": {
+        "0": {
+          "enabled": true,
+          "pin": 23,
+          "mode": "output",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "1": {
+          "enabled": true,
+          "pin": 27,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "2": {
+          "enabled": true,
+          "pin": 32,
+          "mode": "output",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "3": {
+          "enabled": true,
+          "pin": 35,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "4": {
+          "enabled": false,
+          "pin": 255,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "5": {
+          "enabled": false,
+          "pin": 255,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "6": {
+          "enabled": false,
+          "pin": 255,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "7": {
+          "enabled": false,
+          "pin": 255,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "8": {
+          "enabled": false,
+          "pin": 255,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "9": {
+          "enabled": false,
+          "pin": 255,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "10": {
+          "enabled": false,
+          "pin": 255,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "11": {
+          "enabled": false,
+          "pin": 255,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "12": {
+          "enabled": false,
+          "pin": 255,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        },
+        "13": {
+          "enabled": false,
+          "pin": 255,
+          "mode": "input",
+          "initial_level": 0,
+          "pull": "none",
+          "trigger": "none",
+          "debounce_ms": 0
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "case": "fixture-identity",
+      "status": "PASS",
+      "detail": "STATUS stage2-i2c-v1 clock=64000000 A=80 B=80 addrs=54/0 errors=3/0 faults=0/0 pins=3/2",
+      "seconds": 0.0
+    },
+    {
+      "case": "swapped-I2C1-fixture-A-7bit-100000",
+      "status": "PASS",
+      "detail": "I2C1 GPIO18/19 -> fixture A id=a1010000; 7bit RAM/prefix/combined/bare reads at 100000Hz",
+      "seconds": 0.156
+    },
+    {
+      "case": "swapped-I2C1-fixture-A-10bit-100000",
+      "status": "PASS",
+      "detail": "I2C1 -> fixture A 10bit0x250 signature + RAM at 100000Hz",
+      "seconds": 0.5
+    },
+    {
+      "case": "swapped-I2C1-fixture-A-7bit-400000",
+      "status": "PASS",
+      "detail": "I2C1 GPIO18/19 -> fixture A id=a1010000; 7bit RAM/prefix/combined/bare reads at 400000Hz",
+      "seconds": 0.391
+    },
+    {
+      "case": "swapped-I2C1-fixture-A-10bit-400000",
+      "status": "PASS",
+      "detail": "I2C1 -> fixture A 10bit0x250 signature + RAM at 400000Hz",
+      "seconds": 0.281
+    },
+    {
+      "case": "swapped-I2C1-fixture-A-fault-recovery",
+      "status": "PASS",
+      "detail": "I2C1 actual A-SDA-low timeout03; FIRST postrelease read=a1010000",
+      "seconds": 1.562
+    },
+    {
+      "case": "swapped-held-low-path-I2C0-vs-working-A-I2C1",
+      "status": "PASS",
+      "detail": "Held-low path I2C0(GPIO21/22, PB10 low) timeout03; I2C1/A success 0.6090s earlier. No dual-success claim.",
+      "seconds": 1.032
+    },
+    {
+      "case": "fixture-cleanup-7bit-close-buses",
+      "status": "PASS",
+      "detail": "STATUS stage2-i2c-v1 clock=64000000 A=80 B=80 addrs=96/0 errors=3/0 faults=0/0 pins=3/2",
+      "seconds": 0.14
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 ## 7.1 概述
 
-阶段 1 的 CAN 模块管理外置 MCP2518FD，支持经典 CAN 和 CAN FD；UBCP CAN 命令组 (0x10-0x1F) 中的现有外置通道不代表 ESP32 片上 TWAI。TWAI 仅支持经典 CAN，使用独立 TX/RX 和外部收发器，不经过 SPI。其独立通道与启停计划见[阶段 2.3](../function/09-peripheral-delivery-plan.md)。
+阶段 1 的 CAN 模块管理外置 MCP2518FD，支持经典 CAN 和 CAN FD；UBCP CAN 命令组 (0x10-0x1F) 中的现有外置通道不代表 ESP32 片上 TWAI。TWAI 仅支持经典 CAN，使用独立 TX/RX 和外部收发器，不经过 SPI。其独立通道与启停计划见[阶段 5.1](../function/09-peripheral-delivery-plan.md)。
 
 ### HXB1 默认硬件配置
 

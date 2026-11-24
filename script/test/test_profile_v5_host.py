@@ -120,7 +120,7 @@ static void migrate_v4(void) {
     old.confirmed_checksum=v4_mapping_checksum(&old.confirmed);
     old.candidate_checksum=v4_mapping_checksum(&old.candidate);old.checksum=v4_checksum(&old);
     memcpy(disk,&old,sizeof(old));disk_len=sizeof(old);profile_init();
-    assert(state.version==5&&state.revision==41&&disk_len==sizeof(record_t));
+    assert(state.version==6&&state.revision==41&&disk_len==sizeof(record_t));
     assert(active.slave_cs[0]==255&&active.slave_cs[1]==255&&!profile_spi_slave(2));
     old.phase=ARMED;old.candidate_id=42;old.candidate=old.confirmed;old.candidate.bus[0].width=1;
     old.candidate_checksum=v4_mapping_checksum(&old.candidate);old.checksum=v4_checksum(&old);

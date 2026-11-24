@@ -4,7 +4,7 @@
 
 HEX-Bridge 是运行于经典 ESP32 开发板上的固件，通过 UBCP v2.0 为上位机工具提供硬件接口，同时实现独立的 CMSIS-DAP over TCP SWD 网络探针。
 
-当前固件支持外接 SPI 主机、MCP2518FD 经典 CAN 和 CAN FD、UART2、Wi-Fi 网络功能，以及 HEX-Bridge 网络调试探针。设备配置 v2 允许外接 SPI 与 MCP2518FD 分别选择 SPI2 或 SPI3，默认仍为外接 SPI2、CAN 使用 SPI3。
+当前固件支持 SPI 主机和从机、基于 MCP2518FD 的经典 CAN 和 CAN FD、UART2、Wi-Fi 网络及 HEX-Bridge 网络调试探针。设备配置 v5 可分别设置 SPI2 和 SPI3 的主从角色。默认接线下，外接 SPI 使用 SPI2，MCP2518FD 使用 SPI3。
 
 ## 当前功能
 
@@ -19,20 +19,23 @@ HEX-Bridge 是运行于经典 ESP32 开发板上的固件，通过 UBCP v2.0 为
 | DAPLink | TCP `4441` 上的 CMSIS-DAP | 已实现 SWD。它是 ESP32 上的网络探针，不是 Nucleo 板载 ST-LINK，也不是 USB HID DAPLink。 |
 | 外接 SPI 主机 | 可选 SPI2 / SPI3 | Profile v3 支持两个可独立打开的普通设备（通道 4、5）。可关闭 CAN FD 并同时使用两条主机，各设备可选择 CS；无 CS 设备独占所属主机。共享主机时使用独立的自动片选。 |
 | SPI 从机 | SPI2（通道 6）、SPI3（通道 7） | Profile v5 可逐控制器选择主／从。作为从机时预置 1–64 字节，外部主机通过时钟和片选发起单线 Mode 0 事务，再领取实际收到的位数和数据。 |
-| I2C、GPIO、批量传输、OTA | 预留命令范围 | 上位机可访问的业务模块有待实现。 |
+| I²C 主机 | I2C0 / I2C1（通道 8 / 9） | Profile v6 可分别选脚和启停。支持 100/400 kHz、7/10 位地址收发、重复起始和 7 位扫描。 |
+| 数字 GPIO | 最多 14 条逻辑路（组通道 10 / 11） | 各路可配置输入、推挽或开漏输出、偏置与消抖中断，支持组内批量读写。并用数量取决于引脚占用。 |
+| 批量传输、OTA | 预留命令范围 | 上位机可访问的业务模块有待实现。 |
+
+通过配置 CLI 或桌面的 I²C/GPIO 页配置引脚，使用[业务 CLI](script/cli/hex-bridge-io.py) 在同一连接内执行读写。见[阶段 2 实板验收记录](files/design/test-report/Stage2-I2C-GPIO.md)。
 
 实现细节见[固件设计索引](files/design/firmware/README.md)、[Wi-Fi 设计](files/design/firmware/06-WiFi-STA.md)和[DAPLink 设计与实测记录](files/design/firmware/08-DAPLink.md)。
 
 ## 可选外设规划
 
-阶段 1 在现有驱动上实现配置 v2；主机验证和剩余实板项目见[阶段 1 交付证据](files/design/test-report/Stage1-Peripheral-Delivery.md)。各固件版本声明支持的实例、通道及引脚配置。每份配置必须保留 UART1 控制或 Wi-Fi 上 TCP 9500 的 UBCP 管理服务。
+阶段 1 已实现 SPI 路由配置，原始 v2 实现的验证情况见[阶段 1 交付记录](files/design/test-report/Stage1-Peripheral-Delivery.md)。 各固件版本声明支持的实例、通道及引脚配置。每份配置必须保留 UART1 控制或 Wi-Fi 上 TCP 9500 的 UBCP 管理服务。
 
 | 阶段 | 计划支持 |
 |---|---|
-| 1 · 已有接口 | 延续 UART1 控制、UART2、Wi-Fi、DAP/SWD 和 MCP2518FD。SPI2、SPI3 可独立选择和改配；外接 SPI 业务和 MCP2518FD 均可选择任一主机，外接 CAN FD 默认使用 SPI3。 |
-| 2 · 数字接口与总线 | 可选数字 GPIO、独立的 I2C0/I2C1，以及配合外部收发器使用的片上经典 CAN（TWAI）。TWAI 与 MCP2518FD CAN FD 分别启停。 |
 | 3 · 波形与计数 | 最多 16 个 LEDC PWM 通道逐路选择，支持电机 PWM（MCPWM）及 8 个可独立选择的 PCNT 计数单元。并用数量取决于引脚及共享硬件资源。 |
 | 4 · 有线网络 | 在具备兼容 PHY、参考时钟和 RMII 布线的板型上开放可选以太网 MAC。 |
+| 5 · 片上经典 CAN | TWAI 配合外部 CAN 收发器使用，可与 MCP2518FD 分别启停。 |
 
 旧版 v1 描述开放 9 个可配置 GPIO；v2 将原 SPI2 六脚纳入可分配池，共 15 个。启用的单线主机预留 SCLK/MOSI/MISO，Quad 额外预留 IO2/IO3，四根数据线均须双向。占用由配置的最大线宽决定，临时单线传输不会释放 Quad 引脚。默认接线且原九条业务信号全开时，外接单线 SPI 为 13 占用、GPIO22/23 空闲；Quad 为 15 占用；关闭外接 SPI 及其无其他使用者的主机后为 9 占用。启用但无挂载设备的主机仍预留总线脚。旧配置迁移保留外接 SPI2 的 Quad 路由及原 CAN 设置；会丢失 v2 字段的 v1 写操作被拒绝。详见[外设功能与配置设计](files/design/function/08-device-profile.md)和[当前板型默认接线](files/sch/esp32-pinout-design.md)。
 
@@ -45,6 +48,7 @@ HEX-Bridge 是运行于经典 ESP32 开发板上的固件，通过 UBCP v2.0 为
                                               HEX-Bridge
                                               ESP32 固件
                                                 ├─ MCP2518FD CAN FD
+                                                ├─ 外接 SPI（SPI2 / SPI3，主机或从机）
                                                 ├─ 外接 UART2
                                                 ├─ Wi-Fi TCP / UDP / WebSocket 服务
                                                 └─ TCP 4441 上的 CMSIS-DAP
@@ -60,6 +64,7 @@ UBCP 默认经 UART1 通信。TCP `9500` 客户端连接后取得唯一的 UBCP 
 |:---|:---|:---|
 | UBCP UART1 | TX GPIO4，RX GPIO34 | 默认 115200 bps；GPIO34 仅输入，RX 需按板级设计提供偏置。 |
 | 外接 UART2 | TX GPIO32，RX GPIO35 | 默认 115200 bps；GPIO35 仅输入。 |
+| 外接 SPI（默认 SPI2） | SCLK GPIO18，MOSI/IO0 GPIO19，MISO/IO1 GPIO21，CS GPIO27 | Quad 模式另用 IO2 GPIO22 和 IO3 GPIO23。外设与开发板共地。 |
 | MCP2518FD SPI | SCK GPIO14，MOSI GPIO13，MISO GPIO36，CS GPIO15，INT GPIO39 | SPI 用于 CAN 模块；注意 ESP32 启动绑带引脚要求。 |
 | DAPLink SWD | SWCLK GPIO25，SWDIO GPIO26 | 接 3.3 V 目标并共地。GPIO27 复位支持默认关闭。 |
 | Wi-Fi | ESP32 内置无线接口 | 2.4 GHz STA 模式。 |
@@ -92,6 +97,9 @@ idf.py build
 
 ## 测试与文档
 
+关闭 CAN FD 后，HXB1 上的 SPI3 主机（通道 4）与 SPI2 从机（通道 6）完成单线 Mode 0 同板回环，8 笔传输全部通过。100 kHz 和 1 MHz 两档均验证了双向数据，从机报告的实际长度分别为 16、8、24 和 512 位。详见[SPI 回环接线与实板测试记录](files/design/test/06-SPI-Tests.md)。
+
+- [SPI 命令与通道分配](files/design/protocol/05-SPI.md)
 - [阶段 1 外设交付证据](files/design/test-report/Stage1-Peripheral-Delivery.md)
 - [DAPLink 实现与实板测试记录](files/design/firmware/08-DAPLink.md)
 - [Wi-Fi STA 设计](files/design/firmware/06-WiFi-STA.md)

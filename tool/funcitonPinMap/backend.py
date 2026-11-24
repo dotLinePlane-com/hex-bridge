@@ -132,10 +132,19 @@ class ProfileService:
     def set_pin(self, signal, gpio):
         self._require_read()
         schema = self.descriptor["schema"]
-        allowed = cli.V5_SIGNALS if schema >= 5 else cli.V3_SIGNALS if schema >= 3 else cli.V2_SIGNALS if schema == 2 else SIGNALS
+        allowed = [*cli.V5_SIGNALS, *cli.V6_SIGNALS] if schema >= 6 else cli.V5_SIGNALS if schema >= 5 else cli.V3_SIGNALS if schema >= 3 else cli.V2_SIGNALS if schema == 2 else SIGNALS
         if signal not in allowed or type(gpio) is not int or not 0 <= gpio <= 255:
             raise ValueError("Invalid signal or GPIO")
-        if signal in ("external.cs", "external2.cs"):
+        if signal.startswith(('i2c', 'gpio.')):
+            cap = cli.CAP_I2C if signal.startswith('i2c') else cli.CAP_GPIO
+            if not self.descriptor.get('capabilities', 0) & cap:
+                raise ValueError('当前固件不支持此 Stage2 配置')
+        if signal.startswith("i2c"):
+            bus, field = signal.split(".")
+            self.draft["i2c"][bus[-1]][field] = gpio
+        elif signal.startswith("gpio."):
+            self.draft["gpio_lines"][signal.split(".")[1]]["pin"] = gpio
+        elif signal in ("external.cs", "external2.cs"):
             instance = signal.split(".")[0]
             self._require_spi_device(instance)
             if gpio == cli.NO_CS:
@@ -153,6 +162,21 @@ class ProfileService:
 
     def set_parameter(self, instance, field, value):
         self._require_read()
+        if instance in ("i2c0", "i2c1") or instance.startswith("gpio."):
+            kind = "i2c" if instance.startswith("i2c") else "gpio_lines"
+            capability = cli.CAP_I2C if kind == "i2c" else cli.CAP_GPIO
+            if self.descriptor["schema"] < 6 or not self.descriptor.get("capabilities", 0) & capability:
+                raise ValueError("当前固件不支持此 Stage2 配置")
+            key = instance[-1] if kind == "i2c" else instance.split(".")[1]
+            if key not in self.draft[kind] or field not in self.draft[kind][key]:
+                raise ValueError("Invalid Stage2 instance or field")
+            proposed = deepcopy(self.draft)
+            proposed[kind][key][field] = value
+            if kind == "gpio_lines" and field == "trigger":
+                proposed[kind][key]["debounce_ms"] = 10 if value != "none" else 0
+            cli.encode_mapping(proposed)
+            self.draft = proposed
+            return self.view()
         if instance == "uart1":
             if self.descriptor["schema"] < 4 or not self.descriptor.get("capabilities", 0) & cli.CAP_UART1_BUSINESS:
                 raise ValueError("当前固件不支持 UART1 普通串口")
@@ -253,7 +277,8 @@ class ProfileService:
                 if desc != self.descriptor:
                     raise ValueError("设备板型或引脚策略已改变，请重新读取")
                 if latest != self.snapshot:
-                    raise ValueError("设备修订号、阶段或候选已改变；请重新读取设备")
+                    self.snapshot = latest
+                    raise ValueError("设备修订号、阶段或候选已改变；已刷新设备快照并保留草稿，请比较差异后合并")
                 if op in ("check", "save"):
                     if self.draft["revision"] != latest["revision"]:
                         raise ValueError("草稿修订号已过期，请重新读取或重新导出配置")

@@ -2,7 +2,7 @@
 
 **起点**：HXB1 的 v1 配置事务、UART1/2、网络服务、DAP/SWD、外接 SPI2 和 SPI3 上的 MCP2518FD 已有实现。**第一项工作是 1.1。** 下列复选框记录本轮扩展工作；只有取得对应验收证据后才勾选。编号表示建议交付次序，不代表承诺日期。
 
-需求与兼容边界见[设备功能清单](08-device-profile.md)、[配置协议](../protocol/17-Device-Profile.md)、[板级引脚表](../../sch/esp32-pinout-design.md)和[桌面工具设计](../../../tool/funcitonPinMap/DESIGN.md)。
+需求与兼容边界见[设备功能清单](08-device-profile.md)、[配置协议](../protocol/17-Device-Profile.md)、[板级引脚表](../../sch/esp32-pinout-design.md)和[桌面工具设计](../../../tool/funcitonPinMap/design/DESIGN.md)。
 
 ## 应用端实施方案
 
@@ -39,13 +39,14 @@
 - [x] HXB1 实板关闭 CAN FD，两路同时 OPEN，SPI2 无 CS、SPI3 使用 GPIO27，分别以 500 kHz / Mode 0 和 1 MHz / Mode 3 完成传输。关闭 SPI2 的设备后 SPI3 继续传输。120 秒试用到期后，原映射与拓扑恢复。复跑入口为 `python script/test/test_profile_board.py --port COM3 --baud 115200 --dual-spi`，从默认 HXB1 配置启动。
 - [ ] 两路已知数据回环及 CS 波形电气验收。两组 MOSI/MISO 回环接妥后可追加 `--dual-loopback` 核对字节，使用逻辑分析仪测量 CS 和时钟。本轮实板返回 0000 和 FFFF，未用这两个值判定外设数据正确。
 
-## 阶段 2 · GPIO、双 I²C、片上经典 CAN
+## 阶段 2 · GPIO、双 I²C
+
+阶段 2 评审材料按[功能设计](10-stage2-i2c-gpio.md)、[固件设计](../firmware/10-Stage2-I2C-GPIO.md)、[应用设计](../../../tool/funcitonPinMap/design/Stage2-I2C-GPIO.md)和[测试环境与验收矩阵](../test/10-Stage2-I2C-GPIO.md)组织。
 
 以下任务沿用阶段 1 的协议、校验器和应用表单，每项均交付固件描述、驱动、CLI 业务操作、GUI 配置入口和测试。
 
 - [ ] **2.1 GPIO。** 按脚选择输入、输出、开漏和中断，支持读、写及边沿事件。用回环线验证输出电平及输入事件；验证仅输入脚作输出、占用固定脚、与已启用业务重叠均被拒绝，关闭并生效后脚变为空闲。
 - [ ] **2.2 I2C0/I2C1。** 两个实例独立配置 SCL/SDA 和速率，校验开漏能力和上拉条件，保留板载 EEPROM 的 GPIO12/33。用地址已知的器件验证两个实例分别收发、异脚并用、应答错误和恢复；关闭其中一路后验证另一路继续工作。GUI 按实例显示引脚及状态。
-- [ ] **2.3 TWAI。** 增加片上经典 CAN 的 TX/RX、通道身份和收发命令，与 MCP2518FD 分别启停。使用收发器和总线对端验证经典帧双向收发，TWAI 拒绝 FD 帧；在 GPIO 足够时验证与外接 FD 控制器并用、两个实例的事件能正确区分。
 
 ## 阶段 3 · PWM、计数和测量
 
@@ -57,6 +58,10 @@
 
 - [ ] **4.1 板型可行性。** 对照实际 PHY 型号、RMII 固定信号、参考时钟方向、MDC/MDIO、复位线及现有占用，产出逐脚接线和冲突表。存在无法解除的冲突时记录具体脚号与板型限制，当前板保持不可选；具备条件的板型进入 4.2。
 - [ ] **4.2 驱动和上位机。** 增加以太网开关、板型路由选择、PHY/link/IP 状态。用真实 PHY 验证链路、地址获取、业务收发、拔插和恢复；以太网启用时仍执行 UART1 或 Wi-Fi 管理入口约束。GUI 分别显示配置启用、PHY 链路及 IP 状态。
+
+## 阶段 5 · 片上经典 CAN（TWAI）
+
+- [ ] **5.1 TWAI。** 增加片上经典 CAN 的 TX/RX、通道身份和收发命令，与 MCP2518FD 分别启停。使用收发器和总线对端验证经典帧双向收发，TWAI 拒绝 FD 帧；在 GPIO 足够时验证与外接 FD 控制器并用、两个实例的事件能正确区分。
 
 ## 每项任务的交付记录
 

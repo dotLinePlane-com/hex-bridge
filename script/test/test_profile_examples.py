@@ -142,10 +142,10 @@ class Examples(unittest.TestCase):
                 return bytes.fromhex(wire['1']['describe_response'])[1:]
         peer=Peer('describe: 0x0f profile version unsupported')
         self.assertEqual(peer.descriptor()['schema'],1)
-        self.assertEqual(peer.versions,[5,4,3,2,1])
+        self.assertEqual(peer.versions,[6,5,4,3,2,1])
         peer=Peer('No valid device-profile response')
         with self.assertRaises(ValueError):peer.descriptor()
-        self.assertEqual(peer.versions,[5])
+        self.assertEqual(peer.versions,[6])
         peer=Peer('describe: 0x0f profile version unsupported')
         with self.assertRaises(ValueError):peer.descriptor(2)
         self.assertEqual(peer.versions,[2])

@@ -419,3 +419,16 @@
  * ======================================================================== */
 
 #define UBCP_MAX_PAYLOAD_LEN        2048
+
+/* Stage 2 fixed topology identities and peripheral errors. */
+#define UBCP_CH_I2C0 8
+#define UBCP_CH_I2C1 9
+#define UBCP_CH_GPIO_LOW 10
+#define UBCP_CH_GPIO_HIGH 11
+#define UBCP_ERR_I2C_NACK 0x30
+#define UBCP_ERR_I2C_BUS_ERROR 0x31
+#define UBCP_ERR_I2C_ARB_LOST 0x32
+#define UBCP_ERR_I2C_ADDR_INVALID 0x33
+#define UBCP_ERR_GPIO_PIN_INVALID 0x80
+#define UBCP_ERR_GPIO_DIR_MISMATCH 0x81
+#define UBCP_ERR_GPIO_IN_USE 0x82

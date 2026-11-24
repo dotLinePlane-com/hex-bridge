@@ -16,6 +16,7 @@
 | [06-WiFi-STA.md](06-WiFi-STA.md) | Wi-Fi STA 接入、配网和网络恢复设计 |
 | [07-CAN-Module.md](07-CAN-Module.md) | CAN FD 模块（MCP2518FD）设计 |
 | [09-SPI-Module.md](09-SPI-Module.md) | 外部 SPI2 单线/Quad SPI 扩展模块设计 |
+| [10-Stage2-I2C-GPIO.md](10-Stage2-I2C-GPIO.md) | 阶段 2 双路 I²C 与多路 GPIO 固件设计（评审稿） |
 
 ---
 

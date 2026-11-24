@@ -20,19 +20,28 @@ SIZE_V2 = 26
 SIZE_V3 = 29
 SIZE_V4 = 30
 SIZE_V5 = 34
+SIZE_V6 = 116
+CAP_I2C = 0x200
+CAP_GPIO = 0x400
+GPIO_MODES = ("input", "output", "open_drain")
+GPIO_PULLS = ("none", "up", "down", "both")
+GPIO_TRIGGERS = {"none": 0, "rising": 1, "falling": 2, "both": 3, "high": 4, "low": 8}
+I2C_DEFAULT = {"enabled": False, "scl": 255, "sda": 255, "clock_hz": 100000, "timeout_ms": 1000}
+GPIO_DEFAULT = {"enabled": False, "pin": 255, "mode": "input", "initial_level": 0, "pull": "none", "trigger": "none", "debounce_ms": 0}
 SPI_SLAVE_CAPS = {2: 0x80, 3: 0x100}
 CAP_UART1_BUSINESS = 0x40
 NO_CS = 0xff
 CAP_DUAL_SPI = 0x10
 CAP_OPTIONAL_CS = 0x20
 SECOND_SPI_DEFAULT = {"enabled": False, "host": 2, "cs": NO_CS}
-PROFILE_SIZES = {1: SIZE, 2: SIZE_V2, 3: SIZE_V3, 4: SIZE_V4, 5: SIZE_V5}
+PROFILE_SIZES = {1: SIZE, 2: SIZE_V2, 3: SIZE_V3, 4: SIZE_V4, 5: SIZE_V5, 6: SIZE_V6}
 V2_BASE_SIGNALS = ("uart.tx", "uart.rx", "dap.swclk", "dap.swdio")
 SPI_PIN_FIELDS = ("sck", "mosi", "miso", "io2", "io3")
 SPI_FIELDS = ("enabled", "width", *SPI_PIN_FIELDS)
 V2_SIGNALS = "uart.tx uart.rx dap.swclk dap.swdio spi2.sck spi2.mosi spi2.miso spi2.io2 spi2.io3 spi3.sck spi3.mosi spi3.miso spi3.io2 spi3.io3 external.cs can.cs can.int".split()
 V3_SIGNALS = [*V2_SIGNALS, "external2.cs"]
 V5_SIGNALS = [*V3_SIGNALS, "spi2.slave_cs", "spi3.slave_cs"]
+V6_SIGNALS = [*(f"i2c{bus}.{pin}" for bus in range(2) for pin in ("scl", "sda")), *(f"gpio.{line}" for line in range(14))]
 V5_DIAGNOSTIC_FIELDS = [*V3_SIGNALS, "uart1_business", *V5_SIGNALS[-2:], "spi2.role", "spi3.role"]
 V2_DIRECTIONS = ["output", "input", "output", "bidirectional"] + ["output", "output", "input", "bidirectional", "bidirectional"] * 2 + ["output", "output", "input_interrupt"]
 SIGNAL_FEATURES = ["uart", "uart", "can", "can", "can", "can", "can", "dap", "dap"]
@@ -115,6 +124,8 @@ def render_human(desc, snapshot, tables, source="saved candidate"):
         return name.replace("uart.", "uart2.").upper()
 
     def pin_name(signal, gpio):
+        if signal.startswith(('i2c', 'gpio.')) and gpio == NO_CS:
+            return 'unassigned'
         if signal.endswith(".slave_cs") and gpio == NO_CS:
             return "unassigned"
         if desc["schema"] >= 3 and signal in ("external.cs", "external2.cs") and gpio == NO_CS:
@@ -208,7 +219,7 @@ def encode_mapping_v1(config):
 def decode_mapping(data):
     if len(data) == SIZE:
         return decode_mapping_v1(data)
-    if len(data) not in (SIZE_V2, SIZE_V3, SIZE_V4, SIZE_V5):
+    if len(data) not in (SIZE_V2, SIZE_V3, SIZE_V4, SIZE_V5, SIZE_V6):
         raise ValueError("Invalid device-profile mapping length")
     mask = int.from_bytes(data[:2], "big")
     if mask & ~511:
@@ -240,12 +251,57 @@ def decode_mapping(data):
         if data[29] not in (0, 1):
             raise ValueError("Invalid UART1 business enable flag")
         mapping["uart1_business"] = bool(data[29])
-    if len(data) == SIZE_V5:
-        for host, (role, cs) in zip(("2", "3"), struct.iter_unpack("BB", data[30:])):
+    if len(data) >= SIZE_V5:
+        for host, (role, cs) in zip(("2", "3"), struct.iter_unpack("BB", data[30:34])):
             if role not in (0, 1):
                 raise ValueError("Invalid SPI controller role")
             buses[host].update(role=("master", "slave")[role], slave_cs=cs)
+    if len(data) == SIZE_V6:
+        mapping["i2c"] = {}
+        for bus in range(2):
+            enabled, scl, sda, speed, timeout = struct.unpack_from(">4BH", data, 34 + bus * 6)
+            if enabled > 1 or speed > 1:
+                raise ValueError("Invalid I2C record")
+            mapping["i2c"][str(bus)] = dict(enabled=bool(enabled), scl=scl, sda=sda, clock_hz=(100000, 400000)[speed], timeout_ms=timeout)
+        mapping["gpio_lines"] = {}
+        for line in range(14):
+            pin, flags, pull, trigger, debounce = data[46 + line * 5:51 + line * 5]
+            if flags & ~15 or (flags >> 1 & 3) > 2 or pull > 3 or trigger not in GPIO_TRIGGERS.values():
+                raise ValueError("Invalid GPIO record")
+            mapping["gpio_lines"][str(line)] = dict(enabled=bool(flags & 1), pin=pin, mode=GPIO_MODES[flags >> 1 & 3], initial_level=flags >> 3, pull=GPIO_PULLS[pull], trigger=next(k for k, v in GPIO_TRIGGERS.items() if v == trigger), debounce_ms=debounce)
+        encode_stage2(mapping)
     return mapping
+
+
+def encode_stage2(config):
+    if set(config["i2c"]) != {"0", "1"} or set(config["gpio_lines"]) != set(map(str, range(14))):
+        raise ValueError("Profile must contain two I2C controllers and fourteen GPIO lines")
+    result = bytearray()
+    for bus in ("0", "1"):
+        row = config["i2c"][bus]
+        if (set(row) != set(I2C_DEFAULT) or type(row["enabled"]) is not bool
+                or type(row["clock_hz"]) is not int or row["clock_hz"] not in (100000, 400000)
+                or type(row["timeout_ms"]) is not int or not 1 <= row["timeout_ms"] <= 1000
+                or any(type(row[k]) is not int or not 0 <= row[k] <= 255 for k in ("scl", "sda"))):
+            raise ValueError("Invalid I2C profile fields")
+        result.extend(struct.pack(">4BH", row["enabled"], row["scl"], row["sda"], int(row["clock_hz"] == 400000), row["timeout_ms"]))
+    for line in map(str, range(14)):
+        row = config["gpio_lines"][line]
+        if (set(row) != set(GPIO_DEFAULT) or type(row["enabled"]) is not bool
+                or row["mode"] not in GPIO_MODES or row["pull"] not in GPIO_PULLS or not isinstance(row["trigger"], str) or row["trigger"] not in GPIO_TRIGGERS
+                or type(row["initial_level"]) is not int or row["initial_level"] not in (0, 1)
+                or type(row["pin"]) is not int or not 0 <= row["pin"] <= 255
+                or type(row["debounce_ms"]) is not int or not 0 <= row["debounce_ms"] <= 255
+                or bool(row["debounce_ms"]) != bool(GPIO_TRIGGERS[row["trigger"]])):
+            raise ValueError("Invalid GPIO profile fields")
+        flags = int(row["enabled"]) | GPIO_MODES.index(row["mode"]) << 1 | row["initial_level"] << 3
+        result.extend(bytes((row["pin"], flags, GPIO_PULLS.index(row["pull"]), GPIO_TRIGGERS[row["trigger"]], row["debounce_ms"])))
+    return bytes(result)
+
+
+def migrate_v5(mapping):
+    return {**mapping, "i2c": {str(i): dict(I2C_DEFAULT) for i in range(2)},
+            "gpio_lines": {str(i): dict(GPIO_DEFAULT) for i in range(14)}}
 
 
 def encode_mapping(config):
@@ -259,7 +315,7 @@ def encode_mapping(config):
     values = [pins[name] for name in V2_BASE_SIGNALS]
     schema = config.get("schema")
     has_roles = any("role" in bus or "slave_cs" in bus for bus in config["spi"].values())
-    if schema is not None and has_roles != (schema == 5):
+    if schema is not None and has_roles != (schema >= 5):
         raise ValueError("SPI role fields do not match the profile version")
     expected_fields = set(SPI_FIELDS) | ({"role", "slave_cs"} if has_roles else set())
     for host in ("2", "3"):
@@ -297,13 +353,21 @@ def encode_mapping(config):
     if any(type(value) is not int or not 0 <= value <= 255 for value in values):
         raise ValueError("GPIO and fields must be unsigned bytes")
     mask = sum(1 << index for index, name in enumerate(FEATURES) if features[name])
-    return struct.pack(">H", mask) + bytes(values)
+    result = struct.pack(">H", mask) + bytes(values)
+    if schema == 6 or "i2c" in config or "gpio_lines" in config:
+        if len(result) != SIZE_V5:
+            raise ValueError("Missing v5 prefix in v6 profile")
+        result += encode_stage2(config)
+    return result
 
 
 def load_config(file, desc):
     if desc["schema"] == 1:
         return load_config_v1(file, desc)
     config = json.loads(file.read_text(encoding="utf-8-sig"))
+    if desc["schema"] == 6 and config.get("schema") in (1, 2, 3, 4, 5):
+        legacy = load_config(file, {**desc, "schema": 5, "capabilities": desc["capabilities"] & 0x1ff})
+        return {**migrate_v5(legacy), **desc}
     if desc["schema"] == 5 and config.get("schema") in (1, 2, 3, 4):
         old_desc = {**desc, "schema": 4, "capabilities": desc["capabilities"] & 0x7f}
         legacy = load_config(file, old_desc)
@@ -337,6 +401,8 @@ def load_config(file, desc):
         expected.add("external2")
     if desc["schema"] >= 4:
         expected.add("uart1_business")
+    if desc["schema"] >= 6:
+        expected.update(("i2c", "gpio_lines"))
     if set(config) != expected:
         raise ValueError("Unexpected or missing profile fields")
     if any(config[k] != v for k, v in desc.items()):
@@ -344,6 +410,10 @@ def load_config(file, desc):
     if type(config["revision"]) is not int or not 1 <= config["revision"] <= 0xffffffff:
         raise ValueError("Invalid revision")
     encode_mapping(config)
+    if desc["schema"] >= 6:
+        for name, cap, default in (("i2c", CAP_I2C, I2C_DEFAULT), ("gpio_lines", CAP_GPIO, GPIO_DEFAULT)):
+            if not desc["capabilities"] & cap and any(row != default for row in config[name].values()):
+                raise ValueError(f"This firmware does not support {name}")
     if desc["schema"] >= 5:
         for host, cap in SPI_SLAVE_CAPS.items():
             if config["spi"][str(host)]["role"] == "slave" and not desc["capabilities"] & cap:
@@ -434,6 +504,14 @@ def v2_signals(mapping):
             name = f"spi{host}.slave_cs"
             add(name, bus["slave_cs"], bus["enabled"] and bus["role"] == "slave", "input",
                 V5_DIAGNOSTIC_FIELDS.index(name))
+    if "i2c" in mapping:
+        for bus in ("0", "1"):
+            for offset, pin in enumerate(("scl", "sda")):
+                row = mapping["i2c"][bus]
+                add(f"i2c{bus}.{pin}", row[pin], row["enabled"], "bidirectional", 23 + int(bus) * 2 + offset)
+        for line, row in mapping["gpio_lines"].items():
+            direction = "input_interrupt" if row["mode"] == "input" and row["trigger"] != "none" else "input" if row["mode"] == "input" else "output"
+            add(f"gpio.{line}", row["pin"], row["enabled"], direction, 27 + int(line))
     return rows
 
 
@@ -525,10 +603,17 @@ def build_tables_v2(desc, snapshot, candidate=None):
     invalid = []
     for row in candidate_signals or []:
         if row["enabled"] and not _legal_v2_pin(desc, row, row["gpio"]):
+            reason = "fixed, unavailable or incompatible direction"
+            if row["gpio"] == 255 and row["signal"].startswith(("i2c", "gpio.")):
+                reason = "enabled signal has no assigned GPIO; select a GPIO or disable this instance"
             invalid.append({
                 "signal": row["signal"], "gpio": row["gpio"],
-                "reason": "fixed, unavailable or incompatible direction",
+                "reason": reason,
             })
+    if candidate and "gpio_lines" in candidate:
+        for line, row in candidate["gpio_lines"].items():
+            if row["enabled"] and row["pin"] >= 34 and row["pull"] != "none":
+                invalid.append({"signal": f"gpio.{line}", "gpio": row["pin"], "reason": "input-only GPIO has no internal pull resistors"})
     tables = {
         "fixed": _fixed_pins(desc), "editable": active_signals,
         "occupancy": current, "candidate_occupancy": proposed, "invalid_pins": invalid,
@@ -603,7 +688,7 @@ class Device:
         data = bytes(rest)
         if status == 2 and data and len(data) == 1 + 4 * data[0]:
             problems = []
-            signals = {1: SIGNALS, 2: V2_SIGNALS, 3: V3_SIGNALS, 4: V3_SIGNALS, 5: V5_DIAGNOSTIC_FIELDS}[self.version]
+            signals = {1: SIGNALS, 2: V2_SIGNALS, 3: V3_SIGNALS, 4: V3_SIGNALS, 5: V5_DIAGNOSTIC_FIELDS, 6: [*V5_DIAGNOSTIC_FIELDS, *V6_SIGNALS, "i2c0.parameters", "i2c1.parameters"]}[self.version]
             for reason, subject, pin, other in struct.iter_unpack("4B", data[1:]):
                 if reason == 1: message = "unknown feature bits"
                 elif reason == 2: message = "enable serial or control_tcp"
@@ -613,6 +698,10 @@ class Device:
                     message = f"{signals[subject] if subject < len(signals) else subject} cannot use GPIO{pin} ({self.gpios.get(str(pin), 'unavailable')})"
                 elif reason == 6: message = f"{signals[subject] if subject < len(signals) else subject} conflicts with {signals[other] if other < len(signals) else other} on GPIO{pin}"
                 elif reason == 7 and subject == 18 and self.version >= 4: message = "invalid UART1 business enable flag"
+                elif reason == 7 and self.version >= 6 and subject in (41, 42):
+                    message = f"I2C{subject - 41} requires a valid enabled flag, 100/400 kHz clock and timeout 1..1000 ms"
+                elif reason == 7 and self.version >= 6 and 27 <= subject <= 40:
+                    message = f"GPIO logical line {subject - 27} has invalid mode, bias, trigger or debounce"
                 elif reason == 7 and self.version >= 5 and subject in (21, 22):
                     message = f"SPI{subject - 19} requires a valid role and single-line operation in slave mode"
                 elif reason == 7: message = "invalid SPI instance, host or parameter"

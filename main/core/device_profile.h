@@ -13,7 +13,9 @@ enum profile_feature
     PF_WS = 128,
     PF_DAP = 256,
     PF_ALL = 511,
-    PF_SPI = 512
+    PF_SPI = 512,
+    PF_I2C = 1024,
+    PF_GPIO = 2048
 };
 enum profile_signal
 {
@@ -53,3 +55,18 @@ bool profile_uart1_business_enabled(void);
 
 bool profile_spi_slave(int host);
 int profile_spi_slave_cs(int host);
+
+#define PROFILE_I2C_COUNT 2
+#define PROFILE_GPIO_COUNT 14
+typedef struct
+{
+    uint8_t enabled, scl, sda, speed, timeout_hi, timeout_lo;
+} profile_i2c_t;
+typedef struct
+{
+    uint8_t pin, flags, pull, trigger, debounce;
+} profile_gpio_t;
+const profile_i2c_t *profile_i2c(int instance);
+const profile_gpio_t *profile_gpio(int route);
+/* Board electrical policy, independent of current ownership. */
+bool profile_gpio_capable(int pin, int mode, int pull, int trigger);

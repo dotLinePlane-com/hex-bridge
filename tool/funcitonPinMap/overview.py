@@ -1,6 +1,6 @@
 """Read-only GPIO panorama derived exclusively from the existing profile tables."""
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import font, messagebox, ttk
 
 
 STATE_NAMES = {"free": "空闲", "occupied": "使用", "fixed": "固定", "unavailable": "未引出", "conflict": "冲突"}
@@ -19,7 +19,21 @@ SHORT_OWNERS = {
     "uart1.tx": "控制 UART1 TX", "uart1.rx": "控制 UART1 RX",
     "flash": "内部 Flash", "psram": "内部 PSRAM", "spi2": "外部 SPI2",
     "eeprom": "EEPROM", "strap": "启动配置",
+    "external.cs": "SPI 设备1 CS", "external2.cs": "SPI 设备2 CS",
+    **{f"spi{host}.{pin}": f"SPI{host} {pin.upper()}"
+       for host in (2, 3) for pin in ("sck", "mosi", "miso", "io2", "io3")},
+    **{f"i2c{bus}.{pin}": f"I²C{bus} {pin.upper()}"
+       for bus in (0, 1) for pin in ("scl", "sda")},
 }
+
+
+def signal_name(signal, mapping):
+    if signal.startswith("gpio."):
+        line = signal.split(".")[1]
+        mode = mapping["gpio_lines"][line]["mode"]
+        direction = {"input": "输入", "output": "输出", "open_drain": "开漏输出"}[mode]
+        return f"路 {line} {direction}"
+    return SHORT_OWNERS.get(signal, signal)
 
 
 class PinOverview(ttk.Frame):
@@ -86,7 +100,11 @@ class PinOverview(ttk.Frame):
         ttk.Label(details, textvariable=self.fixed_var, justify="left", wraplength=660).pack(anchor="w")
         ttk.Button(details, text="关闭", command=self.details_window.withdraw).pack(anchor="e", pady=(12, 0))
         self.details_window.bind("<Escape>", lambda event: self.details_window.withdraw())
-        self.canvas = tk.Canvas(self, highlightthickness=0, background="#ffffff", height=44, takefocus=True)
+        self.title_font = font.Font(root=self, family="Microsoft YaHei UI", size=10, weight="bold")
+        self.function_font = font.Font(root=self, family="Microsoft YaHei UI", size=9)
+        self.card_height = max(44, self.title_font.metrics("linespace") +
+                               self.function_font.metrics("linespace") + 8)
+        self.canvas = tk.Canvas(self, highlightthickness=0, background="#ffffff", height=self.card_height, takefocus=True)
         self.canvas.grid(row=1, column=0, sticky="ew")
         self.canvas.bind("<Configure>", lambda event: self._draw())
         self.canvas.bind("<Button-1>", self._click)
@@ -119,7 +137,7 @@ class PinOverview(ttk.Frame):
 
     def refresh(self):
         self._hide_tooltip()
-        self.canvas.configure(height=180 if self.show_all_var.get() else 44)
+        self.canvas.configure(height=self.card_height * (5 if self.show_all_var.get() else 1))
         self.cards = {}
         self.all_cards = {}
         self.visible_gpios = []
@@ -153,8 +171,10 @@ class PinOverview(ttk.Frame):
             rule = policy.get(str(gpio), "unavailable")
             state = ("unavailable" if rule == "unavailable" else "conflict" if len(users) > 1
                      else "fixed" if row and row["fixed"] else "occupied" if users else "free")
+            full_owners = "、".join(signal_name(user, mapping) for user in sorted(users))
+            function = full_owners
             if users:
-                owner = SHORT_OWNERS.get(users[0], users[0])
+                owner = full_owners
                 if len(users) > 1:
                     owner = "多个信号争用"
             elif state == "unavailable":
@@ -165,11 +185,16 @@ class PinOverview(ttk.Frame):
                 owner = "仅限 CAN.CS"
             else:
                 owner = "可分配 · 输入/输出"
-            full_owners = "、".join(SHORT_OWNERS.get(user, user) for user in users)
-            if row and "uart1_role" in row:
-                role = {"control": "串口控制", "business": "普通串口", "reserved": "保留"}[row["uart1_role"]]
+            if rule in ("uart1.tx", "uart1.rx"):
+                uart_role = row.get("uart1_role", "control" if mapping["features"]["serial"] else "reserved")
+                role = {"control": "串口控制", "business": "普通串口", "reserved": "保留"}[uart_role]
                 owner = f"UART1 {role} {rule[-2:].upper()}"
                 full_owners = owner
+                function = "" if uart_role == "reserved" else owner
+            elif rule == "strap":
+                function = ""
+            elif rule in ("flash", "psram"):
+                function = rule.upper() if rule == "psram" else "Flash"
             detail = f"GPIO {gpio} · {STATE_NAMES[state]}\n\n{full_owners or owner}"
             for user in users:
                 bus_name = user.split('.')[0]
@@ -187,7 +212,8 @@ class PinOverview(ttk.Frame):
                 detail += "\n仅输入，无内部上下拉，需要外部偏置。"
             if rule == "can.cs_only":
                 detail += "\n仅可分配给外置 MCP2518FD CAN.CS；外部 10kΩ 上拉，启动保持高电平。"
-            self.all_cards[gpio] = {"state": state, "owner": owner, "detail": detail, "owners": list(users)}
+            self.all_cards[gpio] = {"state": state, "owner": owner, "function": function,
+                                    "detail": detail, "owners": list(users)}
             if self.show_all_var.get() or rule in ("flexible", "input_only", "can.cs_only"):
                 self.cards[gpio] = self.all_cards[gpio]
                 self.visible_gpios.append(gpio)
@@ -202,6 +228,21 @@ class PinOverview(ttk.Frame):
         self.detail_var.set(self.cards[self.focused_gpio]["detail"] if self.focused_gpio is not None else "")
         self._draw()
 
+    def _fit_function(self, text, width):
+        measure = self.function_font.measure
+        if measure(text) <= width:
+            return text
+        if measure("…") > width:
+            return ""
+        low, high = 0, len(text)
+        while low < high:
+            mid = (low + high + 1) // 2
+            if measure(text[:mid] + "…") <= width:
+                low = mid
+            else:
+                high = mid - 1
+        return text[:low] + "…"
+
     def _draw(self):
         canvas = self.canvas
         canvas.delete("all")
@@ -215,6 +256,9 @@ class PinOverview(ttk.Frame):
         rows = (len(self.visible_gpios) + columns - 1) // columns
         grid_width = width
         cell_width, cell_height = grid_width / columns, height / rows
+        title_height = self.title_font.metrics("linespace")
+        function_height = self.function_font.metrics("linespace")
+        text_top = (cell_height - title_height - function_height) / 2
         left = (width - grid_width) / 2
         for index, (gpio, card) in enumerate(self.cards.items()):
             x = left + (index % columns) * cell_width
@@ -225,9 +269,16 @@ class PinOverview(ttk.Frame):
             focused = self.focused_gpio == gpio and canvas.focus_get() == canvas
             canvas.create_rectangle(x + 2, y + 2, x + cell_width - 2, y + cell_height - 2, fill=fill,
                                     outline="#162c43" if focused else fill, width=2 if focused else 1, tags=(tag, "card"))
-            canvas.create_text(x + cell_width / 2, y + cell_height / 2,
-                               text=f"{gpio}" + (" !" if card["state"] == "conflict" else ""),
-                               font=("Microsoft YaHei UI", 10, "bold"), fill=ink, tags=(tag, "card-title"))
+            title_x = x + cell_width / 2
+            title_y = y + text_top + title_height / 2
+            canvas.create_text(title_x, title_y, text=str(gpio),
+                               font=self.title_font, fill=ink, tags=(tag, "card-title"))
+            if card["state"] == "conflict":
+                canvas.create_text(title_x + self.title_font.measure(str(gpio)) / 2 + 2, title_y,
+                                   anchor="w", text="!", font=self.title_font, fill=ink, tags=(tag,))
+            canvas.create_text(x + cell_width / 2, y + text_top + title_height + function_height / 2,
+                               text=self._fit_function(card["function"], cell_width - 10),
+                               font=self.function_font, fill=ink, tags=(tag, "card-function"))
 
     def _click(self, event):
         for gpio, (left, top, right, bottom) in self.card_bounds.items():

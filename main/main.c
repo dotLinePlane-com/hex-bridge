@@ -36,6 +36,8 @@
 #include "modules/mod_ws.h"
 #include "modules/mod_can.h"
 #include "modules/mod_spi.h"
+#include "modules/mod_i2c.h"
+#include "modules/mod_gpio.h"
 
 static const char *TAG = "main";
 
@@ -71,6 +73,7 @@ void app_main(void)
         {mod_system_get(), 0}, {mod_uart_get(), PF_UART}, {mod_can_get(), PF_CAN},
         {mod_tcp_get(), PF_TCP}, {mod_udp_get(), PF_UDP}, {mod_ws_get(), PF_WS},
         {mod_network_get(), PF_WIFI}, {mod_spi_get(), PF_SPI},
+        {mod_i2c_get(), PF_I2C}, {mod_gpio_get(), PF_GPIO},
     };
     for (size_t i = 0; i < sizeof(modules) / sizeof(modules[0]); i++) {
         if (modules[i].feature == PF_UART) {
