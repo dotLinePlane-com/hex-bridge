@@ -8,6 +8,8 @@ HEX-Bridge 是运行于经典 ESP32 开发板上的固件，通过 UBCP v2.0 为
 
 ## 当前功能
 
+Harness 可安装主机端 MCP Server，通过串口或 Wi-Fi 调用设备。见 [MCP 安装与配置](mcp/README.md)和[固件功能映射](files/design/host/01-Harness-MCP.md)。
+
 设备支持通过 UBCP 配置功能开关和业务引脚。UART1 电脑控制口（GPIO4/34）与 UART0 下载口（GPIO1/3）固定保留。共享 Python CLI 和 Tkinter 工具支持导出、预检、保存、重启试用及确认。每份配置保留 UART1，或保留 Wi-Fi STA、TCP 9500 管理服务及已保存的可用配网参数；普通 TCP 业务不充当管理入口。当前或已确认的回退配置仅靠 Wi-Fi 管理时拒绝 WIFI_FORGET；必要驱动完成初始化后才接受确认，并检查控制会话及需要验证的入口。操作命令和首次升级分区要求见[设备配置扩展协议](files/design/protocol/17-Device-Profile.md)。
 
 | 功能 | 接口 | 状态 |

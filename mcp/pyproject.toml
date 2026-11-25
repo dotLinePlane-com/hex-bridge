@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling>=1.25,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hexbridge-mcp"
+version = "0.1.0"
+description = "HEX-Bridge UBCP tools for stdio MCP clients"
+requires-python = ">=3.10"
+dependencies = ["mcp>=1.12,<2", "pyserial>=3.5,<4"]
+
+[project.scripts]
+hexbridge-mcp = "hexbridge_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hexbridge_mcp"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"../script/test/ubcp_client.py" = "hexbridge_mcp/codec.py"
+"../files/design/protocol" = "hexbridge_mcp/protocol"
+"../main/protocol/ubcp_def.h" = "hexbridge_mcp/ubcp_def.h"
