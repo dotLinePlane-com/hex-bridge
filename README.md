@@ -6,6 +6,70 @@ HEX-Bridge is firmware for a classic ESP32 board. It bridges host-side tools to 
 
 The firmware supports SPI master and slave operation, classic CAN and CAN FD through an MCP2518FD, UART2, Wi-Fi networking, and the HEX-Bridge network debug probe. Device profile v5 configures the role of SPI2 and SPI3 independently. External SPI uses SPI2 by default, and the MCP2518FD uses SPI3.
 
+## Getting started on Windows
+
+```powershell
+git clone https://github.com/dotLinePlane-com/hex-bridge.git
+cd hex-bridge
+```
+
+| Goal | Start here |
+|---|---|
+| Use the board from an AI agent | [A · Flash the prebuilt firmware](#flash), then [C · Connect your agent](#agent) |
+| Build or modify firmware | [B · Build from source](#build-source), then [C · Connect your agent](#agent) |
+
+<a id="flash"></a>
+### A · Flash the prebuilt firmware
+
+1. Look for `HEX-Bridge-Updater-<version>.exe` in `tool/firmware-updater/release/`. This is a local build output. If your clone has no EXE, check the matching release assets or request the prebuilt updater from the maintainer. [Project releases](https://github.com/dotLinePlane-com/hex-bridge/releases)
+2. Connect the board's **UART0 programming port** to a Windows x64 PC. Identify its COM number in Device Manager. Open the EXE, check the bundled version, select that port and click **更新固件** (Update firmware). The workbench uses COM5.
+3. Wait for **100% / 更新完成**. Connect the **UART1 control port** for agent setup below. If Windows shows no COM port, check the USB data cable and USB-to-serial driver. [Updater guide](tool/firmware-updater/README.md)
+
+<a id="build-source"></a>
+### B · Configure the toolchain and build from source
+
+Install ESP-IDF **v6.0.2** with its classic ESP32 toolchain. In the matching ESP-IDF PowerShell, run the `idf.py` commands below from the repository root. For a regular PowerShell session, also run the setup lines first. Replace `IDF_PATH` with the directory containing `export.ps1`. Uncomment `IDF_TOOLS_PATH` only if your installation uses a custom tools root, and enter the path used at installation.
+
+```powershell
+$env:IDF_PATH = "C:\Espressif\frameworks\esp-idf-v6.0.2"
+# $env:IDF_TOOLS_PATH = "C:\Espressif\tools"
+& "$env:IDF_PATH\export.ps1"
+idf.py --version
+idf.py build
+idf.py -p COM5 -b 460800 flash
+```
+
+The build produces `build/hex-bridge.bin`. Replace COM5 with your UART0 port before flashing. The flash command writes the bootloader, partition table and application. To inspect startup output, run `idf.py -p COM5 monitor` and exit with `Ctrl+]`.
+
+**Package an updater (optional).** Install Python 3.11 with Tk and the Windows Python Launcher. To issue a new firmware version, edit `version.txt`. With `IDF_PATH` set, run `.\tool\firmware-updater\release.cmd` from the repository root. Distribute the EXE generated in `tool/firmware-updater/release/`.
+
+<a id="agent"></a>
+### C · Install the MCP server and connect your agent
+
+1. Connect **UART1**. From the repository root, use PowerShell and Python 3.10 or later to install the host server. If the wheel is absent, replace the wheel path in the install command with `.\mcp` to install the host software from source.
+
+```powershell
+$venv = Join-Path $env:LOCALAPPDATA "HEX-Bridge\mcp-venv"
+python -m venv $venv
+& "$venv\Scripts\python.exe" -m pip install --upgrade .\mcp\dist\hexbridge_mcp-0.1.0-py3-none-any.whl
+(Get-Item "$venv\Scripts\hexbridge-mcp.exe").FullName
+```
+
+2. Add a local **stdio** server named `hex-bridge` to your agent. Use the absolute executable path printed above. For clients accepting `mcpServers`, adapt this example to your account path, UART1 port and configured baud rate (default 115200).
+
+```json
+{
+  "mcpServers": {
+    "hex-bridge": {
+      "command": "C:/Users/USER/AppData/Local/HEX-Bridge/mcp-venv/Scripts/hexbridge-mcp.exe",
+      "args": ["--serial", "COM4", "--baud", "115200"]
+    }
+  }
+}
+```
+
+3. Reload the agent configuration. Ask it to call `catalog` to list available commands, then `device_info` to read the connected board's model and version. The first call checks the host service. A device reply to the second verifies the full connection. If only the first succeeds, check the UART1 port and baud rate, close serial monitors and disconnect any active Wi-Fi UBCP client. [Wi-Fi setup and further examples](mcp/README.md)
+
 ## Current capabilities
 
 Device profiles configure feature switches and peripheral pins over UBCP. UART1 control (GPIO4/34) and UART0 programming (GPIO1/3) have fixed assignments. The shared Python CLI and Tkinter tool support export, validation, staging, a reboot trial and confirmation. Profiles retain UART1 or Wi-Fi STA plus TCP 9500 and saved usable network settings. Ordinary TCP services do not provide profile management. WIFI_FORGET is rejected if either the active or confirmed rollback profile relies on Wi-Fi-only management; confirmation waits for required driver initialization and validates the control session and required entry point. See the [device profile protocol and partition upgrade instructions](files/design/protocol/17-Device-Profile.md).
@@ -76,17 +140,6 @@ The probe speaks CMSIS-DAP over the HEX-Bridge TCP framing protocol on port `444
 On 2026-11-20, the probe was tested with OpenOCD `v0.12.0-esp32-20260424` against a NUCLEO-F103RB (MB1136 C-04, STM32F103RBT6) connected directly to CN7: target DP IDCODE `0x1BA01477`, target examination, halt, PC/SP register reads, resume, and download plus verify of `demo-firmware/demo.bin` succeeded. The 560-byte image took 2.728 seconds for the OpenOCD program-and-verify command at a requested 250 kHz SWD clock (about 205 B/s including flash erase and verification). This is a result for that setup and tool version, not a general compatibility guarantee or raw TCP throughput measurement.
 
 The Nucleo's onboard ST-LINK is a separate probe. For HEX-Bridge direct SWD, connect GPIO25 to CN7 pin 15 (PA14/SWCLK), GPIO26 to CN7 pin 13 (PA13/SWDIO), and ground to CN7 pin 8. The DAPLink design record lists additional unverified behavior and test evidence.
-
-## Build
-
-Build for the classic ESP32 with ESP-IDF 6.0.x (the project workbench currently uses v6.0.2):
-
-```sh
-idf.py set-target esp32
-idf.py build
-```
-
-The default output directory is `build/`; the application image is `build/hex-bridge.bin`. Use the ESP-IDF export/setup step for your host before invoking `idf.py`.
 
 ## Firmware and protocol versions
 

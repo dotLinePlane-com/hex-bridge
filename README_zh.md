@@ -6,6 +6,72 @@ HEX-Bridge 是运行于经典 ESP32 开发板上的固件，通过 UBCP v2.0 为
 
 当前固件支持 SPI 主机和从机、基于 MCP2518FD 的经典 CAN 和 CAN FD、UART2、Wi-Fi 网络及 HEX-Bridge 网络调试探针。设备配置 v5 可分别设置 SPI2 和 SPI3 的主从角色。默认接线下，外接 SPI 使用 SPI2，MCP2518FD 使用 SPI3。
 
+## 从这里开始（Windows）
+
+```powershell
+git clone https://github.com/dotLinePlane-com/hex-bridge.git
+cd hex-bridge
+```
+
+| 你的目标 | 需要准备 | 阅读顺序 |
+|---|---|---|
+| 拿到板子，让 AI Agent 调用它 | Windows x64、预编译更新器、Python 3.10+、支持本地 stdio MCP 的 Agent | [A · 直接烧录](#flash) → [C · 接入 Agent](#agent) |
+| 修改固件、自己编译或制作更新器 | 经典 ESP32、ESP-IDF v6.0.2 及配套工具链 | [B · 从源码构建](#build-source) → [C · 接入 Agent](#agent) |
+
+<a id="flash"></a>
+### A · 使用预编译固件
+
+1. 在 `tool/firmware-updater/release/` 查找 `HEX-Bridge-Updater-<版本>.exe`。该目录是本地打包输出，普通 clone 可能没有 EXE。请查看对应版本的发行附件；若无附件，请向维护者索取预编译更新器。[项目 Releases](https://github.com/dotLinePlane-com/hex-bridge/releases)
+2. 连接板上的 **UART0 下载口**，在 Windows 设备管理器中确认 COM 号。双击 EXE，核对内置版本，选择该串口并点击「更新固件」。台架使用 COM5，其他电脑以实际枚举结果为准。
+3. 等待显示 **100% / 更新完成**。接下来使用 **UART1 控制口**连接 Agent。USB 插好却看不到 COM 口时，检查数据线和板载 USB 转串口驱动。[更新器使用说明](tool/firmware-updater/README.md)
+
+<a id="build-source"></a>
+### B · 配置开发工具并从源码构建
+
+在 Windows 安装 ESP-IDF **v6.0.2** 及经典 ESP32 工具链。打开该版本的 ESP-IDF PowerShell 后可直接执行下面的 `idf.py` 命令。使用普通 PowerShell 时，从仓库根目录执行下例。
+
+将 `IDF_PATH` 替换为实际包含 `export.ps1` 的 ESP-IDF 源码目录。若安装时自定义了工具目录，再取消第二行注释，将 `IDF_TOOLS_PATH` 指向安装时使用的工具根目录。这些设置作用于当前终端。
+
+```powershell
+$env:IDF_PATH = "C:\Espressif\frameworks\esp-idf-v6.0.2"
+# $env:IDF_TOOLS_PATH = "C:\Espressif\tools"
+& "$env:IDF_PATH\export.ps1"
+idf.py --version
+idf.py build
+idf.py -p COM5 -b 460800 flash
+```
+
+编译成功后，应用镜像位于 `build/hex-bridge.bin`。烧录前将 COM5 换成实际 UART0 下载口；`idf.py flash` 会按构建清单写入引导程序、分区表和应用。查看启动日志可运行 `idf.py -p COM5 monitor`，用 `Ctrl+]` 退出。
+
+**制作可分发的 EXE（可选）**。准备带 Tk 的 Python 3.11 和 Windows Python Launcher。需要新版本号时先修改根目录 `version.txt`。在已设置 `IDF_PATH` 的 PowerShell 中运行 `.\tool\firmware-updater\release.cmd`。生成的 EXE 位于 `tool/firmware-updater/release/`，可以交给路径 A 的用户。
+
+<a id="agent"></a>
+### C · 安装 MCP Server 并验证设备
+
+1. 连接板上的 **UART1 控制口**。在仓库根目录的 PowerShell 中执行以下命令，使用 Python 3.10 或更高版本。若 clone 中缺少 wheel，将安装命令末尾的 wheel 路径替换为 `.\mcp`，即可从本地源码安装主机端服务，无需编译 ESP32 固件。
+
+```powershell
+$venv = Join-Path $env:LOCALAPPDATA "HEX-Bridge\mcp-venv"
+python -m venv $venv
+& "$venv\Scripts\python.exe" -m pip install --upgrade .\mcp\dist\hexbridge_mcp-0.1.0-py3-none-any.whl
+(Get-Item "$venv\Scripts\hexbridge-mcp.exe").FullName
+```
+
+2. 在 Agent 中添加本地 **stdio** MCP Server，名称填 `hex-bridge`，启动命令填上一步输出的绝对路径。以下示例适用于采用 `mcpServers` 格式的客户端。替换账户路径和 COM4，按设备 UART1 配置填写波特率（默认 115200）。
+
+```json
+{
+  "mcpServers": {
+    "hex-bridge": {
+      "command": "C:/Users/USER/AppData/Local/HEX-Bridge/mcp-venv/Scripts/hexbridge-mcp.exe",
+      "args": ["--serial", "COM4", "--baud", "115200"]
+    }
+  }
+}
+```
+
+3. 重新加载 Agent 的 MCP 配置，输入：“请使用 hex-bridge，先调用 `catalog` 列出工具支持的命令，再调用 `device_info` 读取板卡型号和版本。”前者验证服务已启动，后者收到设备响应才说明端到端连接成功。若仅前者成功，请核对 UART1 端口和波特率、关闭占用串口的程序，并断开正在接管控制会话的 Wi-Fi TCP 客户端。[Wi-Fi 接入与更多调用示例](mcp/README.md)
+
 ## 当前功能
 
 Harness 可安装主机端 MCP Server，通过串口或 Wi-Fi 调用设备。见 [MCP 安装与配置](mcp/README.md)和[固件功能映射](files/design/host/01-Harness-MCP.md)。
@@ -78,17 +144,6 @@ UBCP 默认经 UART1 通信。TCP `9500` 客户端连接后取得唯一的 UBCP 
 2026-11-20 使用 OpenOCD `v0.12.0-esp32-20260424` 实测目标 NUCLEO-F103RB（MB1136 C-04，STM32F103RBT6）。探针读到 DP IDCODE `0x1BA01477`，并完成目标检查、halt、PC/SP 寄存器读取、resume，以及 `demo-firmware/demo.bin` 下载和校验。请求 SWD 250 kHz 时，560 字节镜像的 OpenOCD 编程与校验命令耗时 2.728 秒，约 205 B/s；该值包含目标 Flash 擦除和读回校验。此结果只适用于记录中的工具版本和接线，不代表通用兼容认证，也不是 TCP 原始吞吐。
 
 Nucleo 板载 ST-LINK 是另一个独立探针。HEX-Bridge 直连目标 MCU 时，应接 GPIO25→CN7 pin 15（PA14/SWCLK）、GPIO26→CN7 pin 13（PA13/SWDIO）、GND→CN7 pin 8。其他限制及验证证据见 DAPLink 设计记录。
-
-## 编译
-
-使用 ESP-IDF 6.0.x 为经典 ESP32 构建（当前项目工作台使用 v6.0.2）：
-
-```sh
-idf.py set-target esp32
-idf.py build
-```
-
-默认输出目录为 `build/`，应用镜像为 `build/hex-bridge.bin`。运行 `idf.py` 前需先完成当前主机对应的 ESP-IDF 环境导出。
 
 ## 固件与协议版本
 
